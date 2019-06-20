@@ -1,0 +1,18 @@
+# Configuring:
+# install miniconda
+# conda env create -f environment.yaml
+name: rl-combustion
+channels: !!python/tuple
+  - defaults
+  - cantera
+  - conda-forge
+dependencies:
+  - cantera
+  - ipython
+  - keras
+  - matplotlib
+  - numpy
+  - pandas
+  - pip
+  - scipy
+  - xlrd
