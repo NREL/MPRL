@@ -60,12 +60,12 @@ class Engine(gym.Env):
 
         # Define the action space: mdot, qdot
         mdot_max = 10
-        qdot_max = 20000
+        qdot_max = 0
         actions_low = np.array([0, 0])
         actions_high = np.array([mdot_max, qdot_max])
         self.action_size = len(actions_low)
         self.action_space = spaces.Box(
-            low=actions_low, high=actions_high, dtype=np.float16
+            low=-actions_high, high=actions_high, dtype=np.float16
         )
 
         # Define the observable space
@@ -82,18 +82,21 @@ class Engine(gym.Env):
             low=obs_low, high=obs_high, dtype=np.float32
         )
 
+        self.fuel_setup()
+        self.history_setup()
         self.reset()
 
-    def reset(self):
-
-        # Setup fuel and oxidizer
+    def fuel_setup(self):
+        """Setup the fuel and save for faster reset"""
         mname = os.path.join("datafiles", "llnl_gasoline_surrogate_323.xml")
-        self.gas1 = ct.Solution(mname)
+        self.initial_gas = ct.Solution(mname)
         stoic_ox = 0.0
         for sp, spv in self.fuel.items():
             stoic_ox += (
-                self.gas1.n_atoms(self.gas1.species_index(sp), "C") * spv
-                + 0.25 * self.gas1.n_atoms(self.gas1.species_index(sp), "H") * spv
+                self.initial_gas.n_atoms(self.initial_gas.species_index(sp), "C") * spv
+                + 0.25
+                * self.initial_gas.n_atoms(self.initial_gas.species_index(sp), "H")
+                * spv
             )
         xfu = 0.21 / stoic_ox
         xox = 0.21
@@ -103,13 +106,14 @@ class Engine(gym.Env):
             xinit[sp] = spv * xfu
         xinit["O2"] = xox
         xinit["N2"] = xbath
-        self.xinit = xinit
-        self.gas1.TPX = self.T0, self.p0, xinit
-        self.gas1.equilibrate("HP", solver="gibbs")
-        self.xburnt = self.gas1.X
-        self.Tb_ad = self.gas1.T
+        self.initial_xinit = xinit
+        self.initial_gas.TPX = self.T0, self.p0, xinit
+        self.initial_gas.equilibrate("HP", solver="gibbs")
+        self.initial_xburnt = self.initial_gas.X
+        self.initial_Tb_ad = self.initial_gas.T
 
-        # Setup the engine cycle
+    def history_setup(self):
+        """Setup the engine history and save for faster reset"""
         cname = os.path.join("datafiles", "Isooctane_MBT_DI_50C_Summ.xlsx")
         tscale = 9000.0
         cycle = pd.concat(
@@ -152,6 +156,14 @@ class Engine(gym.Env):
         self.history.ca = cycle.ca.copy()
         self.history.t = cycle.t.copy()
 
+    def reset(self):
+
+        # Reset fuel and oxidizer
+        self.gas1 = self.initial_gas
+        self.xinit = self.initial_xinit
+        self.xburnt = self.initial_xburnt
+        self.Tb_ad = self.initial_Tb_ad
+
         # Initialize the starting state
         self.current_state = pd.Series(
             0.0,
@@ -167,9 +179,29 @@ class Engine(gym.Env):
 
     def step(self, action):
         "Advance the engine to the next state using the action"
+
         if len(action) != self.action_size:
             sys.exit(f"Error: invalid action size {len(action)} != {self.action_size}")
         mdot, qdot = action
+
+        done = self.current_state.name >= len(self.history) - 1
+        if done:
+            return (
+                self.current_state[self.observables],
+                get_reward(self.current_state),
+                done,
+                {"internals": self.current_state[self.internals]},
+            )
+
+        # Other conditions for stopping
+        if mdot < 0:
+            done = True
+            return (
+                self.current_state[self.observables],
+                -20,
+                done,
+                {"internals": self.current_state[self.internals]},
+            )
 
         # Integrate the two zone model between tstart and tend with fixed mdot and qdot
         step = self.current_state.name
@@ -194,11 +226,9 @@ class Engine(gym.Env):
         self.current_state[self.internals] = integ.y
         self.current_state.name += 1
 
-        reward = get_reward(self.current_state)
-        done = self.current_state.name >= len(self.history)
         return (
             self.current_state[self.observables],
-            reward,
+            get_reward(self.current_state),
             done,
             {"internals": self.current_state[self.internals]},
         )

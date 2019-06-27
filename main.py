@@ -4,13 +4,18 @@
 #
 # ========================================================================
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy import integrate
-import pandas as pd
-
+from stable_baselines.ddpg.policies import MlpPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
-
+from stable_baselines.ddpg.noise import (
+    NormalActionNoise,
+    OrnsteinUhlenbeckActionNoise,
+    AdaptiveParamNoiseSpec,
+)
+from stable_baselines import DDPG
 import engine
 import agents
 
@@ -77,6 +82,17 @@ if __name__ == "__main__":
     agent = agents.CalibratedAgent(env)
     agent.learn()
 
+    # # the noise objects for DDPG
+    # n_actions = env.action_space.shape[-1]
+    # param_noise = None
+    # action_noise = OrnsteinUhlenbeckActionNoise(
+    #     mean=np.zeros(n_actions), sigma=float(0.5) * np.ones(n_actions)
+    # )
+    # agent = DDPG(
+    #     MlpPolicy, env, verbose=1, param_noise=param_noise, action_noise=action_noise
+    # )
+    # agent.learn(total_timesteps=200, seed=45473)
+
     # Save all the history
     df = pd.DataFrame(
         0.0,
@@ -99,9 +115,8 @@ if __name__ == "__main__":
     obs = env.reset()
     df.loc[0, engine.observables] = obs
     df.loc[0, engine.internals] = engine.current_state[engine.internals]
-
     for index in engine.history.index[1:]:
-        action = agent.predict(obs)
+        action, _ = agent.predict(obs)
         obs, reward, done, info = env.step(action)
 
         # save history

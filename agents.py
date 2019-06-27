@@ -42,4 +42,4 @@ class CalibratedAgent(Agent):
             )
         ).idxmin()
 
-        return [self.actions.loc[idx + 1, ["mdot", "qdot"]].values]
+        return [self.actions.loc[idx + 1, ["mdot", "qdot"]].values], {}
