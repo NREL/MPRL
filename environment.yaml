@@ -9,10 +9,11 @@ channels: !!python/tuple
 dependencies:
   - cantera
   - ipython
-  - keras
   - matplotlib
   - numpy
   - pandas
   - pip
   - scipy
   - xlrd
+  - pip:
+      - stable-baselines

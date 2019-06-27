@@ -7,6 +7,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy import integrate
+import pandas as pd
+
+from stable_baselines.common.vec_env import DummyVecEnv
+
 import engine
 import agents
 
@@ -66,65 +70,78 @@ if __name__ == "__main__":
     p0 = 264647.76916503906
     engine = engine.Engine(T0=T0, p0=p0, nsteps=nsteps)
 
-    # Create the agent
-    # agent = agents.CalibratedAgent(engine)
-    # agent.train()
-
-    agent = agents.DQNAgent(engine)
-    agent.train()
-
-    # Evaluate actions from the agent in the environment
-    state = engine.reset()
-    action = agent.act(state)
-    print(action)
-    # for index in engine.states.index[1:]:
-    #     action = agent.act(state)
-    #     state = engine.step(action)
+    # The algorithms require a vectorized environment to run
+    env = DummyVecEnv([lambda: engine])
 
     # Create the agent
-    agent = agents.CalibratedAgent(engine)
-    agent.train()
+    agent = agents.CalibratedAgent(env)
+    agent.learn()
+
+    # Save all the history
+    df = pd.DataFrame(
+        0.0,
+        index=engine.history.index,
+        columns=list(
+            dict.fromkeys(
+                list(engine.history.columns)
+                + engine.observables
+                + engine.internals
+                + engine.actions
+                + engine.histories
+                + ["rewards"]
+            )
+        ),
+    )
+    df[engine.histories] = engine.history[engine.histories]
+    df.loc[0, ["rewards"]] = [engine.p0 * engine.history.dV.loc[0]]
 
     # Evaluate actions from the agent in the environment
-    state = engine.reset()
-    for index in engine.states.index[1:]:
-        action = agent.act(state)
-        state, reward, done = engine.step(action)
+    obs = env.reset()
+    df.loc[0, engine.observables] = obs
+    df.loc[0, engine.internals] = engine.current_state[engine.internals]
+
+    for index in engine.history.index[1:]:
+        action = agent.predict(obs)
+        obs, reward, done, info = env.step(action)
+
+        # save history
+        df.loc[index, engine.actions] = action
+        df.loc[index, engine.observables] = obs
+        df.loc[index, engine.internals] = info[0]["internals"]
+        df.loc[index, ["rewards"]] = reward
 
     # Plots
     plt.figure("mdot")
-    plt.plot(engine.states.ca, agent.actions.mdot, color=cmap[0], lw=2)
+    plt.plot(df.ca, df.mdot, color=cmap[0], lw=2)
 
     plt.figure("p")
-    plt.plot(engine.states.ca, engine.states.p * pa2bar, color=cmap[0], lw=2)
+    plt.plot(df.ca, df.p * pa2bar, color=cmap[0], lw=2)
     plt.plot(engine.exact.ca, engine.exact.p * pa2bar, color=cmap[-1], lw=1)
 
     plt.figure("p_v")
-    plt.plot(engine.states.V, engine.states.p * pa2bar, color=cmap[0], lw=2)
+    plt.plot(df.V, df.p * pa2bar, color=cmap[0], lw=2)
     plt.plot(engine.exact.V, engine.exact.p * pa2bar, color=cmap[-1], lw=1)
 
     plt.figure("Tu")
-    plt.plot(engine.states.ca, engine.states.Tu, color=cmap[0], lw=2)
+    plt.plot(df.ca, df.Tu, color=cmap[0], lw=2)
 
     plt.figure("Tb")
-    plt.plot(engine.states.ca, engine.states.Tb, color=cmap[0], lw=2)
+    plt.plot(df.ca, df.Tb, color=cmap[0], lw=2)
 
     plt.figure("mb")
-    plt.plot(engine.states.ca, engine.states.mb, color=cmap[0], lw=2)
+    plt.plot(df.ca, df.mb, color=cmap[0], lw=2)
 
     plt.figure("qdot")
-    plt.plot(engine.states.ca, agent.actions.qdot, color=cmap[0], lw=2)
+    plt.plot(df.ca, df.qdot, color=cmap[0], lw=2)
 
     plt.figure("reward")
-    plt.plot(engine.states.ca, engine.rewards, color=cmap[0], lw=2)
+    plt.plot(df.ca, df.rewards, color=cmap[0], lw=2)
 
     plt.figure("cumulative_reward")
     plt.plot(
-        engine.states.ca.values.flatten(),
+        df.ca.values.flatten(),
         integrate.cumtrapz(
-            engine.rewards.values.flatten(),
-            engine.states.ca.values.flatten(),
-            initial=0,
+            df.rewards.values.flatten(), df.ca.values.flatten(), initial=0
         ),
         color=cmap[0],
         lw=2,

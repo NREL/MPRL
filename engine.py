@@ -9,6 +9,8 @@ import cantera as ct
 import numpy as np
 import pandas as pd
 from scipy.integrate import ode
+import gym
+from gym import spaces
 import utilities
 
 
@@ -35,9 +37,15 @@ def get_reward(state):
 # Classes
 #
 # ========================================================================
-class Engine:
-    def __init__(self, T0=298.0, p0=103325.0, nsteps=100, fuel="PRF100"):
+class Engine(gym.Env):
+    """An engine environment for OpenAI gym"""
 
+    metadata = {"render.modes": ["human"]}
+
+    def __init__(self, T0=298.0, p0=103325.0, nsteps=100, fuel="PRF100"):
+        super(Engine, self).__init__()
+
+        # Engine parameters
         self.T0 = T0
         self.p0 = p0
         self.nsteps = nsteps
@@ -47,7 +55,32 @@ class Engine:
         self.small_mass = 1.0e-15
         self.observables = ["V", "dVdt", "ca", "p"]
         self.internals = ["p", "Tu", "Tb", "mb"]
-        self.action_size = 2
+        self.actions = ["mdot", "qdot"]
+        self.histories = ["V", "dVdt", "dV", "ca", "t"]
+
+        # Define the action space: mdot, qdot
+        mdot_max = 10
+        qdot_max = 20000
+        actions_low = np.array([0, 0])
+        actions_high = np.array([mdot_max, qdot_max])
+        self.action_size = len(actions_low)
+        self.action_space = spaces.Box(
+            low=actions_low, high=actions_high, dtype=np.float16
+        )
+
+        # Define the observable space
+        obs_low = np.array([0.0, -np.finfo(np.float32).max, self.ivc, 0.0])
+        obs_high = np.array(
+            [
+                np.finfo(np.float32).max,
+                np.finfo(np.float32).max,
+                self.evo,
+                np.finfo(np.float32).max,
+            ]
+        )
+        self.observation_space = spaces.Box(
+            low=obs_low, high=obs_high, dtype=np.float32
+        )
 
         self.reset()
 
@@ -74,7 +107,7 @@ class Engine:
         self.gas1.TPX = self.T0, self.p0, xinit
         self.gas1.equilibrate("HP", solver="gibbs")
         self.xburnt = self.gas1.X
-        Tb_ad = self.gas1.T
+        self.Tb_ad = self.gas1.T
 
         # Setup the engine cycle
         cname = os.path.join("datafiles", "Isooctane_MBT_DI_50C_Summ.xlsx")
@@ -109,61 +142,70 @@ class Engine:
         interp = np.linspace(cycle.ca.iloc[0], cycle.ca.iloc[-1], self.nsteps)
         cycle = utilities.interpolate_df(interp, "ca", cycle)
 
-        # Initialize the engine state
-        self.states = pd.DataFrame(
-            0,
-            index=np.arange(len(cycle.index)),
-            columns=["V", "dVdt", "ca", "t", "p", "Tu", "Tb", "mb"],
+        # Initialize the engine history
+        self.history = pd.DataFrame(
+            0.0, index=np.arange(len(cycle.index)), columns=self.histories
         )
-        self.states.V = cycle.V.copy()
-        self.states.dVdt = cycle.dVdt.copy()
-        self.states["dV"] = self.states.dVdt * (0.1 / tscale)
-        self.states.ca = cycle.ca.copy()
-        self.states.t = cycle.t.copy()
-        self.states.loc[0, self.internals] = [self.p0, self.T0, Tb_ad, 0.0]
-        self.current_step = 0
+        self.history.V = cycle.V.copy()
+        self.history.dVdt = cycle.dVdt.copy()
+        self.history.dV = self.history.dVdt * (0.1 / tscale)
+        self.history.ca = cycle.ca.copy()
+        self.history.t = cycle.t.copy()
 
-        # Other dataframes
-        self.rewards = pd.DataFrame(0, index=self.states.index, columns=["reward"])
-        self.rewards.loc[0] = self.states.p.loc[0] * self.states.dV.loc[0]
+        # Initialize the starting state
+        self.current_state = pd.Series(
+            0.0,
+            index=list(
+                dict.fromkeys(self.histories + self.observables + self.internals)
+            ),
+            name=0,
+        )
+        self.current_state[self.histories] = self.history.loc[0, self.histories]
+        self.current_state[self.internals] = [self.p0, self.T0, self.Tb_ad, 0.0]
 
-        return self.get_current_observable_state()
+        return self.current_state[self.observables]
 
     def step(self, action):
         "Advance the engine to the next state using the action"
-
         if len(action) != self.action_size:
             sys.exit(f"Error: invalid action size {len(action)} != {self.action_size}")
         mdot, qdot = action
 
         # Integrate the two zone model between tstart and tend with fixed mdot and qdot
-        current_state = self.get_current_state()
-        next_state = self.get_next_state()
+        step = self.current_state.name
         integ = ode(
             lambda t, y: self.dfundt_mdot(
-                t, y, mdot, next_state.V, next_state.dVdt, Qdot=qdot
+                t,
+                y,
+                mdot,
+                self.history.V.loc[step + 1],
+                self.history.dVdt.loc[step + 1],
+                Qdot=qdot,
             )
         )
-        integ.set_initial_value(current_state[self.internals], current_state.t)
+        integ.set_initial_value(
+            self.current_state[self.internals], self.current_state.t
+        )
         integ.set_integrator("vode", atol=1.0e-8, rtol=1.0e-4)
-        integ.integrate(next_state.t)
+        integ.integrate(self.history.t.loc[step + 1])
 
-        self.states.loc[self.current_step + 1, self.internals] = integ.y
-        self.current_step += 1
+        # Update the current state
+        self.current_state[self.histories] = self.history.loc[step + 1, self.histories]
+        self.current_state[self.internals] = integ.y
+        self.current_state.name += 1
 
-        reward = get_reward(self.get_current_state())
-        self.rewards.loc[self.current_step] = reward
-        done = self.current_step >= len(self.states) - 1
-        return self.get_current_observable_state(), reward, done
+        reward = get_reward(self.current_state)
+        done = self.current_state.name >= len(self.history)
+        return (
+            self.current_state[self.observables],
+            reward,
+            done,
+            {"internals": self.current_state[self.internals]},
+        )
 
-    def get_current_state(self):
-        return self.states.loc[self.current_step]
-
-    def get_next_state(self):
-        return self.states.loc[self.current_step + 1]
-
-    def get_current_observable_state(self):
-        return self.states.loc[self.current_step, self.observables]
+    def render(self, mode="human", close=False):
+        """Render the environment to the screen"""
+        print("Nothing to render")
 
     def dfundt_mdot(self, t, y, mxdot, V, dVdt, Qdot=0.0):
         """
