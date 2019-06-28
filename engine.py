@@ -64,16 +64,15 @@ class Engine(gym.Env):
         Initial engine conditions
 
     Episode Termination:
-        Total injected burned mass is greater than a specified max mass (6e-4 kg)
-        Engine pressure is more than 80bar
-        Injection rate is negative (can't remove burned mass)
-        Injection rate is more than max injection rate (0.5 kg/s)
         Engine reached evo crank angle
+        Engine pressure is more than 80bar
+        Total injected burned mass is greater than a specified max mass (6e-4 kg)
+        Injection rate is negative (can't remove burned mass) FIXME: make this part of the action space (cant for DDPG because action space must be symmetric)
     """
 
     metadata = {"render.modes": ["human"]}
 
-    def __init__(self, T0=298.0, p0=103325.0, nsteps=100, fuel="PRF100"):
+    def __init__(self, T0=298.0, p0=103_325.0, nsteps=100, fuel="PRF100"):
         super(Engine, self).__init__()
 
         # Engine parameters
@@ -88,6 +87,7 @@ class Engine(gym.Env):
         self.max_mdot = 0.5
         self.max_qdot = 0.0
         self.max_pressure = 8e6
+        self.negative_reward = -20
         self.observables = ["V", "dVdt", "ca", "p"]
         self.internals = ["p", "Tu", "Tb", "mb"]
         self.actions = ["mdot", "qdot"]
@@ -98,7 +98,7 @@ class Engine(gym.Env):
         actions_high = np.array([self.max_mdot, self.max_qdot])
         self.action_size = len(actions_low)
         self.action_space = spaces.Box(
-            low=-actions_high, high=actions_high, dtype=np.float16
+            low=actions_low, high=actions_high, dtype=np.float16
         )
 
         # Define the observable space
@@ -168,7 +168,7 @@ class Engine(gym.Env):
             },
             inplace=True,
         )
-        cycle.p = cycle.p * 1e3 + 101325.0
+        cycle.p = cycle.p * 1e3 + 101_325.0
         cycle.V = cycle.V * 1e-3
         cycle.dVdt = cycle.dVdt * 1e-3 / (0.1 / tscale)
         cycle["t"] = (cycle.ca + 360) / tscale
@@ -217,11 +217,11 @@ class Engine(gym.Env):
             sys.exit(f"Error: invalid action size {len(action)} != {self.action_size}")
         mdot, qdot = action
 
-        done = self.current_state.name >= len(self.history) - 1
+        reward, done = self.termination(mdot)
         if done:
             return (
                 self.current_state[self.observables],
-                get_reward(self.current_state),
+                reward,
                 done,
                 {"internals": self.current_state[self.internals]},
             )
@@ -265,6 +265,26 @@ class Engine(gym.Env):
             done,
             {"internals": self.current_state[self.internals]},
         )
+
+    def termination(self, mdot):
+        """Evaluate termination criteria"""
+
+        done = False
+        reward = get_reward(self.current_state)
+        if self.current_state.name >= len(self.history) - 1:
+            reward = get_reward(self.current_state)
+            done = True
+        elif self.current_state.p > self.max_pressure:
+            reward = self.negative_reward
+            done = True
+        elif self.current_state.mb > self.max_burned_mass:
+            reward = get_reward(self.current_state)
+            done = True
+        elif mdot < 0.0:
+            reward = self.negative_reward
+            done = True
+
+        return reward, done
 
     def render(self, mode="human", close=False):
         """Render the environment to the screen"""

@@ -8,7 +8,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy import integrate
-from stable_baselines.ddpg.policies import MlpPolicy
+from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
+from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines.ddpg.noise import (
     NormalActionNoise,
@@ -16,6 +17,7 @@ from stable_baselines.ddpg.noise import (
     AdaptiveParamNoiseSpec,
 )
 from stable_baselines import DDPG
+from stable_baselines import A2C
 import engine
 import agents
 
@@ -82,16 +84,20 @@ if __name__ == "__main__":
     agent = agents.CalibratedAgent(env)
     agent.learn()
 
-    # # the noise objects for DDPG
+    # # DDPG
     # n_actions = env.action_space.shape[-1]
     # param_noise = None
     # action_noise = OrnsteinUhlenbeckActionNoise(
     #     mean=np.zeros(n_actions), sigma=float(0.5) * np.ones(n_actions)
     # )
     # agent = DDPG(
-    #     MlpPolicy, env, verbose=1, param_noise=param_noise, action_noise=action_noise
+    #     ddpgMlpPolicy, env, verbose=1, param_noise=param_noise, action_noise=action_noise
     # )
-    # agent.learn(total_timesteps=200, seed=45473)
+    # agent.learn(total_timesteps=50000, seed=45473)
+
+    # # A2C
+    # agent = A2C(MlpPolicy, env, verbose=1)
+    # agent.learn(total_timesteps=5000)
 
     # Save all the history
     df = pd.DataFrame(
@@ -121,9 +127,13 @@ if __name__ == "__main__":
 
         # save history
         df.loc[index, engine.actions] = action
-        df.loc[index, engine.observables] = obs
         df.loc[index, engine.internals] = info[0]["internals"]
         df.loc[index, ["rewards"]] = reward
+        if done:
+            break
+        df.loc[index, engine.observables] = obs
+
+    df = df.loc[:index, :]
 
     # Plots
     plt.figure("mdot")

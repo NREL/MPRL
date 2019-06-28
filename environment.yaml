@@ -1,7 +1,7 @@
 # Configuring:
 # install miniconda
 # conda env create -f environment.yaml
-name: rl-combustion
+name: MPRL
 channels: !!python/tuple
   - defaults
   - cantera
@@ -14,6 +14,9 @@ dependencies:
   - pandas
   - pip
   - scipy
+  - tensorflow-gpu
   - xlrd
   - pip:
+      - mpi4py --no-binary mpi4py
+      - atari-py==0.2.0
       - stable-baselines
