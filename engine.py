@@ -38,7 +38,38 @@ def get_reward(state):
 #
 # ========================================================================
 class Engine(gym.Env):
-    """An engine environment for OpenAI gym"""
+    """An engine environment for OpenAI gym
+
+    Description:
+        A two-zone model engine is controlled by injecting burned mass.
+
+    Observation:
+        Type: Box(4)
+        Name   Observation                       Min         Max
+        V      Engine volume                     0           Inf
+        dVdt   Engine volume rate of change     -Inf         Inf
+        ca     Engine crank angle                ivc deg     evo deg
+        p      Engine pressure                   0           Inf
+
+    Actions:
+        Type: Box(2)
+        Name  Action                                       Min        Max
+        mdot  injection rate of burned mass                0          max_mdot
+        qdot  heat transfer rate to the cylinder walls    -max_qdot   max_qdot
+
+    Reward:
+        Reward is (p dV) for every step taken, including the termination step
+
+    Starting State:
+        Initial engine conditions
+
+    Episode Termination:
+        Total injected burned mass is greater than a specified max mass (6e-4 kg)
+        Engine pressure is more than 80bar
+        Injection rate is negative (can't remove burned mass)
+        Injection rate is more than max injection rate (0.5 kg/s)
+        Engine reached evo crank angle
+    """
 
     metadata = {"render.modes": ["human"]}
 
@@ -53,16 +84,18 @@ class Engine(gym.Env):
         self.ivc = -100
         self.evo = 100
         self.small_mass = 1.0e-15
+        self.max_burned_mass = 6e-4
+        self.max_mdot = 0.5
+        self.max_qdot = 0.0
+        self.max_pressure = 8e6
         self.observables = ["V", "dVdt", "ca", "p"]
         self.internals = ["p", "Tu", "Tb", "mb"]
         self.actions = ["mdot", "qdot"]
         self.histories = ["V", "dVdt", "dV", "ca", "t"]
 
         # Define the action space: mdot, qdot
-        mdot_max = 10
-        qdot_max = 0
-        actions_low = np.array([0, 0])
-        actions_high = np.array([mdot_max, qdot_max])
+        actions_low = np.array([0, -self.max_qdot])
+        actions_high = np.array([self.max_mdot, self.max_qdot])
         self.action_size = len(actions_low)
         self.action_space = spaces.Box(
             low=-actions_high, high=actions_high, dtype=np.float16
