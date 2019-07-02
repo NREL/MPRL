@@ -1,0 +1,25 @@
+#!/bin/bash
+
+#SBATCH --job-name=parameter-search
+#SBATCH --account=exact
+#SBATCH --nodes=1
+#SBATCH --gres=gpu:2
+#SBATCH --time=10:00:00
+#SBATCH -o %x.o%j
+
+# Environment stuff
+module purge
+MODULES=modules-2019-05-08
+COMPILER=gcc-7.4.0
+module unuse ${MODULEPATH}
+module use /nopt/nrel/ecom/hpacf/binaries/${MODULES}
+module use /nopt/nrel/ecom/hpacf/compilers/${MODULES}
+module use /nopt/nrel/ecom/hpacf/utilities/${MODULES}
+module use /nopt/nrel/ecom/hpacf/software/${MODULES}/${COMPILER}
+module load gcc
+module load mpich
+
+conda activate MPRL
+
+# Run jobs
+python parameter_search.py -a A2C -s 100 -e 1
