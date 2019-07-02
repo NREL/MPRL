@@ -226,16 +226,6 @@ class Engine(gym.Env):
                 {"internals": self.current_state[self.internals]},
             )
 
-        # Other conditions for stopping
-        if mdot < 0:
-            done = True
-            return (
-                self.current_state[self.observables],
-                -20,
-                done,
-                {"internals": self.current_state[self.internals]},
-            )
-
         # Integrate the two zone model between tstart and tend with fixed mdot and qdot
         step = self.current_state.name
         integ = ode(
@@ -253,6 +243,16 @@ class Engine(gym.Env):
         )
         integ.set_integrator("vode", atol=1.0e-8, rtol=1.0e-4)
         integ.integrate(self.history.t.loc[step + 1])
+
+        # Ensure that the integration was successful
+        if not integ.successful():
+            print(f"Integration failure (return code = {integ.get_return_code()})")
+            return (
+                self.current_state[self.observables],
+                self.negative_reward,
+                True,
+                {"internals": self.current_state[self.internals]},
+            )
 
         # Update the current state
         self.current_state[self.histories] = self.history.loc[step + 1, self.histories]

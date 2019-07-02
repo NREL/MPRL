@@ -4,7 +4,7 @@
 #SBATCH --account=exact
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:2
-#SBATCH --time=10:00:00
+#SBATCH --time=48:00:00
 #SBATCH -o %x.o%j
 
 # Environment stuff
@@ -19,7 +19,11 @@ module use /nopt/nrel/ecom/hpacf/software/${MODULES}/${COMPILER}
 module load gcc
 module load mpich
 
+MINICONDA_DIR=$HOME/miniconda3
+if [ -d "$MINICONDA_DIR" ]; then
+    . ${MINICONDA_DIR}/etc/profile.d/conda.sh
+fi
 conda activate MPRL
 
 # Run jobs
-python parameter_search.py -a A2C -s 100 -e 1
+python3 parameter_search.py -a A2C

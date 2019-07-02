@@ -9,7 +9,7 @@ import shutil
 import argparse
 import numpy as np
 import sherpa
-from stable_baselines.common.vec_env import DummyVecEnv
+from stable_baselines.common.vec_env import SubprocVecEnv
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
 from stable_baselines.sac.policies import MlpPolicy as sacMlpPolicy
@@ -23,7 +23,6 @@ from stable_baselines import DDPG
 from stable_baselines import PPO1
 from stable_baselines import SAC
 import engine
-import agents
 
 
 # ========================================================================
@@ -32,21 +31,32 @@ import agents
 #
 # ========================================================================
 class Agent:
-    def __init__(self, env):
-        self.env = env
-
-
-# ========================================================================
-class A2CAgent(Agent):
     def __init__(self):
-        Agent.__init__(self)
-
-        self.parameters = [
-            sherpa.Continuous("gamma", range=[0, 1]),
-            sherpa.Continuous("learning_rate", range=[1e-8, 1e-1], scale="log"),
-            sherpa.Ordinal(name="n_steps", range=[5, 10, 20, 40, 80]),
-            sherpa.Choice(
-                name="lr_schedule",
+        self.sherpa_parameters = {
+            "gamma": sherpa.Continuous("gamma", range=[0, 1]),
+            "tau": sherpa.Continuous("tau", range=[0, 1]),
+            "random_exploration": sherpa.Continuous("random_exploration", range=[0, 1]),
+            "clip_param": (sherpa.Continuous("clip_param", range=[0, 0.5]),),
+            "lam": (sherpa.Continuous("lam", range=[0, 1]),),
+            "n_steps": sherpa.Ordinal("n_steps", range=[16, 32, 64, 128]),
+            "batch_size": (sherpa.Ordinal("batch_size", range=[16, 32, 64, 128]),),
+            "optim_batchsize": (
+                sherpa.Ordinal("optim_batchsize", range=[16, 32, 64, 128]),
+            ),
+            "learning_rate": sherpa.Continuous(
+                "learning_rate", range=[1e-8, 1e-1], scale="log"
+            ),
+            "actor_lr": (
+                sherpa.Continuous("actor_lr", range=[1e-8, 1e-1], scale="log"),
+            ),
+            "critic_lr": (
+                sherpa.Continuous("critic_lr", range=[1e-8, 1e-1], scale="log"),
+            ),
+            "optim_stepsize": (
+                sherpa.Continuous("optim_stepsize", range=[1e-8, 1e-1], scale="log"),
+            ),
+            "lr_schedule": sherpa.Choice(
+                "lr_schedule",
                 range=[
                     "linear",
                     "constant",
@@ -55,7 +65,16 @@ class A2CAgent(Agent):
                     "double_middle_drop",
                 ],
             ),
-        ]
+        }
+
+
+# ========================================================================
+class A2CAgent(Agent):
+    def __init__(self):
+        Agent.__init__(self)
+
+        parameter_names = ["gamma", "learning_rate", "n_steps", "lr_schedule"]
+        self.parameters = [self.sherpa_parameters[x] for x in parameter_names]
 
     def instantiate_agent(self, env, parameters):
         return A2C(
@@ -74,14 +93,15 @@ class DDPGAgent(Agent):
     def __init__(self):
         Agent.__init__(self)
 
-        self.parameters = [
-            sherpa.Continuous("gamma", range=[0, 1]),
-            sherpa.Continuous("tau", range=[0, 1]),
-            sherpa.Ordinal(name="batch_size", range=[16, 32, 64, 128]),
-            sherpa.Continuous("actor_lr", range=[1e-8, 1e-1], scale="log"),
-            sherpa.Continuous("critic_lr", range=[1e-8, 1e-1], scale="log"),
-            sherpa.Continuous("random_exploration", range=[0, 1]),
+        parameter_names = [
+            "gamma",
+            "tau",
+            "batch_size",
+            "actor_lr",
+            "critic_lr",
+            "random_exploration",
         ]
+        self.parameters = [self.sherpa_parameters[x] for x in parameter_names]
 
     def instantiate_agent(self, env, parameters):
         n_actions = env.action_space.shape[-1]
@@ -109,13 +129,14 @@ class PPOAgent(Agent):
     def __init__(self):
         Agent.__init__(self)
 
-        self.parameters = [
-            sherpa.Continuous("gamma", range=[0, 1]),
-            sherpa.Continuous("clip_param", range=[0, 0.5]),
-            sherpa.Continuous("lam", range=[0, 1]),
-            sherpa.Continuous("optim_stepsize", range=[1e-8, 1e-1], scale="log"),
-            sherpa.Ordinal(name="optim_batchsize", range=[16, 32, 64, 128]),
+        parameter_names = [
+            "gamma",
+            "clip_param",
+            "lam",
+            "optim_stepsize",
+            "optim_batchsize",
         ]
+        self.parameters = [self.sherpa_parameters[x] for x in parameter_names]
 
     def instantiate_agent(self, env, parameters):
         return PPO1(
@@ -135,13 +156,14 @@ class SACAgent(Agent):
     def __init__(self):
         Agent.__init__(self)
 
-        self.parameters = [
-            sherpa.Continuous("gamma", range=[0, 1]),
-            sherpa.Continuous("tau", range=[0, 1]),
-            sherpa.Continuous("learning_rate", range=[1e-8, 1e-1], scale="log"),
-            sherpa.Ordinal(name="batch_size", range=[16, 32, 64, 128]),
-            sherpa.Continuous("random_exploration", range=[0, 1]),
+        parameter_names = [
+            "gamma",
+            "tau",
+            "learning_rate",
+            "batch_size",
+            "random_exploration",
         ]
+        self.parameters = [self.sherpa_parameters[x] for x in parameter_names]
 
     def instantiate_agent(self, env, parameters):
         return SAC(
@@ -166,19 +188,19 @@ class Herd:
 
         # Create the agent
         if agent_type == "A2C":
-            self.agent = agents.A2CAgent()
+            self.agent = A2CAgent()
         elif agent_type == "DDPG":
-            self.agent = agents.DDPGAgent()
+            self.agent = DDPGAgent()
         elif agent_type == "PPO":
-            self.agent = agents.PPOAgent()
+            self.agent = PPOAgent()
         elif agent_type == "SAC":
-            self.agent = agents.SACAgent()
+            self.agent = SACAgent()
         else:
             sys.exit(f"Unrecognized agent type {agent_type}")
 
         # Set an evolutionary algorithm for parameter search, enforce early stopping
         algorithm = sherpa.algorithms.PopulationBasedTraining(population_size=pop)
-        rule = sherpa.algorithms.MedianStoppingRule(min_iterations=5, min_trials=1)
+        rule = sherpa.algorithms.MedianStoppingRule(min_iterations=5, min_trials=10)
         self.study = sherpa.Study(
             self.agent.parameters,
             algorithm,
@@ -192,7 +214,7 @@ class Herd:
             shutil.rmtree(self.logs_dir)
         os.makedirs(self.logs_dir)
 
-    def study_the_population(self, env, n_epochs, total_timesteps):
+    def study_the_population(self, env, n_epochs, steps_per_epoch):
 
         for tr_idx, trial in enumerate(self.study):
 
@@ -202,16 +224,20 @@ class Herd:
             for e_idx in range(n_epochs):
 
                 # Train the agent
-                agent.learn(total_timesteps=total_timesteps)
+                agent.learn(
+                    total_timesteps=int(steps_per_epoch), reset_num_timesteps=False
+                )
 
-                # Get the total reward for this agent
+                # Get the total reward for this agent. Only care about
+                # the zeroth environment because all the environments
+                # start the same
                 obs = env.reset()
                 total_reward = 0.0
-                for index in env.envs[0].history.index[1:]:
+                for index in env.get_attr("history", indices=0)[0].index[1:]:
                     action, _ = agent.predict(obs)
                     obs, reward, done, info = env.step(action)
                     total_reward += reward[0]
-                    if done:
+                    if done[0]:
                         break
 
                 print(
@@ -241,13 +267,16 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--pop", help="Population size", type=int, default=20)
     parser.add_argument(
         "-s",
-        "--steps",
-        help="Number of time steps for each agent",
+        "--steps_per_epoch",
+        help="Number of steps per epoch for each agent",
         type=int,
-        default=1e6,
+        default=10000,
     )
     parser.add_argument(
-        "-e", "--epochs", help="Number of epochs per time step", type=int, default=100
+        "-e", "--epochs", help="Number of epochs", type=int, default=100
+    )
+    parser.add_argument(
+        "-n", "--nranks", help="Number of MPI ranks", type=int, default=1
     )
     parser.add_argument
     args = parser.parse_args()
@@ -256,8 +285,8 @@ if __name__ == "__main__":
     T0 = 273.15 + 120
     p0 = 264_647.769_165_039_06
     engine = engine.Engine(T0=T0, p0=p0, nsteps=100)
-    env = DummyVecEnv([lambda: engine])
+    env = SubprocVecEnv([lambda: engine for i in range(args.nranks)])
 
     # Initialize the herd and study it
     herd = Herd(args.agent, args.pop, os.getcwd())
-    herd.study_the_population(env, args.epochs, args.steps)
+    herd.study_the_population(env, args.epochs, args.steps_per_epoch)
