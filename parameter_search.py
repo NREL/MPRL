@@ -33,15 +33,15 @@ import engine
 class Agent:
     def __init__(self):
         self.sherpa_parameters = {
-            "gamma": sherpa.Continuous("gamma", range=[0, 1]),
-            "tau": sherpa.Continuous("tau", range=[0, 1]),
+            "gamma": sherpa.Continuous("gamma", range=[0.9, 1]),
+            "tau": sherpa.Continuous("tau", range=[0, 0.1]),
             "random_exploration": sherpa.Continuous("random_exploration", range=[0, 1]),
-            "clip_param": (sherpa.Continuous("clip_param", range=[0, 0.5]),),
-            "lam": (sherpa.Continuous("lam", range=[0, 1]),),
-            "n_steps": sherpa.Ordinal("n_steps", range=[16, 32, 64, 128]),
-            "batch_size": (sherpa.Ordinal("batch_size", range=[16, 32, 64, 128]),),
+            "clip_param": sherpa.Continuous("clip_param", range=[0, 0.5]),
+            "lam": sherpa.Continuous("lam", range=[0.9, 1]),
+            "n_steps": sherpa.Ordinal("n_steps", range=[32, 64, 128]),
+            "batch_size": sherpa.Ordinal("batch_size", range=[32, 64, 128]),
             "optim_batchsize": (
-                sherpa.Ordinal("optim_batchsize", range=[16, 32, 64, 128]),
+                sherpa.Ordinal("optim_batchsize", range=[32, 64, 128]),
             ),
             "learning_rate": sherpa.Continuous(
                 "learning_rate", range=[1e-8, 1e-1], scale="log"
@@ -73,7 +73,7 @@ class A2CAgent(Agent):
     def __init__(self):
         Agent.__init__(self)
 
-        parameter_names = ["gamma", "learning_rate", "n_steps", "lr_schedule"]
+        parameter_names = ["gamma", "learning_rate", "n_steps"]
         self.parameters = [self.sherpa_parameters[x] for x in parameter_names]
 
     def instantiate_agent(self, env, parameters):
@@ -84,7 +84,6 @@ class A2CAgent(Agent):
             learning_rate=parameters["learning_rate"],
             gamma=parameters["gamma"],
             n_steps=parameters["n_steps"],
-            lr_schedule=parameters["lr_schedule"],
         )
 
 

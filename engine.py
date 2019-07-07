@@ -271,20 +271,19 @@ class Engine(gym.Env):
 
         done = False
         reward = get_reward(self.current_state)
-        if self.current_state.name >= len(self.history) - 1:
-            reward = get_reward(self.current_state)
+        if (self.current_state.name >= len(self.history) - 1) or (
+            self.current_state.mb > self.max_burned_mass
+        ):
             done = True
-        elif self.current_state.p > self.max_pressure:
+        elif (mdot < 0.0) or ((self.current_state.p > self.max_pressure)):
+            done = True
             reward = self.negative_reward
-            done = True
-        elif self.current_state.mb > self.max_burned_mass:
-            reward = get_reward(self.current_state)
-            done = True
-        elif mdot < 0.0:
-            reward = self.negative_reward
-            done = True
 
         return reward, done
+
+    def symmetrize_actions(self):
+        """Make action space symmetric (e.g. for DDPG)"""
+        self.action_space.low = -self.action_space.high
 
     def render(self, mode="human", close=False):
         """Render the environment to the screen"""

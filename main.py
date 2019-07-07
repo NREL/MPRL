@@ -3,14 +3,15 @@
 # Imports
 #
 # ========================================================================
+import argparse
 import numpy as np
-import pandas as pd
+import time
+from datetime import timedelta
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from scipy import integrate
 from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
 from stable_baselines.common.policies import MlpPolicy
-from stable_baselines.common.vec_env import DummyVecEnv
+from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines.ddpg.noise import (
     NormalActionNoise,
     OrnsteinUhlenbeckActionNoise,
@@ -18,8 +19,10 @@ from stable_baselines.ddpg.noise import (
 )
 from stable_baselines import DDPG
 from stable_baselines import A2C
+from stable_baselines.gail import generate_expert_traj
 import engine
 import agents
+import utilities
 
 
 # ========================================================================
@@ -67,73 +70,74 @@ markertype = ["s", "d", "o", "p", "h"]
 # ========================================================================
 if __name__ == "__main__":
 
+    # Parse arguments
+    parser = argparse.ArgumentParser(description="Train and evaluate an agent")
+    parser.add_argument(
+        "-a",
+        "--agent",
+        help="Agent to train and evaluate",
+        type=str,
+        default="calibrated",
+        choices=["calibrated", "a2c", "ddpg"],
+    )
+    parser.add_argument(
+        "-s",
+        "--steps",
+        help="Total number of steps for training",
+        type=int,
+        default=100,
+    )
+    parser.add_argument(
+        "-n", "--nranks", help="Number of MPI ranks", type=int, default=1
+    )
+    parser.add_argument
+    args = parser.parse_args()
+
     # Setup
+    start = time.time()
     pa2bar = 1e-5
     nsteps = 100
     np.random.seed(45473)
 
     # Initialize the engine
     T0 = 273.15 + 120
-    p0 = 264647.76916503906
-    engine = engine.Engine(T0=T0, p0=p0, nsteps=nsteps)
+    p0 = 264_647.769_165_039_06
+    eng = engine.Engine(T0=T0, p0=p0, nsteps=nsteps)
 
-    # The algorithms require a vectorized environment to run
-    env = DummyVecEnv([lambda: engine])
+    # Create the agent and train
+    if args.agent == "calibrated":
+        env = DummyVecEnv([lambda: eng])
+        agent = agents.CalibratedAgent(env)
+        agent.learn()
+        agent.generate_expert_traj(args.agent)
+    elif args.agent == "ddpg":
+        eng.symmetrize_actions()
+        env = DummyVecEnv([lambda: eng])
+        n_actions = env.action_space.shape[-1]
+        param_noise = None
+        action_noise = OrnsteinUhlenbeckActionNoise(
+            mean=np.zeros(n_actions), sigma=float(0.5) * np.ones(n_actions)
+        )
+        agent = DDPG(
+            ddpgMlpPolicy,
+            env,
+            verbose=1,
+            param_noise=param_noise,
+            action_noise=action_noise,
+        )
+        agent.learn(total_timesteps=args.steps)
+    elif args.agent == "a2c":
+        env = SubprocVecEnv([lambda: eng for i in range(args.nranks)])
+        agent = A2C(MlpPolicy, env, verbose=1)
+        agent.learn(total_timesteps=args.steps)
 
-    # Create the agent
-    agent = agents.CalibratedAgent(env)
-    agent.learn()
+    # Save the agent
+    agent.save(args.agent)
 
-    # # DDPG
-    # n_actions = env.action_space.shape[-1]
-    # param_noise = None
-    # action_noise = OrnsteinUhlenbeckActionNoise(
-    #     mean=np.zeros(n_actions), sigma=float(0.5) * np.ones(n_actions)
-    # )
-    # agent = DDPG(
-    #     ddpgMlpPolicy, env, verbose=1, param_noise=param_noise, action_noise=action_noise
-    # )
-    # agent.learn(total_timesteps=50000, seed=45473)
-
-    # # A2C
-    # agent = A2C(MlpPolicy, env, verbose=1)
-    # agent.learn(total_timesteps=5000)
-
-    # Save all the history
-    df = pd.DataFrame(
-        0.0,
-        index=engine.history.index,
-        columns=list(
-            dict.fromkeys(
-                list(engine.history.columns)
-                + engine.observables
-                + engine.internals
-                + engine.actions
-                + engine.histories
-                + ["rewards"]
-            )
-        ),
-    )
-    df[engine.histories] = engine.history[engine.histories]
-    df.loc[0, ["rewards"]] = [engine.p0 * engine.history.dV.loc[0]]
-
-    # Evaluate actions from the agent in the environment
-    obs = env.reset()
-    df.loc[0, engine.observables] = obs
-    df.loc[0, engine.internals] = engine.current_state[engine.internals]
-    for index in engine.history.index[1:]:
-        action, _ = agent.predict(obs)
-        obs, reward, done, info = env.step(action)
-
-        # save history
-        df.loc[index, engine.actions] = action
-        df.loc[index, engine.internals] = info[0]["internals"]
-        df.loc[index, ["rewards"]] = reward
-        if done:
-            break
-        df.loc[index, engine.observables] = obs
-
-    df = df.loc[:index, :]
+    # # Evaluate the agent
+    fname = args.agent + ".csv"
+    df, total_reward = utilities.evaluate_agent(DummyVecEnv([lambda: eng]), agent)
+    df.to_csv(fname, index=False)
 
     # Plots
     plt.figure("mdot")
@@ -141,11 +145,11 @@ if __name__ == "__main__":
 
     plt.figure("p")
     plt.plot(df.ca, df.p * pa2bar, color=cmap[0], lw=2)
-    plt.plot(engine.exact.ca, engine.exact.p * pa2bar, color=cmap[-1], lw=1)
+    plt.plot(eng.exact.ca, eng.exact.p * pa2bar, color=cmap[-1], lw=1)
 
     plt.figure("p_v")
     plt.plot(df.V, df.p * pa2bar, color=cmap[0], lw=2)
-    plt.plot(engine.exact.V, engine.exact.p * pa2bar, color=cmap[-1], lw=1)
+    plt.plot(eng.exact.V, eng.exact.p * pa2bar, color=cmap[-1], lw=1)
 
     plt.figure("Tu")
     plt.plot(df.ca, df.Tu, color=cmap[0], lw=2)
@@ -163,17 +167,10 @@ if __name__ == "__main__":
     plt.plot(df.ca, df.rewards, color=cmap[0], lw=2)
 
     plt.figure("cumulative_reward")
-    plt.plot(
-        df.ca.values.flatten(),
-        integrate.cumtrapz(
-            df.rewards.values.flatten(), df.ca.values.flatten(), initial=0
-        ),
-        color=cmap[0],
-        lw=2,
-    )
+    plt.plot(df.ca.values.flatten(), np.cumsum(df.rewards), color=cmap[0], lw=2)
 
     # Save Plots
-    fname = "time_history.pdf"
+    fname = f"{args.agent}_time_history.pdf"
     with PdfPages(fname) as pdf:
 
         plt.figure("mdot")
@@ -265,3 +262,7 @@ if __name__ == "__main__":
         plt.tight_layout()
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
+
+    # output timer
+    end = time.time() - start
+    print(f"Elapsed time {timedelta(seconds=end)} (or {end} seconds)")

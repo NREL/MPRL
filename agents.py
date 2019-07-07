@@ -43,3 +43,26 @@ class CalibratedAgent(Agent):
         ).idxmin()
 
         return [self.actions.loc[idx + 1, ["mdot", "qdot"]].values], {}
+
+    def save(self, name):
+        # do nothing
+        return 0
+
+    def load(self, name):
+        self.learn()
+        return 0
+
+    def generate_expert_traj(self, fname):
+        df, total_reward = utilities.evaluate_agent(self.env, self)
+        episode_starts = [False for _ in range(len(df))]
+        episode_starts[0] = True
+        episode_starts[-1] = True
+
+        numpy_dict = {
+            "actions": df[["mdot", "qdot"]].values,
+            "obs": df[self.env.get_attr("observables", indices=0)[0]].values,
+            "rewards": df.rewards.values,
+            "episode_returns": np.array([total_reward]),
+            "episode_starts": episode_starts,
+        }
+        np.savez(fname, **numpy_dict)
