@@ -28,8 +28,16 @@ def fuel_composition(fuel):
         sys.exit(f"Unrecognized fuel {fuel}")
 
 
+# ========================================================================
 def get_reward(state):
     return state.p * state.dV
+
+
+# ========================================================================
+def calibrated_engine_ic():
+    T0 = 273.15 + 120
+    p0 = 264_647.769_165_039_06
+    return T0, p0
 
 
 # ========================================================================
@@ -275,7 +283,7 @@ class Engine(gym.Env):
             self.current_state.mb > self.max_burned_mass
         ):
             done = True
-        elif (mdot < 0.0) or ((self.current_state.p > self.max_pressure)):
+        elif (mdot < -1e-3) or ((self.current_state.p > self.max_pressure)):
             done = True
             reward = self.negative_reward
 

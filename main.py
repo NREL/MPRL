@@ -7,8 +7,6 @@ import argparse
 import numpy as np
 import time
 from datetime import timedelta
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
 from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
@@ -19,48 +17,9 @@ from stable_baselines.ddpg.noise import (
 )
 from stable_baselines import DDPG
 from stable_baselines import A2C
-from stable_baselines.gail import generate_expert_traj
 import engine
 import agents
 import utilities
-
-
-# ========================================================================
-#
-# Some defaults variables
-#
-# ========================================================================
-plt.rc("text", usetex=True)
-cmap_med = [
-    "#F15A60",
-    "#7AC36A",
-    "#5A9BD4",
-    "#FAA75B",
-    "#9E67AB",
-    "#CE7058",
-    "#D77FB4",
-    "#737373",
-]
-cmap = [
-    "#EE2E2F",
-    "#008C48",
-    "#185AA9",
-    "#F47D23",
-    "#662C91",
-    "#A21D21",
-    "#B43894",
-    "#010202",
-]
-dashseq = [
-    (None, None),
-    [10, 5],
-    [10, 4, 3, 4],
-    [3, 3],
-    [10, 4, 3, 4, 3, 4],
-    [3, 3],
-    [3, 3],
-]
-markertype = ["s", "d", "o", "p", "h"]
 
 
 # ========================================================================
@@ -95,21 +54,18 @@ if __name__ == "__main__":
 
     # Setup
     start = time.time()
-    pa2bar = 1e-5
     nsteps = 100
     np.random.seed(45473)
 
     # Initialize the engine
-    T0 = 273.15 + 120
-    p0 = 264_647.769_165_039_06
+    T0, p0 = engine.calibrated_engine_ic()
     eng = engine.Engine(T0=T0, p0=p0, nsteps=nsteps)
 
     # Create the agent and train
     if args.agent == "calibrated":
         env = DummyVecEnv([lambda: eng])
         agent = agents.CalibratedAgent(env)
-        agent.learn()
-        agent.generate_expert_traj(args.agent)
+        agent.learn(use_qdot=True)
     elif args.agent == "ddpg":
         eng.symmetrize_actions()
         env = DummyVecEnv([lambda: eng])
@@ -131,137 +87,12 @@ if __name__ == "__main__":
         agent = A2C(MlpPolicy, env, verbose=1)
         agent.learn(total_timesteps=args.steps)
 
-    # Save the agent
+    # Save, evaluate, and plot the agent
     agent.save(args.agent)
-
-    # # Evaluate the agent
-    fname = args.agent + ".csv"
     df, total_reward = utilities.evaluate_agent(DummyVecEnv([lambda: eng]), agent)
-    df.to_csv(fname, index=False)
-
-    # Plots
-    plt.figure("mdot")
-    plt.plot(df.ca, df.mdot, color=cmap[0], lw=2)
-
-    plt.figure("p")
-    plt.plot(df.ca, df.p * pa2bar, color=cmap[0], lw=2)
-    plt.plot(eng.exact.ca, eng.exact.p * pa2bar, color=cmap[-1], lw=1)
-
-    plt.figure("p_v")
-    plt.plot(df.V, df.p * pa2bar, color=cmap[0], lw=2)
-    plt.plot(eng.exact.V, eng.exact.p * pa2bar, color=cmap[-1], lw=1)
-
-    plt.figure("Tu")
-    plt.plot(df.ca, df.Tu, color=cmap[0], lw=2)
-
-    plt.figure("Tb")
-    plt.plot(df.ca, df.Tb, color=cmap[0], lw=2)
-
-    plt.figure("mb")
-    plt.plot(df.ca, df.mb, color=cmap[0], lw=2)
-
-    plt.figure("qdot")
-    plt.plot(df.ca, df.qdot, color=cmap[0], lw=2)
-
-    plt.figure("reward")
-    plt.plot(df.ca, df.rewards, color=cmap[0], lw=2)
-
-    plt.figure("cumulative_reward")
-    plt.plot(df.ca.values.flatten(), np.cumsum(df.rewards), color=cmap[0], lw=2)
-
-    # Save Plots
-    fname = f"{args.agent}_time_history.pdf"
-    with PdfPages(fname) as pdf:
-
-        plt.figure("mdot")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$\dot{m}~[\mathrm{kg/s}]$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
-
-        plt.figure("p")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$p~[\mathrm{bar}]$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
-
-        plt.figure("p_v")
-        ax = plt.gca()
-        plt.xlabel(r"$V$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$p~[\mathrm{bar}]$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
-
-        plt.figure("Tu")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$T_u~[\mathrm{K}]$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
-
-        plt.figure("Tb")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$T_b~[\mathrm{K}]$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
-
-        plt.figure("mb")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$m_b~[\mathrm{kg}]$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
-
-        plt.figure("qdot")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$\dot{Q}~[\mathrm{J/s}]$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
-
-        plt.figure("reward")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$r$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
-
-        plt.figure("cumulative_reward")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$\Sigma r$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
+    df.to_csv(f"{args.agent}.csv", index=False)
+    utilities.plot_df(env, df, idx=0)
+    utilities.save_plots(f"{args.agent}.pdf")
 
     # output timer
     end = time.time() - start

@@ -24,13 +24,16 @@ class CalibratedAgent(Agent):
     def __init__(self, env):
         Agent.__init__(self, env)
 
-    def learn(self):
+    def learn(self, use_qdot=True):
         self.actions = utilities.interpolate_df(
             self.env.envs[0].history.ca,
             "ca",
             pd.read_csv(os.path.join("datafiles", "calibrated_data.csv")),
         )
         self.actions.index = self.env.envs[0].history.index
+        self.actions.mdot[self.actions.mdot < 0] = 0
+        if not use_qdot:
+            self.actions.qdot *= 0.0
 
     def predict(self, state):
 
@@ -55,7 +58,6 @@ class CalibratedAgent(Agent):
     def generate_expert_traj(self, fname):
         df, total_reward = utilities.evaluate_agent(self.env, self)
         episode_starts = [False for _ in range(len(df))]
-        episode_starts[0] = True
         episode_starts[-1] = True
 
         numpy_dict = {
@@ -66,3 +68,5 @@ class CalibratedAgent(Agent):
             "episode_starts": episode_starts,
         }
         np.savez(fname, **numpy_dict)
+
+        return numpy_dict
