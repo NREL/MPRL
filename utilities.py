@@ -3,6 +3,7 @@
 # Imports
 #
 # ========================================================================
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -127,7 +128,7 @@ def evaluate_agent(env, agent):
 
 # ========================================================================
 def plot_df(env, df, idx=0):
-    """Make some plots"""
+    """Make some plots of the agent performance"""
 
     eng = env.envs[0]
     pa2bar = 1e-5
@@ -260,6 +261,62 @@ def save_plots(fname):
         plt.figure("cumulative_reward")
         ax = plt.gca()
         plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
+        plt.ylabel(r"$\Sigma r$", fontsize=22, fontweight="bold")
+        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
+        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
+        plt.tight_layout()
+        # legend = ax.legend(loc="best")
+        pdf.savefig(dpi=300)
+
+
+# ========================================================================
+def plot_training(df, fname):
+    """Make some plots of the training"""
+
+    idx = 0
+
+    plt.figure("episode_reward")
+    p = plt.plot(df.episode, df.episode_reward, color=cmap[idx], lw=2)
+    p[0].set_dashes(dashseq[idx])
+
+    plt.figure("episode_step")
+    p = plt.plot(df.episode, df.episode_step, color=cmap[idx], lw=2)
+    p[0].set_dashes(dashseq[idx])
+
+    plt.figure("step_rewards")
+    plt.scatter(
+        df.episode_step,
+        df.episode_reward,
+        c=cmap[idx],
+        alpha=0.2,
+        s=15,
+        marker=markertype[idx],
+    )
+
+    with PdfPages(fname) as pdf:
+        plt.figure("episode_reward")
+        ax = plt.gca()
+        plt.xlabel(r"episode", fontsize=22, fontweight="bold")
+        plt.ylabel(r"$\Sigma r$", fontsize=22, fontweight="bold")
+        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
+        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
+        plt.tight_layout()
+        # legend = ax.legend(loc="best")
+        pdf.savefig(dpi=300)
+
+        plt.figure("episode_step")
+        ax = plt.gca()
+        plt.xlabel(r"episode", fontsize=22, fontweight="bold")
+        plt.ylabel(r"step", fontsize=22, fontweight="bold")
+        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
+        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
+        plt.tight_layout()
+        # legend = ax.legend(loc="best")
+        pdf.savefig(dpi=300)
+
+        plt.figure("step_rewards")
+        ax = plt.gca()
+        plt.xlabel(r"step", fontsize=22, fontweight="bold")
         plt.ylabel(r"$\Sigma r$", fontsize=22, fontweight="bold")
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
