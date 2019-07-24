@@ -114,7 +114,7 @@ def evaluate_agent(env, agent):
         obs, reward, done, info = env.step(action)
 
         # save history
-        df.loc[index, eng.actions] = action
+        df.loc[index, eng.actions] = eng.scale_action(action[0])
         df.loc[index, eng.internals] = info[0]["internals"]
         df.loc[index, ["rewards"]] = reward
         if done:
@@ -122,53 +122,58 @@ def evaluate_agent(env, agent):
         df.loc[index, eng.observables] = obs
 
     df = df.loc[:index, :]
-
     return df, df.rewards.sum()
 
 
 # ========================================================================
-def plot_df(env, df, idx=0):
+def plot_df(env, df, idx=0, label=None):
     """Make some plots of the agent performance"""
 
     eng = env.envs[0]
     pa2bar = 1e-5
 
     plt.figure("mdot")
-    p = plt.plot(df.ca, df.mdot, color=cmap[idx], lw=2)
+    p = plt.plot(df.ca, df.mdot, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
 
     plt.figure("p")
-    p = plt.plot(df.ca, df.p * pa2bar, color=cmap[idx], lw=2)
+    p = plt.plot(df.ca, df.p * pa2bar, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
-    plt.plot(eng.exact.ca, eng.exact.p * pa2bar, color=cmap[-1], lw=1)
+    plt.plot(eng.exact.ca, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
 
     plt.figure("p_v")
-    p = plt.plot(df.V, df.p * pa2bar, color=cmap[idx], lw=2)
+    p = plt.plot(df.V, df.p * pa2bar, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
     plt.plot(eng.exact.V, eng.exact.p * pa2bar, color=cmap[-1], lw=1)
 
     plt.figure("Tu")
-    p = plt.plot(df.ca, df.Tu, color=cmap[idx], lw=2)
+    p = plt.plot(df.ca, df.Tu, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
 
     plt.figure("Tb")
-    p = plt.plot(df.ca, df.Tb, color=cmap[idx], lw=2)
+    p = plt.plot(df.ca, df.Tb, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
 
     plt.figure("mb")
-    p = plt.plot(df.ca, df.mb, color=cmap[idx], lw=2)
+    p = plt.plot(df.ca, df.mb, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
 
     plt.figure("qdot")
-    p = plt.plot(df.ca, df.qdot, color=cmap[idx], lw=2)
+    p = plt.plot(df.ca, df.qdot, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
 
     plt.figure("reward")
-    p = plt.plot(df.ca, df.rewards, color=cmap[idx], lw=2)
+    p = plt.plot(df.ca, df.rewards, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
 
     plt.figure("cumulative_reward")
-    p = plt.plot(df.ca.values.flatten(), np.cumsum(df.rewards), color=cmap[idx], lw=2)
+    p = plt.plot(
+        df.ca.values.flatten(),
+        np.cumsum(df.rewards),
+        color=cmap[idx],
+        lw=2,
+        label=label,
+    )
     p[0].set_dashes(dashseq[idx])
 
 
@@ -195,7 +200,7 @@ def save_plots(fname):
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
         plt.tight_layout()
-        # legend = ax.legend(loc="best")
+        legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
 
         plt.figure("p_v")

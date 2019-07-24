@@ -5,11 +5,13 @@
 # ========================================================================
 import argparse
 import os
+import sys
 import shutil
 import numpy as np
 import pandas as pd
 import time
 from datetime import timedelta
+import warnings
 from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
@@ -18,8 +20,7 @@ from stable_baselines.ddpg.noise import (
     OrnsteinUhlenbeckActionNoise,
     AdaptiveParamNoiseSpec,
 )
-from stable_baselines import DDPG
-from stable_baselines import A2C
+from stable_baselines import DDPG, A2C
 import engine
 import agents
 import utilities
@@ -39,18 +40,35 @@ def callback(_locals, _globals):
     global best_reward
 
     # After each episode, log the reward
-    if _locals["done"]:
+    done = False
+    if isinstance(_locals["self"], DDPG):
+        if _locals["done"]:
+            done = True
+            info = [
+                _locals["episodes"],
+                _locals["episode_step"],
+                _locals["total_steps"],
+                _locals["episode_reward"],
+            ]
+
+    elif isinstance(_locals["self"], A2C):
+        warnings.warn("Callback not implemented for this agent")
+        # print(_locals, _locals["self"].episode_reward)
+        # if _locals["runner"].dones[-1]:
+        #     done = True
+        #     episodes = 10
+        #     print(episodes)
+
+    else:
+        warnings.warn("Callback not implemented for this agent")
+
+    if done:
         df = pd.read_csv(logname)
-        df.loc[len(df)] = [
-            _locals["episodes"],
-            _locals["episode_step"],
-            _locals["total_steps"],
-            _locals["episode_reward"],
-        ]
+        df.loc[len(df)] = info
         df.to_csv(logname, index=False)
 
         # save the agent if it is any good
-        if _locals["episode_reward"] > best_reward:
+        if df.episode_reward.iloc[-1] > best_reward:
             print("Saving new best agent")
             best_reward = _locals["episode_reward"]
             _locals["self"].save(os.path.join(logdir, "best_agent.pkl"))
@@ -88,12 +106,15 @@ if __name__ == "__main__":
         help="Use a pretrained network as a starting point",
         action="store_true",
     )
+    parser.add_argument(
+        "--use_discrete", help="Use a discrete action space", action="store_true"
+    )
     parser.add_argument
     args = parser.parse_args()
 
     # Setup
     start = time.time()
-    nsteps = 100
+    nsteps = 201
     np.random.seed(45473)
     logdir = f"{args.agent}-logs"
     if os.path.exists(logdir):
@@ -104,10 +125,11 @@ if __name__ == "__main__":
         columns=["episode", "episode_step", "total_steps", "episode_reward"]
     )
     logs.to_csv(logname, index=False)
+    best_reward = -np.inf
 
     # Initialize the engine
     T0, p0 = engine.calibrated_engine_ic()
-    eng = engine.Engine(T0=T0, p0=p0, nsteps=nsteps)
+    eng = engine.Engine(T0=T0, p0=p0, nsteps=nsteps, discrete_action=args.use_discrete)
 
     # Create the agent and train
     if args.agent == "calibrated":
@@ -137,14 +159,15 @@ if __name__ == "__main__":
         agent.learn(total_timesteps=args.steps, callback=callback)
     elif args.agent == "a2c":
         env = SubprocVecEnv([lambda: eng for i in range(args.nranks)])
-        agent = A2C(MlpPolicy, env, verbose=1)
-        agent.learn(total_timesteps=args.steps)
+        agent = A2C(MlpPolicy, env, verbose=1, n_steps=1)
+        agent.learn(total_timesteps=args.steps, callback=callback)
 
     # Save, evaluate, and plot the agent
     agent.save(args.agent)
-    df, total_reward = utilities.evaluate_agent(DummyVecEnv([lambda: eng]), agent)
+    env = DummyVecEnv([lambda: eng])
+    df, total_reward = utilities.evaluate_agent(env, agent)
     df.to_csv(f"{args.agent}.csv", index=False)
-    utilities.plot_df(env, df, idx=0)
+    utilities.plot_df(env, df, idx=0, label=args.agent.upper())
     utilities.save_plots(f"{args.agent}.pdf")
 
     # Plot the training history

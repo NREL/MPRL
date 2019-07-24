@@ -75,12 +75,13 @@ class Engine(gym.Env):
         Engine reached evo crank angle
         Engine pressure is more than 80bar
         Total injected burned mass is greater than a specified max mass (6e-4 kg)
-        Injection rate is negative (can't remove burned mass) FIXME: make this part of the action space (cant for DDPG because action space must be symmetric)
     """
 
     metadata = {"render.modes": ["human"]}
 
-    def __init__(self, T0=298.0, p0=103_325.0, nsteps=100, fuel="PRF100"):
+    def __init__(
+        self, T0=298.0, p0=103_325.0, nsteps=100, fuel="PRF100", discrete_action=False
+    ):
         super(Engine, self).__init__()
 
         # Engine parameters
@@ -100,16 +101,40 @@ class Engine(gym.Env):
         self.internals = ["p", "Tu", "Tb", "mb"]
         self.actions = ["mdot", "qdot"]
         self.histories = ["V", "dVdt", "dV", "ca", "t"]
+        self.discrete_action = discrete_action
 
+        # Engine setup
+        self.fuel_setup()
+        self.history_setup()
+        self.reset()
+        self.define_action_space()
+        self.define_observable_space()
+
+    def define_action_space(self):
         # Define the action space: mdot, qdot
-        actions_low = np.array([0, -self.max_qdot])
-        actions_high = np.array([self.max_mdot, self.max_qdot])
-        self.action_size = len(actions_low)
-        self.action_space = spaces.Box(
-            low=actions_low, high=actions_high, dtype=np.float16
-        )
+        if self.discrete_action:
+            self.action_space = spaces.MultiDiscrete([2, 1])
+            self.action_size = 2
+            self.mdot_scale = 0.3
+            self.qdot_scale = 0.0
+        else:
+            actions_low = np.array([0, -self.max_qdot])
+            actions_high = np.array([self.max_mdot, self.max_qdot])
+            self.action_size = len(actions_low)
+            self.action_space = spaces.Box(
+                low=actions_low, high=actions_high, dtype=np.float16
+            )
 
-        # Define the observable space
+    def scale_action(self, action):
+        """If these are discrete actions, scale them to physical space"""
+        if len(action) != self.action_size:
+            sys.exit(f"Error: invalid action size {len(action)} != {self.action_size}")
+        if self.discrete_action:
+            return [action[0] * self.mdot_scale, action[1] * self.qdot_scale]
+        else:
+            return action
+
+    def define_observable_space(self):
         obs_low = np.array([0.0, -np.finfo(np.float32).max, self.ivc, 0.0])
         obs_high = np.array(
             [
@@ -122,10 +147,6 @@ class Engine(gym.Env):
         self.observation_space = spaces.Box(
             low=obs_low, high=obs_high, dtype=np.float32
         )
-
-        self.fuel_setup()
-        self.history_setup()
-        self.reset()
 
     def fuel_setup(self):
         """Setup the fuel and save for faster reset"""
@@ -180,11 +201,11 @@ class Engine(gym.Env):
         cycle.V = cycle.V * 1e-3
         cycle.dVdt = cycle.dVdt * 1e-3 / (0.1 / tscale)
         cycle["t"] = (cycle.ca + 360) / tscale
-        cycle = cycle[(cycle.ca > self.ivc) & (cycle.ca < self.evo)]
+        cycle = cycle[(cycle.ca >= self.ivc) & (cycle.ca <= self.evo)]
         self.exact = cycle[["p", "ca", "t", "V"]].copy()
 
         # interpolate the cycle
-        interp = np.linspace(cycle.ca.iloc[0], cycle.ca.iloc[-1], self.nsteps)
+        interp = np.linspace(self.ivc, self.evo, self.nsteps)
         cycle = utilities.interpolate_df(interp, "ca", cycle)
 
         # Initialize the engine history
@@ -221,9 +242,7 @@ class Engine(gym.Env):
     def step(self, action):
         "Advance the engine to the next state using the action"
 
-        if len(action) != self.action_size:
-            sys.exit(f"Error: invalid action size {len(action)} != {self.action_size}")
-        mdot, qdot = action
+        mdot, qdot = self.scale_action(action)
 
         reward, done = self.termination(mdot)
         if done:
