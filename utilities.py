@@ -158,10 +158,6 @@ def plot_df(env, df, idx=0, label=None):
     p = plt.plot(df.ca, df.mb, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
 
-    plt.figure("qdot")
-    p = plt.plot(df.ca, df.qdot, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
-
     plt.figure("reward")
     p = plt.plot(df.ca, df.rewards, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
@@ -175,6 +171,11 @@ def plot_df(env, df, idx=0, label=None):
         label=label,
     )
     p[0].set_dashes(dashseq[idx])
+
+    if "qdot" in df.columns:
+        plt.figure("qdot")
+        p = plt.plot(df.ca, df.qdot, color=cmap[idx], lw=2, label=label)
+        p[0].set_dashes(dashseq[idx])
 
 
 # ========================================================================
@@ -243,16 +244,6 @@ def save_plots(fname):
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
 
-        plt.figure("qdot")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$\dot{Q}~[\mathrm{J/s}]$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
-
         plt.figure("reward")
         ax = plt.gca()
         plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
@@ -272,6 +263,17 @@ def save_plots(fname):
         plt.tight_layout()
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
+
+        if plt.fignum_exists("qdot"):
+            plt.figure("qdot")
+            ax = plt.gca()
+            plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
+            plt.ylabel(r"$\dot{Q}~[\mathrm{J/s}]$", fontsize=22, fontweight="bold")
+            plt.setp(ax.get_xmajorticklabels(), fontsize=16)
+            plt.setp(ax.get_ymajorticklabels(), fontsize=16)
+            plt.tight_layout()
+            # legend = ax.legend(loc="best")
+            pdf.savefig(dpi=300)
 
 
 # ========================================================================

@@ -107,6 +107,9 @@ if __name__ == "__main__":
         action="store_true",
     )
     parser.add_argument(
+        "--use_qdot", help="Use a Qdot as an action", action="store_true"
+    )
+    parser.add_argument(
         "--use_discrete", help="Use a discrete action space", action="store_true"
     )
     parser.add_argument
@@ -129,13 +132,19 @@ if __name__ == "__main__":
 
     # Initialize the engine
     T0, p0 = engine.calibrated_engine_ic()
-    eng = engine.Engine(T0=T0, p0=p0, nsteps=nsteps, discrete_action=args.use_discrete)
+    eng = engine.Engine(
+        T0=T0,
+        p0=p0,
+        nsteps=nsteps,
+        use_qdot=args.use_qdot,
+        discrete_action=args.use_discrete,
+    )
 
     # Create the agent and train
     if args.agent == "calibrated":
         env = DummyVecEnv([lambda: eng])
         agent = agents.CalibratedAgent(env)
-        agent.learn(use_qdot=True)
+        agent.learn()
     elif args.agent == "ddpg":
         eng.symmetrize_actions()
         env = DummyVecEnv([lambda: eng])

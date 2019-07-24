@@ -24,7 +24,7 @@ class CalibratedAgent(Agent):
     def __init__(self, env):
         Agent.__init__(self, env)
 
-    def learn(self, use_qdot=True):
+    def learn(self):
         self.actions = utilities.interpolate_df(
             self.env.envs[0].history.ca,
             "ca",
@@ -32,8 +32,7 @@ class CalibratedAgent(Agent):
         )
         self.actions.index = self.env.envs[0].history.index
         self.actions.mdot[self.actions.mdot < 0] = 0
-        if not use_qdot:
-            self.actions.qdot *= 0.0
+        self.actions = self.actions[self.env.envs[0].actions]
 
     def predict(self, state):
 
@@ -45,7 +44,7 @@ class CalibratedAgent(Agent):
             )
         ).idxmin()
 
-        return [self.actions.loc[idx + 1, ["mdot", "qdot"]].values], {}
+        return [self.actions.loc[idx + 1].values], {}
 
     def save(self, name):
         # do nothing
@@ -61,7 +60,7 @@ class CalibratedAgent(Agent):
         episode_starts[-1] = True
 
         numpy_dict = {
-            "actions": df[["mdot", "qdot"]].values,
+            "actions": df[self.env.envs[0].actions].values,
             "obs": df[self.env.get_attr("observables", indices=0)[0]].values,
             "rewards": df.rewards.values,
             "episode_returns": np.array([total_reward]),

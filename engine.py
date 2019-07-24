@@ -80,7 +80,13 @@ class Engine(gym.Env):
     metadata = {"render.modes": ["human"]}
 
     def __init__(
-        self, T0=298.0, p0=103_325.0, nsteps=100, fuel="PRF100", discrete_action=False
+        self,
+        T0=298.0,
+        p0=103_325.0,
+        nsteps=100,
+        fuel="PRF100",
+        use_qdot=False,
+        discrete_action=False,
     ):
         super(Engine, self).__init__()
 
@@ -99,8 +105,8 @@ class Engine(gym.Env):
         self.negative_reward = -20
         self.observables = ["V", "dVdt", "ca", "p"]
         self.internals = ["p", "Tu", "Tb", "mb"]
-        self.actions = ["mdot", "qdot"]
         self.histories = ["V", "dVdt", "dV", "ca", "t"]
+        self.use_qdot = use_qdot
         self.discrete_action = discrete_action
 
         # Engine setup
@@ -112,27 +118,45 @@ class Engine(gym.Env):
 
     def define_action_space(self):
         # Define the action space: mdot, qdot
+
+        self.actions = ["mdot"]
+        if self.use_qdot:
+            self.actions.append("qdot")
+        self.action_size = len(self.actions)
+
         if self.discrete_action:
-            self.action_space = spaces.MultiDiscrete([2, 1])
-            self.action_size = 2
-            self.mdot_scale = 0.3
-            self.qdot_scale = 0.0
+            self.scales = np.array([0.3])
+            if self.use_qdot:
+                self.action_space = spaces.MultiDiscrete([2, 1])
+                np.append(self.scales.append, [0.0])
+            else:
+                self.action_space = spaces.Discrete(2)
         else:
-            actions_low = np.array([0, -self.max_qdot])
-            actions_high = np.array([self.max_mdot, self.max_qdot])
-            self.action_size = len(actions_low)
+            if self.use_qdot:
+                actions_low = np.array([0, -self.max_qdot])
+                actions_high = np.array([self.max_mdot, self.max_qdot])
+            else:
+                actions_low = np.array([0])
+                actions_high = np.array([self.max_mdot])
             self.action_space = spaces.Box(
                 low=actions_low, high=actions_high, dtype=np.float16
             )
 
     def scale_action(self, action):
         """If these are discrete actions, scale them to physical space"""
-        if len(action) != self.action_size:
-            sys.exit(f"Error: invalid action size {len(action)} != {self.action_size}")
         if self.discrete_action:
-            return [action[0] * self.mdot_scale, action[1] * self.qdot_scale]
+            return action * self.scales
         else:
             return action
+
+    def parse_action(self, action):
+        action = np.array(action).flatten()
+        if len(action) != self.action_size:
+            sys.exit(f"Error: invalid action size {len(action)} != {self.action_size}")
+        if self.use_qdot:
+            return self.scale_action(action)
+        else:
+            return np.append(self.scale_action(action), [0.0])
 
     def define_observable_space(self):
         obs_low = np.array([0.0, -np.finfo(np.float32).max, self.ivc, 0.0])
@@ -242,7 +266,7 @@ class Engine(gym.Env):
     def step(self, action):
         "Advance the engine to the next state using the action"
 
-        mdot, qdot = self.scale_action(action)
+        mdot, qdot = self.parse_action(action)
 
         reward, done = self.termination(mdot)
         if done:
