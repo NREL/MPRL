@@ -143,18 +143,18 @@ def plot_df(env, df, idx=0, name=None):
     p[0].set_dashes(dashseq[idx])
 
     plt.figure("p")
-    p = plt.plot(df.ca, df.p * pa2bar, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
     _, labels = plt.gca().get_legend_handles_labels()
     if "Exp." not in labels:
         plt.plot(eng.exact.ca, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
+    p = plt.plot(df.ca, df.p * pa2bar, color=cmap[idx], lw=2, label=label)
+    p[0].set_dashes(dashseq[idx])
 
     plt.figure("p_v")
-    p = plt.plot(df.V, df.p * pa2bar, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
     _, labels = plt.gca().get_legend_handles_labels()
     if "Exp." not in labels:
         plt.plot(eng.exact.V, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
+    p = plt.plot(df.V, df.p * pa2bar, color=cmap[idx], lw=2, label=label)
+    p[0].set_dashes(dashseq[idx])
 
     plt.figure("Tu")
     p = plt.plot(df.ca, df.Tu, color=cmap[idx], lw=2, label=label)
