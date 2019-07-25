@@ -59,11 +59,16 @@ class Engine(gym.Env):
         ca     Engine crank angle                ivc deg     evo deg
         p      Engine pressure                   0           Inf
 
-    Actions:
+    Available actions:
         Type: Box(2)
-        Name  Action                                       Min        Max
-        mdot  injection rate of burned mass                0          max_mdot
-        qdot  heat transfer rate to the cylinder walls    -max_qdot   max_qdot
+        Name  Action                                                  Min        Max
+        mdot  injection rate of burned mass                           0          max_mdot
+        qdot  (optional) heat transfer rate to the cylinder walls    -max_qdot   max_qdot
+
+        Type: Discrete or Multidiscrete with qdot
+        Name  Action
+        mdot  injection rate of burned mass
+        qdot  (optional) heat transfer rate to the cylinder walls
 
     Reward:
         Reward is (p dV) for every step taken, including the termination step

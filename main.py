@@ -5,7 +5,6 @@
 # ========================================================================
 import argparse
 import os
-import sys
 import shutil
 import numpy as np
 import pandas as pd
@@ -13,6 +12,7 @@ import time
 from datetime import timedelta
 import warnings
 from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
+from stable_baselines.deepq.policies import MlpPolicy as dqnMlpPolicy
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines.ddpg.noise import (
@@ -20,7 +20,7 @@ from stable_baselines.ddpg.noise import (
     OrnsteinUhlenbeckActionNoise,
     AdaptiveParamNoiseSpec,
 )
-from stable_baselines import DDPG, A2C
+from stable_baselines import DDPG, A2C, DQN
 import engine
 import agents
 import utilities
@@ -59,6 +59,20 @@ def callback(_locals, _globals):
         #     episodes = 10
         #     print(episodes)
 
+    elif isinstance(_locals["self"], DQN):
+        try:
+            done = _locals["done"]
+        except KeyError:
+            pass
+
+        if done:
+            info = [
+                _locals["num_episodes"] - 1,
+                _locals["info"]["internals"].name,
+                _locals["_"],
+                _locals["episode_rewards"][-2],
+            ]
+
     else:
         warnings.warn("Callback not implemented for this agent")
 
@@ -70,7 +84,7 @@ def callback(_locals, _globals):
         # save the agent if it is any good
         if df.episode_reward.iloc[-1] > best_reward:
             print("Saving new best agent")
-            best_reward = _locals["episode_reward"]
+            best_reward = df.episode_reward.iloc[-1]
             _locals["self"].save(os.path.join(logdir, "best_agent.pkl"))
 
 
@@ -89,18 +103,19 @@ if __name__ == "__main__":
         help="Agent to train and evaluate",
         type=str,
         default="calibrated",
-        choices=["calibrated", "a2c", "ddpg"],
+        choices=["calibrated", "ddpg", "a2c", "dqn"],
     )
     parser.add_argument(
-        "-s",
-        "--steps",
+        "-t",
+        "--total_timesteps",
         help="Total number of steps for training",
         type=int,
         default=100,
     )
     parser.add_argument(
-        "-n", "--nranks", help="Number of MPI ranks", type=int, default=1
+        "-s", "--nsteps", help="Total steps in a given episode", type=int, default=201
     )
+    parser.add_argument("--nranks", help="Number of MPI ranks", type=int, default=1)
     parser.add_argument(
         "--use_pretrained",
         help="Use a pretrained network as a starting point",
@@ -117,7 +132,6 @@ if __name__ == "__main__":
 
     # Setup
     start = time.time()
-    nsteps = 201
     np.random.seed(45473)
     logdir = f"{args.agent}-logs"
     if os.path.exists(logdir):
@@ -135,7 +149,7 @@ if __name__ == "__main__":
     eng = engine.Engine(
         T0=T0,
         p0=p0,
-        nsteps=nsteps,
+        nsteps=args.nsteps,
         use_qdot=args.use_qdot,
         discrete_action=args.use_discrete,
     )
@@ -165,11 +179,15 @@ if __name__ == "__main__":
                 param_noise=param_noise,
                 action_noise=action_noise,
             )
-        agent.learn(total_timesteps=args.steps, callback=callback)
+        agent.learn(total_timesteps=args.total_timesteps, callback=callback)
     elif args.agent == "a2c":
         env = SubprocVecEnv([lambda: eng for i in range(args.nranks)])
         agent = A2C(MlpPolicy, env, verbose=1, n_steps=1)
-        agent.learn(total_timesteps=args.steps, callback=callback)
+        agent.learn(total_timesteps=args.total_timesteps, callback=callback)
+    elif args.agent == "dqn":
+        env = DummyVecEnv([lambda: eng])
+        agent = DQN(dqnMlpPolicy, env, verbose=1)
+        agent.learn(total_timesteps=args.total_timesteps, callback=callback)
 
     # Save, evaluate, and plot the agent
     agent.save(args.agent)
