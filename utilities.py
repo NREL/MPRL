@@ -53,6 +53,12 @@ markertype = ["s", "d", "o", "p", "h"]
 # Functions
 #
 # ========================================================================
+def get_label(name):
+    labels = {"calibrated": "Calibrated", "ddpg": "DDPG", "a2c": "A2C", "dqn": "DQN"}
+    return labels[name]
+
+
+# ========================================================================
 def interpolate_df(x, name, fp):
     """Interpolate a dataframe
 
@@ -125,11 +131,12 @@ def evaluate_agent(env, agent):
 
 
 # ========================================================================
-def plot_df(env, df, idx=0, label=None):
+def plot_df(env, df, idx=0, name=None):
     """Make some plots of the agent performance"""
 
     eng = env.envs[0]
     pa2bar = 1e-5
+    label = get_label(name)
 
     plt.figure("mdot")
     p = plt.plot(df.ca, df.mdot, color=cmap[idx], lw=2, label=label)
@@ -138,12 +145,16 @@ def plot_df(env, df, idx=0, label=None):
     plt.figure("p")
     p = plt.plot(df.ca, df.p * pa2bar, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
-    plt.plot(eng.exact.ca, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
+    _, labels = plt.gca().get_legend_handles_labels()
+    if "Exp." not in labels:
+        plt.plot(eng.exact.ca, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
 
     plt.figure("p_v")
     p = plt.plot(df.V, df.p * pa2bar, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
-    plt.plot(eng.exact.V, eng.exact.p * pa2bar, color=cmap[-1], lw=1)
+    _, labels = plt.gca().get_legend_handles_labels()
+    if "Exp." not in labels:
+        plt.plot(eng.exact.V, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
 
     plt.figure("Tu")
     p = plt.plot(df.ca, df.Tu, color=cmap[idx], lw=2, label=label)

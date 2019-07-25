@@ -208,7 +208,7 @@ class Herd:
             dashboard_port=9800,
         )
 
-        self.logs_dir = os.path.join(project_dir, f"{agent_type}-tuning-logs")
+        self.logs_dir = os.path.join(project_dir, f"{agent_type}-tuning")
         if os.path.exists(self.logs_dir):
             shutil.rmtree(self.logs_dir)
         os.makedirs(self.logs_dir)

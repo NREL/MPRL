@@ -11,6 +11,7 @@ import pandas as pd
 import time
 from datetime import timedelta
 import warnings
+import pickle
 from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
 from stable_baselines.deepq.policies import MlpPolicy as dqnMlpPolicy
 from stable_baselines.common.policies import MlpPolicy
@@ -127,13 +128,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--use_discrete", help="Use a discrete action space", action="store_true"
     )
-    parser.add_argument
     args = parser.parse_args()
 
     # Setup
     start = time.time()
     np.random.seed(45473)
-    logdir = f"{args.agent}-logs"
+    logdir = f"{args.agent}"
     if os.path.exists(logdir):
         shutil.rmtree(logdir)
     os.makedirs(logdir)
@@ -142,6 +142,7 @@ if __name__ == "__main__":
         columns=["episode", "episode_step", "total_steps", "episode_reward"]
     )
     logs.to_csv(logname, index=False)
+    pickle.dump(args, open(os.path.join(logdir, "args.pkl"), "wb"))
     best_reward = -np.inf
 
     # Initialize the engine
@@ -163,7 +164,7 @@ if __name__ == "__main__":
         eng.symmetrize_actions()
         env = DummyVecEnv([lambda: eng])
         if args.use_pretrained:
-            agent = DDPG.load(f"{args.agent}_pretrained")
+            agent = DDPG.load(os.path.join(f"{args.agent}-pretrained", "agent"))
             agent.set_env(env)
             _, best_reward = utilities.evaluate_agent(DummyVecEnv([lambda: eng]), agent)
         else:
@@ -190,12 +191,13 @@ if __name__ == "__main__":
         agent.learn(total_timesteps=args.total_timesteps, callback=callback)
 
     # Save, evaluate, and plot the agent
-    agent.save(args.agent)
+    pfx = os.path.join(logdir, "agent")
+    agent.save(pfx)
     env = DummyVecEnv([lambda: eng])
     df, total_reward = utilities.evaluate_agent(env, agent)
-    df.to_csv(f"{args.agent}.csv", index=False)
-    utilities.plot_df(env, df, idx=0, label=args.agent.upper())
-    utilities.save_plots(f"{args.agent}.pdf")
+    df.to_csv(pfx + ".csv", index=False)
+    utilities.plot_df(env, df, idx=0, name=args.agent)
+    utilities.save_plots(pfx + ".pdf")
 
     # Plot the training history
     logs = pd.read_csv(logname)

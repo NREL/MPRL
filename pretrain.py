@@ -1,3 +1,4 @@
+import os
 import argparse
 import numpy as np
 import time
@@ -94,11 +95,14 @@ if __name__ == "__main__":
         )
 
     # Pretrain, save and plot the agent
+    logdir = f"{args.agent}-pretrained"
+    pfx = os.path.join(logdir, "agent")
     agent.pretrain(expert_traj, n_epochs=args.epochs, learning_rate=args.learning_rate)
-    agent.save(f"{args.agent}_pretrained")
+    agent.save(pfx)
     df, total_reward = utilities.evaluate_agent(env, agent)
+    df.to_csv(pfx + ".csv", index=False)
     utilities.plot_df(env, df, idx=1)
-    utilities.save_plots(f"{args.agent}_pretrained.pdf")
+    utilities.save_plots(pfx + ".pdf")
 
     # output timer
     end = time.time() - start
