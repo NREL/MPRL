@@ -28,7 +28,8 @@ fi
 conda activate MPRL
 
 # Run jobs
-nranks=18
-steps=10000000
-agent="ddpg"
-python3 main.py -a ${agent} -s ${steps} -n ${nranks}
+nranks=1
+total_timesteps=1000000
+# agent="ddpg"
+# python3 main.py -a ${agent} -s ${steps} -n ${nranks} --use_pretrained
+python3 main.py -a dqn -s 201 -t 200000 --use_discrete

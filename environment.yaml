@@ -15,6 +15,7 @@ dependencies:
   - pip
   - scipy
   - tensorflow-gpu
+  - tensorboard
   - xlrd
   - pip:
       - mpi4py --no-binary mpi4py

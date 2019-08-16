@@ -179,15 +179,16 @@ if __name__ == "__main__":
                 verbose=1,
                 param_noise=param_noise,
                 action_noise=action_noise,
+                tensorboard_log=logdir,
             )
         agent.learn(total_timesteps=args.total_timesteps, callback=callback)
     elif args.agent == "a2c":
         env = SubprocVecEnv([lambda: eng for i in range(args.nranks)])
-        agent = A2C(MlpPolicy, env, verbose=1, n_steps=1)
+        agent = A2C(MlpPolicy, env, verbose=1, n_steps=1, tensorboard_log=logdir)
         agent.learn(total_timesteps=args.total_timesteps, callback=callback)
     elif args.agent == "dqn":
         env = DummyVecEnv([lambda: eng])
-        agent = DQN(dqnMlpPolicy, env, verbose=1)
+        agent = DQN(dqnMlpPolicy, env, verbose=1, tensorboard_log=logdir)
         agent.learn(total_timesteps=args.total_timesteps, callback=callback)
 
     # Save, evaluate, and plot the agent
