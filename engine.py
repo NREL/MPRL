@@ -130,10 +130,11 @@ class Engine(gym.Env):
         self.action_size = len(self.actions)
 
         if self.discrete_action:
-            self.scales = np.array([0.3])
+            self.scales = {"mdot": 0.3, "qdot": 0.0}
+            self.action_counter = {"mdot": 0, "qdot": 0}
+            self.action_limit = {"mdot": 1000, "qdot": 1000}
             if self.use_qdot:
                 self.action_space = spaces.MultiDiscrete([2, 1])
-                np.append(self.scales.append, [0.0])
             else:
                 self.action_space = spaces.Discrete(2)
         else:
@@ -147,21 +148,47 @@ class Engine(gym.Env):
                 low=actions_low, high=actions_high, dtype=np.float16
             )
 
-    def scale_action(self, action):
-        """If these are discrete actions, scale them to physical space"""
-        if self.discrete_action:
-            return action * self.scales
-        else:
-            return action
-
     def parse_action(self, action):
+        """Create dictionary of actions"""
         action = np.array(action).flatten()
         if len(action) != self.action_size:
             sys.exit(f"Error: invalid action size {len(action)} != {self.action_size}")
-        if self.use_qdot:
-            return self.scale_action(action)
-        else:
-            return np.append(self.scale_action(action), [0.0])
+
+        dct = {}
+        for k, name in enumerate(self.actions):
+            dct[name] = action[k]
+        return dct
+
+    def scale_action(self, action):
+        """Scale discrete actions to physical space"""
+        if self.discrete_action:
+            for key in action:
+                action[key] *= self.scales[key]
+
+        return action
+
+    def count_actions(self, action):
+        """Keep a running counter of discrete actions"""
+        if self.discrete_action:
+            for key in action:
+                self.action_counter[key] += action[key]
+
+    def mask_action(self, action):
+        """Mask actions if they exceed a limit"""
+        if self.discrete_action:
+            for key in action:
+                if self.action_counter[key] > self.action_limit[key]:
+                    action[key] = 0
+
+        return action
+
+    def preprocess_action(self, action):
+        """Preprocess the actions for use by engine"""
+        action = self.parse_action(action)
+        self.count_actions(action)
+        action = self.mask_action(action)
+        action = self.scale_action(action)
+        return action
 
     def define_observable_space(self):
         obs_low = np.array([0.0, -np.finfo(np.float32).max, self.ivc, 0.0])
@@ -271,9 +298,9 @@ class Engine(gym.Env):
     def step(self, action):
         "Advance the engine to the next state using the action"
 
-        mdot, qdot = self.parse_action(action)
+        action = self.preprocess_action(action)
 
-        reward, done = self.termination(mdot)
+        reward, done = self.termination(action["mdot"])
         if done:
             return (
                 self.current_state[self.observables],
@@ -288,10 +315,10 @@ class Engine(gym.Env):
             lambda t, y: self.dfundt_mdot(
                 t,
                 y,
-                mdot,
+                action["mdot"],
                 self.history.V.loc[step + 1],
                 self.history.dVdt.loc[step + 1],
-                Qdot=qdot,
+                Qdot=action["qdot"] if self.use_qdot else 0.0,
             )
         )
         integ.set_initial_value(

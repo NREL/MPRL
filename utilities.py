@@ -119,7 +119,7 @@ def evaluate_agent(env, agent):
         obs, reward, done, info = env.step(action)
 
         # save history
-        df.loc[index, eng.actions] = eng.scale_action(action[0])
+        df.loc[index, eng.actions] = eng.preprocess_action(action)
         df.loc[index, eng.internals] = info[0]["internals"]
         df.loc[index, ["rewards"]] = reward
         if done:
