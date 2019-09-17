@@ -10,9 +10,14 @@ import argparse
 import numpy as np
 import sherpa
 from stable_baselines.common.vec_env import SubprocVecEnv
+from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
 from stable_baselines.sac.policies import MlpPolicy as sacMlpPolicy
+# from stable_baselines.deepq.policies import MlpPolicy as dqnMlpPolicy
+from stable_baselines.deepq.policies import FeedForwardPolicy
+# from stable_baselines.deepq.policies import MlpPolicy
+# from stable_baselines.deepq.policies import LnMlpPolicy
 from stable_baselines.ddpg.noise import (
     NormalActionNoise,
     OrnsteinUhlenbeckActionNoise,
@@ -21,8 +26,12 @@ from stable_baselines.ddpg.noise import (
 from stable_baselines import A2C
 from stable_baselines import DDPG
 from stable_baselines import PPO1
+from stable_baselines import PPO2
 from stable_baselines import SAC
+from stable_baselines import DQN
 import engine
+import engine0D
+import utilities
 
 
 # ========================================================================
@@ -33,18 +42,32 @@ import engine
 class Agent:
     def __init__(self):
         self.sherpa_parameters = {
-            "gamma": sherpa.Continuous("gamma", range=[0.9, 1]),
+            "gamma": sherpa.Continuous("gamma", range=[0.8, 1]),
+            "ent_coef": sherpa.Continuous("ent_coef", range=[1e-4, 1e-1], scale="log"),
+            "vf_coef": sherpa.Continuous("vf_coef", range=[0, 1]),
+            "max_grad_norm": sherpa.Continuous("max_grad_norm", range=[0, 1]),
+            "lam": sherpa.Continuous("lam", range=[0.5, 1.0]),
+            "nminibatches": sherpa.Ordinal("nminibatches", range=[2, 4, 8, 16]),
+            "noptepochs": sherpa.Ordinal("noptepochs", range=[2, 4, 8, 16]),
+            "cliprange": sherpa.Continuous("cliprange", range=[0.1, 0.9]),
             "tau": sherpa.Continuous("tau", range=[0, 0.1]),
             "random_exploration": sherpa.Continuous("random_exploration", range=[0, 1]),
+            "exploration_fraction": sherpa.Continuous("exploration_fraction", range=[0.5, 0.1]),
+            "exploration_final_eps": sherpa.Continuous("exploration_final_eps", range=[0.02, 0.0001]),
             "clip_param": sherpa.Continuous("clip_param", range=[0, 0.5]),
             "lam": sherpa.Continuous("lam", range=[0.9, 1]),
-            "n_steps": sherpa.Ordinal("n_steps", range=[32, 64, 128]),
+            "n_steps": sherpa.Ordinal("n_steps", range=[16, 32, 64, 128]),
             "batch_size": sherpa.Ordinal("batch_size", range=[32, 64, 128]),
+            "buffer_size": sherpa.Ordinal("buffer_size", range=[1000, 10000]),
+            "n_nodes": sherpa.Ordinal("n_nodes", range=[8, 16, 32, 64]),
+            "prioritized_replay": sherpa.Ordinal("prioritized_replay", range=[True, False]),
+            "layer_norm": sherpa.Ordinal("layer_norm", range=[True, False]),
+            "DQNpolicy": sherpa.Choice("DQNpolicy", range=["MlpPolicy", "LnMlpPolicy"]),
             "optim_batchsize": (
                 sherpa.Ordinal("optim_batchsize", range=[32, 64, 128]),
             ),
             "learning_rate": sherpa.Continuous(
-                "learning_rate", range=[1e-8, 1e-1], scale="log"
+                "learning_rate", range=[1e-5, 1e-3], scale="log"
             ),
             "actor_lr": (
                 sherpa.Continuous("actor_lr", range=[1e-8, 1e-1], scale="log"),
@@ -69,11 +92,59 @@ class Agent:
 
 
 # ========================================================================
+class DQNAgent(Agent):
+    def __init__(self):
+        Agent.__init__(self)
+
+        # parameter_names = ["gamma", "learning_rate", "exploration_fraction", "exploration_final_eps", "batch_size", "prioritized_replay", "buffer_size", "n_nodes"]
+        parameter_names = ["gamma", "learning_rate", "DQNpolicy", "exploration_fraction", "exploration_final_eps"]
+        self.parameters = [self.sherpa_parameters[x] for x in parameter_names]
+
+    def instantiate_agent(self, env, parameters):
+        return DQN(
+            parameters["DQNpolicy"],
+            env,
+            verbose=1,
+            gamma=parameters["gamma"],
+            exploration_fraction=parameters["exploration_fraction"],
+            exploration_final_eps=parameters["exploration_final_eps"],
+            # exploration_fraction=0.5,
+            # exploration_final_eps=0.01,
+            learning_rate=parameters["learning_rate"],
+            buffer_size=10000,
+            batch_size=128,
+            prioritized_replay=True,
+            )
+
+        # # Custom MLP policy of two layers of size 32 each
+        # class CustomDQNPolicy(FeedForwardPolicy):
+        #     def __init__(self, *args, **kwargs):
+        #         super(CustomDQNPolicy, self).__init__(*args, **kwargs,
+        #                                            layers=[int(parameters["n_nodes"])],
+        #                                            layer_norm=parameters["layer_norm"],
+        #                                            feature_extraction="mlp")
+
+        # return DQN(
+        #     CustomDQNPolicy,
+        #     env,
+        #     verbose=1,
+        #     gamma=parameters["gamma"],
+        #     # exploration_fraction=parameters["exploration_fraction"],
+        #     # exploration_final_eps=parameters["exploration_final_eps"],
+        #     exploration_fraction=0.5,
+        #     exploration_final_eps=0.01,
+        #     learning_rate=parameters["learning_rate"],
+        #     buffer_size=parameters["buffer_size"],
+        #     batch_size=parameters["batch_size"],
+        #     prioritized_replay=parameters["prioritized_replay"],
+        #     )
+
+# ========================================================================
 class A2CAgent(Agent):
     def __init__(self):
         Agent.__init__(self)
 
-        parameter_names = ["gamma", "learning_rate", "n_steps"]
+        parameter_names = ["gamma", "learning_rate", "n_steps", "lr_schedule"]
         self.parameters = [self.sherpa_parameters[x] for x in parameter_names]
 
     def instantiate_agent(self, env, parameters):
@@ -84,6 +155,7 @@ class A2CAgent(Agent):
             learning_rate=parameters["learning_rate"],
             gamma=parameters["gamma"],
             n_steps=parameters["n_steps"],
+            lr_schedule=parameters["lr_schedule"],
         )
 
 
@@ -130,23 +202,34 @@ class PPOAgent(Agent):
 
         parameter_names = [
             "gamma",
-            "clip_param",
+            "ent_coef",
+            "learning_rate",
+            "vf_coef",
+            "max_grad_norm",
             "lam",
-            "optim_stepsize",
-            "optim_batchsize",
+            "nminibatches",
+            "noptepochs",
+            "cliprange",
+            "n_steps",
+
         ]
         self.parameters = [self.sherpa_parameters[x] for x in parameter_names]
 
     def instantiate_agent(self, env, parameters):
-        return PPO1(
+        return PPO2(
             MlpPolicy,
             env,
             verbose=1,
             gamma=parameters["gamma"],
-            clip_param=parameters["clip_param"],
+            ent_coef=parameters["ent_coef"],
+            learning_rate=parameters["learning_rate"],
+            vf_coef=parameters["vf_coef"],
+            max_grad_norm=parameters["max_grad_norm"],
             lam=parameters["lam"],
-            optim_stepsize=parameters["optim_stepsize"],
-            optim_batchsize=parameters["optim_batchsize"],
+            nminibatches=parameters["nminibatches"],
+            noptepochs=parameters["noptepochs"],
+            cliprange_vf=parameters["cliprange"],
+            n_steps=parameters["n_steps"],
         )
 
 
@@ -190,10 +273,12 @@ class Herd:
             self.agent = A2CAgent()
         elif agent_type == "DDPG":
             self.agent = DDPGAgent()
-        elif agent_type == "PPO":
+        elif agent_type == "PPO" or agent_type == "ppo":
             self.agent = PPOAgent()
         elif agent_type == "SAC":
             self.agent = SACAgent()
+        elif agent_type == "DQN" or agent_type == "dqn":
+            self.agent = DQNAgent()
         else:
             sys.exit(f"Unrecognized agent type {agent_type}")
 
@@ -205,7 +290,8 @@ class Herd:
             algorithm,
             lower_is_better=False,
             stopping_rule=rule,
-            dashboard_port=9800,
+            dashboard_port=None,
+            # disable_dashboard=True,
         )
 
         self.logs_dir = os.path.join(project_dir, f"{agent_type}-tuning")
@@ -221,20 +307,28 @@ class Herd:
             agent = self.agent.instantiate_agent(env, trial.parameters)
 
             for e_idx in range(n_epochs):
+                obs = env.reset()
 
                 # Train the agent
                 agent.learn(
-                    total_timesteps=int(steps_per_epoch), reset_num_timesteps=False
+                    total_timesteps=int(steps_per_epoch), reset_num_timesteps=False,
                 )
+
+                # _, total_reward = utilities.evaluate_agent(env, agent)
 
                 # Get the total reward for this agent. Only care about
                 # the zeroth environment because all the environments
                 # start the same
+                eng = env.envs[0]
                 obs = env.reset()
+                obs = eng.set_full_run()
                 total_reward = 0.0
+                print("Evaluating agent ...")
                 for index in env.get_attr("history", indices=0)[0].index[1:]:
-                    action, _ = agent.predict(obs)
-                    obs, reward, done, info = env.step(action)
+                    action, _ = agent.predict(obs, deterministic=True)
+                    obs, reward, done, _, info = env.step(action)
+                    # print(index, done)
+                    print(reward[0])
                     total_reward += reward[0]
                     if done[0]:
                         break
@@ -277,15 +371,32 @@ if __name__ == "__main__":
     parser.add_argument(
         "-n", "--nranks", help="Number of MPI ranks", type=int, default=1
     )
+    parser.add_argument(
+        "-nep", help="Total number of episodes to train in each epoch", type=int, default=100
+    )
+    parser.add_argument(
+        "--use_engine_0D", help="Use the Cantera 0D reactor", action="store_true"
+    )
+    parser.add_argument(
+        "--use_random_start", help="Use randon start time", action="store_true"
+    )
+    parser.add_argument(
+        "--subtract_baseline", help="subtract baseline from reward", action="store_true"
+    )
     parser.add_argument
     args = parser.parse_args()
 
     # Setup the environment
     T0 = 273.15 + 120
     p0 = 264_647.769_165_039_06
-    engine = engine.Engine(T0=T0, p0=p0, nsteps=100)
-    env = SubprocVecEnv([lambda: engine for i in range(args.nranks)])
+    if args.use_engine_0D:
+        eng = engine0D.Engine(T0=T0, p0=p0)
+    else:
+        eng = engine.Engine(T0=T0, p0=p0, nsteps=args.steps_per_epoch, use_qdot=False, discrete_action=True, use_random_start=args.use_random_start, subtract_baseline=args.subtract_baseline)
+    # env = SubprocVecEnv([lambda: eng for i in range(args.nranks)])
+    env = DummyVecEnv([lambda: eng])
 
     # Initialize the herd and study it
     herd = Herd(args.agent, args.pop, os.getcwd())
-    herd.study_the_population(env, args.epochs, args.steps_per_epoch)
+    herd.study_the_population(env, args.epochs, args.steps_per_epoch*args.nep*args.nranks)
+    # herd.study_the_population(env, args.epochs, args.nep*engine.nsteps)

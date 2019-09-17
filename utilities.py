@@ -8,6 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy import interpolate as interp
+import argparse
 
 
 # ========================================================================
@@ -54,7 +55,7 @@ markertype = ["s", "d", "o", "p", "h"]
 #
 # ========================================================================
 def get_label(name):
-    labels = {"calibrated": "Calibrated", "ddpg": "DDPG", "a2c": "A2C", "dqn": "DQN"}
+    labels = {"calibrated": "Calibrated", "ddpg": "DDPG", "a2c": "A2C", "dqn": "DQN", "ppo": "PPO2"}
     return labels[name]
 
 
@@ -108,18 +109,27 @@ def evaluate_agent(env, agent):
         ),
     )
     df[eng.histories] = eng.history[eng.histories]
-    df.loc[0, ["rewards"]] = [eng.p0 * eng.history.dV.loc[0]]
+    # df.loc[0, ["rewards"]] = [eng.p0 * eng.history.dV.loc[0]]
+    df.loc[0,["rewards"]] = [0.0]
 
     # Evaluate actions from the agent in the environment
     obs = env.reset()
+    # obs = eng.set_full_run()
     df.loc[0, eng.observables] = obs
     df.loc[0, eng.internals] = eng.current_state[eng.internals]
     for index in eng.history.index[1:]:
-        action, _ = agent.predict(obs)
-        obs, reward, done, info = env.step(action)
+        action, _ = agent.predict(obs,deterministic=True)
+        obs, reward, done, _, info = env.step(action)
+
+
 
         # save history
-        df.loc[index, eng.actions] = eng.preprocess_action(action)
+        # df.loc[index, eng.actions] = eng.mask_action(action)
+        # df.loc[index, eng.actions] = eng.preprocess_action(action)
+        action = eng.parse_action(action)
+        action = eng.scale_action(action)
+        # action = eng.mask_action(action)
+        df.loc[index, eng.actions] = action
         df.loc[index, eng.internals] = info[0]["internals"]
         df.loc[index, ["rewards"]] = reward
         if done:
@@ -127,8 +137,67 @@ def evaluate_agent(env, agent):
         df.loc[index, eng.observables] = obs
 
     df = df.loc[:index, :]
+    # obs = env.reset()
     return df, df.rewards.sum()
 
+
+# ========================================================================
+def plot_df_0D(env, df, idx=0, name=None):
+    """Make some plots of the agent performance"""
+
+    eng = env.envs[0]
+    pa2bar = 1e-5
+    label = get_label(name)
+
+    plt.figure("mdot")
+    # p = plt.plot(df.ca, df.injection, color=cmap[idx], lw=2, label=label)
+    p = plt.plot(df.ca, df.mdot, color=cmap[idx], lw=2, label=label)
+    p[0].set_dashes(dashseq[idx])
+
+    plt.figure("p")
+    _, labels = plt.gca().get_legend_handles_labels()
+    if "Exp." not in labels:
+        plt.plot(eng.exact.ca, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
+    p = plt.plot(df.ca, df.p, color=cmap[idx], lw=2, label=label)
+    p[0].set_dashes(dashseq[idx])
+
+    plt.figure("p_v")
+    _, labels = plt.gca().get_legend_handles_labels()
+    if "Exp." not in labels:
+        plt.plot(eng.exact.V, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
+    p = plt.plot(df.V, df.p, color=cmap[idx], lw=2, label=label)
+    p[0].set_dashes(dashseq[idx])
+
+    plt.figure("Tu")
+    p = plt.plot(df.ca, df.Tu, color=cmap[idx], lw=2, label=label)
+    p[0].set_dashes(dashseq[idx])
+
+    plt.figure("Tb")
+    p = plt.plot(df.ca, df.Tb, color=cmap[idx], lw=2, label=label)
+    p[0].set_dashes(dashseq[idx])
+
+    plt.figure("mb")
+    p = plt.plot(df.ca, df.mb, color=cmap[idx], lw=2, label=label)
+    p[0].set_dashes(dashseq[idx])
+
+    plt.figure("reward")
+    p = plt.plot(df.ca, df.rewards, color=cmap[idx], lw=2, label=label)
+    p[0].set_dashes(dashseq[idx])
+
+    plt.figure("cumulative_reward")
+    p = plt.plot(
+        df.ca.values.flatten(),
+        np.cumsum(df.rewards),
+        color=cmap[idx],
+        lw=2,
+        label=label,
+    )
+    p[0].set_dashes(dashseq[idx])
+
+    if "qdot" in df.columns:
+        plt.figure("qdot")
+        p = plt.plot(df.ca, df.qdot, color=cmap[idx], lw=2, label=label)
+        p[0].set_dashes(dashseq[idx])
 
 # ========================================================================
 def plot_df(env, df, idx=0, name=None):
@@ -146,14 +215,14 @@ def plot_df(env, df, idx=0, name=None):
     _, labels = plt.gca().get_legend_handles_labels()
     if "Exp." not in labels:
         plt.plot(eng.exact.ca, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
-    p = plt.plot(df.ca, df.p * pa2bar, color=cmap[idx], lw=2, label=label)
+    p = plt.plot(df.ca, df.p, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
 
     plt.figure("p_v")
     _, labels = plt.gca().get_legend_handles_labels()
     if "Exp." not in labels:
         plt.plot(eng.exact.V, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
-    p = plt.plot(df.V, df.p * pa2bar, color=cmap[idx], lw=2, label=label)
+    p = plt.plot(df.V, df.p, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
 
     plt.figure("Tu")
