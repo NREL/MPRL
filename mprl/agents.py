@@ -6,7 +6,7 @@
 import os
 import numpy as np
 import pandas as pd
-import utilities
+import mprl.utilities as utilities
 
 
 # ========================================================================
@@ -23,18 +23,21 @@ class Agent:
 class CalibratedAgent(Agent):
     def __init__(self, env):
         Agent.__init__(self, env)
+        self.datadir = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "datafiles"
+        )
 
     def learn(self):
         self.actions = utilities.interpolate_df(
             self.env.envs[0].history.ca,
             "ca",
-            pd.read_csv(os.path.join("datafiles", "calibrated_data.csv")),
+            pd.read_csv(os.path.join(self.datadir, "calibrated_data.csv")),
         )
         self.actions.index = self.env.envs[0].history.index
         self.actions.mdot[self.actions.mdot < 0] = 0
-        self.actions = self.actions[self.env.envs[0].actions]
+        self.actions = self.actions[self.env.envs[0].action.actions]
 
-    def predict(self, state):
+    def predict(self, state, deterministic=True):
 
         # Find the action matching the current CA
         idx = (
@@ -60,7 +63,7 @@ class CalibratedAgent(Agent):
         episode_starts[-1] = True
 
         numpy_dict = {
-            "actions": df[self.env.envs[0].actions].values,
+            "actions": df[self.env.envs[0].action.actions].values,
             "obs": df[self.env.get_attr("observables", indices=0)[0]].values,
             "rewards": df.rewards.values,
             "episode_returns": np.array([total_reward]),
