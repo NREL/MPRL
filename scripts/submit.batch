@@ -4,7 +4,7 @@
 #SBATCH --account=exact
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:2
-#SBATCH --time=24:00:00
+#SBATCH --time=01:00:00
 #SBATCH --partition=debug
 #SBATCH -o %x.o%j
 
@@ -25,11 +25,12 @@ MINICONDA_DIR=$HOME/miniconda3
 if [ -d "$MINICONDA_DIR" ]; then
     . ${MINICONDA_DIR}/etc/profile.d/conda.sh
 fi
-conda activate MPRL
+conda activate /projects/exact/mhenryde/.conda/MPRL
 
 # Run jobs
-nranks=1
-total_timesteps=1000000
+#nranks=1
+#total_timesteps=1000000
 # agent="ddpg"
 # python3 main.py -a ${agent} -s ${steps} -n ${nranks} --use_pretrained
-python3 main.py -a dqn -s 201 -t 200000 --use_discrete
+#python3 main.py -a dqn -s 201 -t 200000 --use_discrete
+python3 main.py -a ppo --use_discrete -s 21 -nep 6000

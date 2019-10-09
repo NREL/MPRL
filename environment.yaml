@@ -10,6 +10,7 @@ dependencies:
   - cantera
   - ipython
   - matplotlib
+  - nose
   - numpy
   - pandas
   - pip
@@ -18,7 +19,6 @@ dependencies:
   - tensorboard
   - xlrd
   - pip:
-      - mpi4py --no-binary mpi4py
       - atari-py==0.2.0
-      - stable-baselines
+      - stable-baselines[mpi]
       - parameter-sherpa

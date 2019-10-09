@@ -5,6 +5,7 @@
 # ========================================================================
 import argparse
 import os
+import sys
 import shutil
 import numpy as np
 import pandas as pd
@@ -13,36 +14,31 @@ from datetime import timedelta
 import warnings
 import pickle
 from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
-from stable_baselines.deepq.policies import MlpPolicy as dqnMlpPolicy
-from stable_baselines.deepq.policies import LnMlpPolicy as dqnLnMlpPolicy
-from stable_baselines.deepq.policies import CnnPolicy as dqnCnnPolicy
-from stable_baselines.deepq.policies import LnCnnPolicy as dqnLnCnnPolicy
 from stable_baselines.common.policies import MlpPolicy
-from stable_baselines.common.policies import MlpLnLstmPolicy
 from stable_baselines.deepq.policies import FeedForwardPolicy
-from stable_baselines.common.policies import LstmPolicy
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
-from stable_baselines.ddpg.noise import (
-    NormalActionNoise,
-    OrnsteinUhlenbeckActionNoise,
-    AdaptiveParamNoiseSpec,
-)
+from stable_baselines.ddpg.noise import OrnsteinUhlenbeckActionNoise
 from stable_baselines import DDPG, A2C, DQN, PPO2
-import engine
-import engine0D
-import agents
-import utilities
-from gym import spaces
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
+import mprl.engines as engines
+import mprl.agents as agents
+import mprl.utilities as utilities
 
 
-# Custom MLP policy of two layers of size 32 each
+# ========================================================================
+#
+# Classes
+#
+# ========================================================================
 class CustomDQNPolicy(FeedForwardPolicy):
-# class CustomDQNPolicy(LstmPolicy):
+    """Custom MLP policy of two layers of size 32 each"""
+
     def __init__(self, *args, **kwargs):
-        super(CustomDQNPolicy, self).__init__(*args, **kwargs,
-                                           layers=[32, 32],
-                                           layer_norm=False,
-                                           feature_extraction="mlp")
+        super(CustomDQNPolicy, self).__init__(
+            *args, **kwargs, layers=[32, 32], layer_norm=False, feature_extraction="mlp"
+        )
+
 
 # ========================================================================
 #
@@ -116,7 +112,7 @@ if __name__ == "__main__":
         help="Agent to train and evaluate",
         type=str,
         default="calibrated",
-        choices=["calibrated", "ddpg", "a2c", "dqn","ppo"],
+        choices=["calibrated", "ddpg", "a2c", "dqn", "ppo"],
     )
     parser.add_argument(
         "-t",
@@ -141,16 +137,14 @@ if __name__ == "__main__":
         "--use_qdot", help="Use a Qdot as an action", action="store_true"
     )
     parser.add_argument(
-        "--use_discrete", help="Use a discrete action space", action="store_true"
+        "--use_continuous", help="Use a continuous action space", action="store_true"
     )
     parser.add_argument(
-        "--use_random_start", help="Start with a random crank angle", action="store_true"
-    )
-    parser.add_argument(
-        "--subtract_baseline", help="Subtract baseline reward", action="store_true"
-    )
-    parser.add_argument(
-        "--use_engine_0D", help="Use the Cantera 0D reactor", action="store_true"
+        "--engine_type",
+        help="Engine type to use",
+        type=str,
+        default="twozone-engine",
+        choices=["twozone-engine", "reactor-engine"],
     )
     parser.add_argument(
         "--use_best_agent", help="Use the best agent, do not train", action="store_true"
@@ -161,7 +155,7 @@ if __name__ == "__main__":
     start = time.time()
     np.random.seed(45473)
     logdir = f"{args.agent}"
-    if (not args.use_best_agent):
+    if not args.use_best_agent:
         if os.path.exists(logdir):
             shutil.rmtree(logdir)
         os.makedirs(logdir)
@@ -174,23 +168,16 @@ if __name__ == "__main__":
     best_reward = -np.inf
 
     # Initialize the engine
-    if args.use_engine_0D:
-        T0, p0 = engine0D.calibrated_engine_ic()
-        eng = engine0D.Engine(
-            T0=T0,
-            p0=p0,
-        )
-    else:
-        T0, p0 = engine.calibrated_engine_ic()
-        eng = engine.Engine(
-            T0=T0,
-            p0=p0,
-            nsteps=args.nsteps,
-            use_qdot=args.use_qdot,
-            discrete_action=args.use_discrete,
-            use_random_start=args.use_random_start,
-            subtract_baseline=args.subtract_baseline,
-        )
+    T0, p0 = engines.calibrated_engine_ic()
+    if args.engine_type == "reactor-engine":
+        eng = engines.ReactorEngine(T0=T0, p0=p0)
+    elif args.engine_type == "twozone-engine":
+        if args.use_continuous:
+            eng = engines.ContinuousTwoZoneEngine(
+                T0=T0, p0=p0, nsteps=args.nsteps, use_qdot=args.use_qdot
+            )
+        else:
+            eng = engines.DiscreteTwoZoneEngine(T0=T0, p0=p0, nsteps=args.nsteps)
 
     # Create the agent and train
     if args.agent == "calibrated":
@@ -198,14 +185,14 @@ if __name__ == "__main__":
         agent = agents.CalibratedAgent(env)
         agent.learn()
     elif args.agent == "ddpg":
-        eng.symmetrize_actions()
+        eng.action.symmetrize_space()
         env = DummyVecEnv([lambda: eng])
         if args.use_pretrained:
             agent = DDPG.load(os.path.join(f"{args.agent}-pretrained", "agent"))
             agent.set_env(env)
             _, best_reward = utilities.evaluate_agent(DummyVecEnv([lambda: eng]), agent)
         else:
-            n_actions = env.action_space.shape[-1]
+            n_actions = env.action.action_space.shape[-1]
             param_noise = None
             action_noise = OrnsteinUhlenbeckActionNoise(
                 mean=np.zeros(n_actions), sigma=float(0.5) * np.ones(n_actions)
@@ -227,73 +214,94 @@ if __name__ == "__main__":
         else:
             agent = A2C(MlpPolicy, env, verbose=1, n_steps=1, tensorboard_log=logdir)
         # agent.learn(total_timesteps=args.total_timesteps, callback=callback)
-        agent.learn(total_timesteps=args.nep*args.nsteps, callback=callback)
+        agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
     elif args.agent == "dqn":
         env = DummyVecEnv([lambda: eng])
         if args.use_pretrained:
-            agent = DQN.load(os.path.join(f"{args.agent}-pretrained", "agent"), exploration_fraction=0.03, exploration_final_eps=0.02)
+            agent = DQN.load(
+                os.path.join(f"{args.agent}-pretrained", "agent"),
+                exploration_fraction=0.03,
+                exploration_final_eps=0.02,
+            )
             agent.set_env(env)
             _, best_reward = utilities.evaluate_agent(DummyVecEnv([lambda: eng]), agent)
-            agent.learn(total_timesteps=args.nep*args.nsteps, callback=callback)
+            agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
         elif args.use_best_agent:
             agent = DQN.load(os.path.join(logdir, "best_agent.pkl"))
             agent.set_env(env)
             _, best_reward = utilities.evaluate_agent(DummyVecEnv([lambda: eng]), agent)
             agent.exploration_fraction = 1e-6
             agent.exploration_final_eps = 1e-6
-            agent.learn(total_timesteps=args.nep*eng.nsteps, callback=callback, reset_num_timesteps=True)
+            agent.learn(
+                total_timesteps=args.nep * eng.nsteps,
+                callback=callback,
+                reset_num_timesteps=True,
+            )
         else:
-            # agent = DQN(dqnMlpPolicy, env, verbose=1, tensorboard_log=logdir, exploration_fraction=0.05, exploration_final_eps=0.001)
-            if (args.use_engine_0D):
-                agent = DQN(CustomDQNPolicy, env, verbose=1, tensorboard_log=logdir, exploration_fraction=0.05, exploration_final_eps=0.001,
-                        target_network_update_freq=eng.nsteps*2, learning_starts=eng.nsteps*2, learning_rate=1e-3, buffer_size=eng.nsteps*args.nep,
-                        gamma=0.99)
-                agent.learn(total_timesteps=args.nep*eng.nsteps, callback=callback)
-            else:
-                # agent = DQN(dqnMlpPolicy, env, verbose=1, tensorboard_log=logdir)
-                agent = DQN(CustomDQNPolicy, env, verbose=1, tensorboard_log=logdir, exploration_fraction=0.1, exploration_final_eps=0.02,
-                            learning_rate=3e-4, gamma=0.9, buffer_size=args.nsteps*args.nep, batch_size=128, prioritized_replay=True,
-                            learning_starts=args.nsteps*10)
-                agent.learn(total_timesteps=args.nep*args.nsteps, callback=callback)
+            if args.engine_type == "reactor-engine":
+                agent = DQN(
+                    CustomDQNPolicy,
+                    env,
+                    verbose=1,
+                    tensorboard_log=logdir,
+                    exploration_fraction=0.05,
+                    exploration_final_eps=0.001,
+                    target_network_update_freq=eng.nsteps * 2,
+                    learning_starts=eng.nsteps * 2,
+                    learning_rate=1e-3,
+                    buffer_size=eng.nsteps * args.nep,
+                    gamma=0.99,
+                )
+                agent.learn(total_timesteps=args.nep * eng.nsteps, callback=callback)
+            elif args.engine_type == "twozone-engine":
+                agent = DQN(
+                    CustomDQNPolicy,
+                    env,
+                    verbose=1,
+                    tensorboard_log=logdir,
+                    exploration_fraction=0.1,
+                    exploration_final_eps=0.02,
+                    learning_rate=3e-4,
+                    gamma=0.9,
+                    buffer_size=args.nsteps * args.nep,
+                    batch_size=128,
+                    prioritized_replay=True,
+                    learning_starts=args.nsteps * 10,
+                )
+                agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
     elif args.agent == "ppo":
-        env = SubprocVecEnv([lambda: eng for i in range(args.nranks)])
+        env = DummyVecEnv([lambda: eng])
         if args.use_pretrained:
             agent = PPO2.load(os.path.join(f"{args.agent}-pretrained", "agent"))
             agent.set_env(env)
         else:
-            # agent = PPO2(MlpPolicy, env, verbose=1, n_steps=64, nminibatches=4, tensorboard_log=logdir, gamma=0.99)
-            agent = PPO2(MlpPolicy,
-            # agent = PPO2(MlpLnLstmPolicy,
-                        env,
-                        verbose=1,
-                        gamma=0.998,
-                        ent_coef=5.33e-3,
-                        learning_rate=1.76e-5,
-                        vf_coef=0.188,
-                        max_grad_norm=0.88,
-                        lam=0.99,
-                        nminibatches=4,
-                        noptepochs=16,
-                        cliprange=0.68,
-                        n_steps=16,
-                        )
-        if args.use_engine_0D:
-            agent.learn(total_timesteps=args.nep*eng.nsteps*args.nranks, callback=callback)
-        else:
-            agent.learn(total_timesteps=args.nep*args.nsteps*args.nranks, callback=callback)
+            agent = PPO2(
+                MlpPolicy,
+                env,
+                verbose=1,
+                gamma=0.998,
+                ent_coef=5.33e-3,
+                learning_rate=1.76e-5,
+                vf_coef=0.188,
+                max_grad_norm=0.88,
+                lam=0.99,
+                nminibatches=4,
+                noptepochs=16,
+                cliprange=0.68,
+                n_steps=16,
+            )
+        agent.learn(
+            total_timesteps=args.nep * args.nsteps * args.nranks, callback=callback
+        )
 
-    # # Save, evaluate, and plot the agent
+    # Save, evaluate, and plot the agent
     pfx = os.path.join(logdir, "agent")
     agent.save(pfx)
     env = DummyVecEnv([lambda: eng])
     df, total_reward = utilities.evaluate_agent(env, agent)
 
-
     df.to_csv(pfx + ".csv", index=False)
-    if (args.use_engine_0D):
-        utilities.plot_df_0D(env, df, idx=0, name=args.agent)
-    else:
-        utilities.plot_df(env, df, idx=0, name=args.agent)
+    utilities.plot_df(env, df, idx=0, name=args.agent)
     utilities.save_plots(pfx + ".pdf")
 
     # Plot the training history

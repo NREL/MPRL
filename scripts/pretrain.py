@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 import numpy as np
 import time
@@ -18,9 +19,11 @@ from stable_baselines import PPO1
 from stable_baselines import SAC
 from stable_baselines import TRPO
 from stable_baselines import DDPG
-import engine
-import agents
-import utilities
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
+import mprl.engines as engines
+import mprl.agents as agents
+import mprl.utilities as utilities
 
 
 # ========================================================================
@@ -46,13 +49,20 @@ if __name__ == "__main__":
     parser.add_argument(
         "-e", "--epochs", help="Number of epochs", type=int, default=10000
     )
+    parser.add_argument(
+        "--engine_type",
+        help="Engine type to use",
+        type=str,
+        default="twozone-engine",
+        choices=["twozone-engine", "reactor-engine"],
+    )
     parser.add_argument
     args = parser.parse_args()
     start = time.time()
 
     # Create the environment
-    T0, p0 = engine.calibrated_engine_ic()
-    eng = engine.Engine(T0=T0, p0=p0, nsteps=200)
+    T0, p0 = engines.calibrated_engine_ic()
+    eng = engines.ContinuousTwoZoneEngine(T0=T0, p0=p0, nsteps=200, use_qdot=False)
     env = DummyVecEnv([lambda: eng])
 
     # Generate expert trajectories
@@ -76,11 +86,11 @@ if __name__ == "__main__":
         agent = TRPO(MlpPolicy, env, verbose=1)
 
     elif args.agent == "sac":
-        env.envs[0].symmetrize_actions()
+        env.envs[0].action.symmetrize_space()
         agent = SAC(sacMlpPolicy, env, verbose=1)
 
     elif args.agent == "ddpg":
-        env.envs[0].symmetrize_actions()
+        env.envs[0].action.symmetrize_space()
         n_actions = env.action_space.shape[-1]
         param_noise = None
         action_noise = OrnsteinUhlenbeckActionNoise(

@@ -8,7 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy import interpolate as interp
-import argparse
+import mprl.engines as engines
 
 
 # ========================================================================
@@ -55,7 +55,13 @@ markertype = ["s", "d", "o", "p", "h"]
 #
 # ========================================================================
 def get_label(name):
-    labels = {"calibrated": "Calibrated", "ddpg": "DDPG", "a2c": "A2C", "dqn": "DQN", "ppo": "PPO2"}
+    labels = {
+        "calibrated": "Calibrated",
+        "ddpg": "DDPG",
+        "a2c": "A2C",
+        "dqn": "DQN",
+        "ppo": "PPO2",
+    }
     return labels[name]
 
 
@@ -99,105 +105,37 @@ def evaluate_agent(env, agent):
         index=eng.history.index,
         columns=list(
             dict.fromkeys(
-                list(eng.history.columns)
-                + eng.observables
+                eng.observables
                 + eng.internals
-                + eng.actions
+                + eng.action.actions
                 + eng.histories
                 + ["rewards"]
             )
         ),
     )
     df[eng.histories] = eng.history[eng.histories]
-    # df.loc[0, ["rewards"]] = [eng.p0 * eng.history.dV.loc[0]]
-    df.loc[0,["rewards"]] = [0.0]
+    df.loc[0, ["rewards"]] = [engines.get_reward(eng.current_state)]
 
     # Evaluate actions from the agent in the environment
     obs = env.reset()
-    # obs = eng.set_full_run()
     df.loc[0, eng.observables] = obs
     df.loc[0, eng.internals] = eng.current_state[eng.internals]
     for index in eng.history.index[1:]:
-        action, _ = agent.predict(obs,deterministic=True)
-        obs, reward, done, _, info = env.step(action)
-
-
+        action, _ = agent.predict(obs, deterministic=True)
+        obs, reward, done, info = env.step(action)
 
         # save history
-        # df.loc[index, eng.actions] = eng.mask_action(action)
-        # df.loc[index, eng.actions] = eng.preprocess_action(action)
-        action = eng.parse_action(action)
-        action = eng.scale_action(action)
-        # action = eng.mask_action(action)
-        df.loc[index, eng.actions] = action
+        df.loc[index, eng.action.actions] = eng.action.current
         df.loc[index, eng.internals] = info[0]["internals"]
         df.loc[index, ["rewards"]] = reward
-        if done:
-            break
         df.loc[index, eng.observables] = obs
+        if done:
+            df.loc[index, eng.observables] = info[0]["terminal_observation"]
+            break
 
     df = df.loc[:index, :]
-    # obs = env.reset()
     return df, df.rewards.sum()
 
-
-# ========================================================================
-def plot_df_0D(env, df, idx=0, name=None):
-    """Make some plots of the agent performance"""
-
-    eng = env.envs[0]
-    pa2bar = 1e-5
-    label = get_label(name)
-
-    plt.figure("mdot")
-    # p = plt.plot(df.ca, df.injection, color=cmap[idx], lw=2, label=label)
-    p = plt.plot(df.ca, df.mdot, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
-
-    plt.figure("p")
-    _, labels = plt.gca().get_legend_handles_labels()
-    if "Exp." not in labels:
-        plt.plot(eng.exact.ca, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
-    p = plt.plot(df.ca, df.p, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
-
-    plt.figure("p_v")
-    _, labels = plt.gca().get_legend_handles_labels()
-    if "Exp." not in labels:
-        plt.plot(eng.exact.V, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
-    p = plt.plot(df.V, df.p, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
-
-    plt.figure("Tu")
-    p = plt.plot(df.ca, df.Tu, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
-
-    plt.figure("Tb")
-    p = plt.plot(df.ca, df.Tb, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
-
-    plt.figure("mb")
-    p = plt.plot(df.ca, df.mb, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
-
-    plt.figure("reward")
-    p = plt.plot(df.ca, df.rewards, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
-
-    plt.figure("cumulative_reward")
-    p = plt.plot(
-        df.ca.values.flatten(),
-        np.cumsum(df.rewards),
-        color=cmap[idx],
-        lw=2,
-        label=label,
-    )
-    p[0].set_dashes(dashseq[idx])
-
-    if "qdot" in df.columns:
-        plt.figure("qdot")
-        p = plt.plot(df.ca, df.qdot, color=cmap[idx], lw=2, label=label)
-        p[0].set_dashes(dashseq[idx])
 
 # ========================================================================
 def plot_df(env, df, idx=0, name=None):
@@ -225,17 +163,12 @@ def plot_df(env, df, idx=0, name=None):
     p = plt.plot(df.V, df.p, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
 
-    plt.figure("Tu")
-    p = plt.plot(df.ca, df.Tu, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
-
-    plt.figure("Tb")
-    p = plt.plot(df.ca, df.Tb, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
-
-    plt.figure("mb")
-    p = plt.plot(df.ca, df.mb, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
+    fields = ["T", "Tu", "Tb", "mb", "qdot"]
+    for field in fields:
+        if field in df.columns:
+            plt.figure(field)
+            p = plt.plot(df.ca, df[field], color=cmap[idx], lw=2, label=label)
+            p[0].set_dashes(dashseq[idx])
 
     plt.figure("reward")
     p = plt.plot(df.ca, df.rewards, color=cmap[idx], lw=2, label=label)
@@ -250,11 +183,6 @@ def plot_df(env, df, idx=0, name=None):
         label=label,
     )
     p[0].set_dashes(dashseq[idx])
-
-    if "qdot" in df.columns:
-        plt.figure("qdot")
-        p = plt.plot(df.ca, df.qdot, color=cmap[idx], lw=2, label=label)
-        p[0].set_dashes(dashseq[idx])
 
 
 # ========================================================================
@@ -293,35 +221,24 @@ def save_plots(fname):
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
 
-        plt.figure("Tu")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$T_u~[\mathrm{K}]$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
-
-        plt.figure("Tb")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$T_b~[\mathrm{K}]$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
-
-        plt.figure("mb")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$m_b~[\mathrm{kg}]$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
+        fields = {
+            "T": r"$T~[\mathrm{K}]$",
+            "Tu": r"$T_u~[\mathrm{K}]$",
+            "Tb": r"$T_b~[\mathrm{K}]$",
+            "mb": r"$m_b~[\mathrm{kg}]$",
+            "qdot": r"$\dot{Q}~[\mathrm{J/s}]$",
+        }
+        for field in fields:
+            if plt.fignum_exists(field):
+                plt.figure(field)
+                ax = plt.gca()
+                plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
+                plt.ylabel(fields[field], fontsize=22, fontweight="bold")
+                plt.setp(ax.get_xmajorticklabels(), fontsize=16)
+                plt.setp(ax.get_ymajorticklabels(), fontsize=16)
+                plt.tight_layout()
+                # legend = ax.legend(loc="best")
+                pdf.savefig(dpi=300)
 
         plt.figure("reward")
         ax = plt.gca()
@@ -342,17 +259,6 @@ def save_plots(fname):
         plt.tight_layout()
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
-
-        if plt.fignum_exists("qdot"):
-            plt.figure("qdot")
-            ax = plt.gca()
-            plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-            plt.ylabel(r"$\dot{Q}~[\mathrm{J/s}]$", fontsize=22, fontweight="bold")
-            plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-            plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-            plt.tight_layout()
-            # legend = ax.legend(loc="best")
-            pdf.savefig(dpi=300)
 
 
 # ========================================================================
