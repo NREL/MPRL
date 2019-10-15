@@ -66,6 +66,21 @@ def get_label(name):
 
 
 # ========================================================================
+def get_fields():
+    return {
+        "mdot": r"$\dot{m}~[\mathrm{kg/s}]$",
+        "rewards": r"$r$",
+        "T": r"$T~[\mathrm{K}]$",
+        "Tu": r"$T_u~[\mathrm{K}]$",
+        "Tb": r"$T_b~[\mathrm{K}]$",
+        "mb": r"$m_b~[\mathrm{kg}]$",
+        "qdot": r"$\dot{Q}~[\mathrm{J/s}]$",
+        "nox": r"$Y_{NO_x}$",
+        "soot": r"$Y_{C_2 H_2}$",
+    }
+
+
+# ========================================================================
 def interpolate_df(x, name, fp):
     """Interpolate a dataframe
 
@@ -145,10 +160,6 @@ def plot_df(env, df, idx=0, name=None):
     pa2bar = 1e-5
     label = get_label(name)
 
-    plt.figure("mdot")
-    p = plt.plot(df.ca, df.mdot, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
-
     plt.figure("p")
     _, labels = plt.gca().get_legend_handles_labels()
     if "Exp." not in labels:
@@ -163,16 +174,11 @@ def plot_df(env, df, idx=0, name=None):
     p = plt.plot(df.V, df.p, color=cmap[idx], lw=2, label=label)
     p[0].set_dashes(dashseq[idx])
 
-    fields = ["T", "Tu", "Tb", "mb", "qdot"]
-    for field in fields:
+    for field in get_fields():
         if field in df.columns:
             plt.figure(field)
             p = plt.plot(df.ca, df[field], color=cmap[idx], lw=2, label=label)
             p[0].set_dashes(dashseq[idx])
-
-    plt.figure("reward")
-    p = plt.plot(df.ca, df.rewards, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
 
     plt.figure("cumulative_reward")
     p = plt.plot(
@@ -190,16 +196,6 @@ def save_plots(fname):
     """Save Plots"""
 
     with PdfPages(fname) as pdf:
-
-        plt.figure("mdot")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$\dot{m}~[\mathrm{kg/s}]$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
 
         plt.figure("p")
         ax = plt.gca()
@@ -221,34 +217,17 @@ def save_plots(fname):
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
 
-        fields = {
-            "T": r"$T~[\mathrm{K}]$",
-            "Tu": r"$T_u~[\mathrm{K}]$",
-            "Tb": r"$T_b~[\mathrm{K}]$",
-            "mb": r"$m_b~[\mathrm{kg}]$",
-            "qdot": r"$\dot{Q}~[\mathrm{J/s}]$",
-        }
-        for field in fields:
+        for field, label in get_fields().items():
             if plt.fignum_exists(field):
                 plt.figure(field)
                 ax = plt.gca()
                 plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-                plt.ylabel(fields[field], fontsize=22, fontweight="bold")
+                plt.ylabel(label, fontsize=22, fontweight="bold")
                 plt.setp(ax.get_xmajorticklabels(), fontsize=16)
                 plt.setp(ax.get_ymajorticklabels(), fontsize=16)
                 plt.tight_layout()
                 # legend = ax.legend(loc="best")
                 pdf.savefig(dpi=300)
-
-        plt.figure("reward")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$r$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
 
         plt.figure("cumulative_reward")
         ax = plt.gca()

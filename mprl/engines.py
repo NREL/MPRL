@@ -83,6 +83,7 @@ class Engine(gym.Env):
         self,
         T0=298.0,
         p0=103_325.0,
+        nsteps=100,
         ivc=-100.0,
         evo=100.0,
         fuel="dodecane",
@@ -93,6 +94,7 @@ class Engine(gym.Env):
         # Engine parameters
         self.T0 = T0
         self.p0 = p0
+        self.nsteps = nsteps
         self.ivc = ivc
         self.evo = evo
         self.fuel = fuel
@@ -250,11 +252,10 @@ class TwoZoneEngine(Engine):
         rxnmech="llnl_gasoline_surrogate_323.xml",
     ):
         super(TwoZoneEngine, self).__init__(
-            T0=T0, p0=p0, ivc=ivc, evo=evo, fuel=fuel, rxnmech=rxnmech
+            T0=T0, p0=p0, nsteps=nsteps, ivc=ivc, evo=evo, fuel=fuel, rxnmech=rxnmech
         )
 
         # Engine parameters
-        self.nsteps = nsteps
         self.negative_reward = -self.nsteps
         self.internals = ["p", "Tu", "Tb", "mb"]
         self.histories = ["V", "dVdt", "dV", "ca", "t"]
@@ -629,7 +630,7 @@ class ReactorEngine(Engine):
         self,
         T0=300.0,  # Initial temperature of fuel/air mixture (K)
         p0=103_325.0,  # Atmospheric pressure (Pa)
-        dt=5e-6,  # Time step for the 0D reactor (s)
+        dt=5e-6,  # Time step for integrating the 0D reactor (s)
         Tinj=900.0,  # Injection temperature of fuel/air mixture (K)
         minj=0.0002,  # Mass of injected fuel/air mixture (kg)
         max_injections=1,  # Maximum number of injections allowed
@@ -643,7 +644,7 @@ class ReactorEngine(Engine):
         self.minj = minj
         self.dt = dt
         self.observables = ["ca", "p", "T", "n_inj", "can_inject"]
-        self.internals = ["mb", "mu"]
+        self.internals = ["mb", "mu", "nox", "soot"]
         self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
 
         # Time take to complete (evo - ivc) rotation in seconds
@@ -714,7 +715,7 @@ class ReactorEngine(Engine):
         self.reactor_setup()
         self.sim.set_initial_time(self.time)
 
-        self.current_state[self.internals] = [0.0, 0.0]
+        self.current_state[self.internals] = [0.0, 0.0, 0.0, 0.0]
 
         self.action.reset()
 
@@ -766,7 +767,18 @@ class ReactorEngine(Engine):
         self.current_state["can_inject"] = (
             1 if self.action.counter["mdot"] < self.action.limit["mdot"] else 0
         )
-        self.current_state[self.internals] = [0, 0]
+        try:
+            nox = (
+                self.gas.mass_fraction_dict()["NO"]
+                + self.gas.mass_fraction_dict()["NO2"]
+            )
+        except KeyError:
+            nox = 0.0
+        try:
+            soot = self.gas.mass_fraction_dict()["C2H2"]
+        except KeyError:
+            soot = 0.0
+        self.current_state[self.internals] = [0, 0, nox, soot]
         self.current_state.name += 1
 
         reward, done = self.termination(action["mdot"])
