@@ -32,6 +32,46 @@ def calibrated_engine_ic():
 
 
 # ========================================================================
+def setup_injection_gas(rxnmech, fuel):
+    """Setup the injection gas"""
+    gas = ct.Solution(rxnmech)
+
+    if fuel == "PRF100":
+        fuel_composition = {"IC8H18": 1.0, "NC7H16": 0.0}
+        gas.X = x_from_fuel_composition(gas, fuel_composition)
+    elif fuel == "PRF85":
+        fuel_composition = {"IC8H18": 0.85, "NC7H16": 0.15}
+        gas.X = x_from_fuel_composition(gas, fuel_composition)
+    elif fuel == "dodecane":
+        gas.set_equivalence_ratio(1.5, "NC12H26", "O2:1.0, N2:3.76")
+    else:
+        sys.exit(f"Unrecognized fuel {fuel}")
+
+    return gas
+
+
+# ========================================================================
+def x_from_fuel_composition(gas, fuel_composition):
+    """Return X given a fuel composition"""
+    stoic_ox = 0.0
+    for sp, spv in fuel_composition.items():
+        stoic_ox += (
+            gas.n_atoms(gas.species_index(sp), "C") * spv
+            + 0.25 * gas.n_atoms(gas.species_index(sp), "H") * spv
+        )
+    xfu = 0.21 / stoic_ox
+    xox = 0.21
+    xbath = 1.0 - xfu - xox
+    xinit = {}
+    for sp, spv in fuel_composition.items():
+        xinit[sp] = spv * xfu
+    xinit["O2"] = xox
+    xinit["N2"] = xbath
+
+    return xinit
+
+
+# ========================================================================
 #
 # Classes
 #
@@ -39,7 +79,15 @@ def calibrated_engine_ic():
 class Engine(gym.Env):
     """An engine environment for OpenAI gym"""
 
-    def __init__(self, T0=298.0, p0=103_325.0, ivc=-100.0, evo=100.0):
+    def __init__(
+        self,
+        T0=298.0,
+        p0=103_325.0,
+        ivc=-100.0,
+        evo=100.0,
+        fuel="dodecane",
+        rxnmech="dodecane_lu_nox.cti",
+    ):
         super(Engine, self).__init__()
 
         # Engine parameters
@@ -47,6 +95,8 @@ class Engine(gym.Env):
         self.p0 = p0
         self.ivc = ivc
         self.evo = evo
+        self.fuel = fuel
+        self.rxnmech = rxnmech
         self.Bore = 0.0860000029206276  # Bore (m)
         self.Stroke = 0.0860000029206276  # Stroke length (m)
         self.RPM = 1495.17016601562  # RPM of the engine
@@ -61,6 +111,7 @@ class Engine(gym.Env):
         self.datadir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "datafiles"
         )
+        ct.add_directory(self.datadir)
 
         self.observable_space_lows = {
             "ca": self.ivc,
@@ -189,9 +240,18 @@ class TwoZoneEngine(Engine):
     """A two zone engine environment for OpenAI gym"""
 
     def __init__(
-        self, T0=298.0, p0=103_325.0, nsteps=100, fuel="PRF100", ivc=-100.0, evo=100.0
+        self,
+        T0=298.0,
+        p0=103_325.0,
+        nsteps=100,
+        ivc=-100.0,
+        evo=100.0,
+        fuel="PRF100",
+        rxnmech="llnl_gasoline_surrogate_323.xml",
     ):
-        super(TwoZoneEngine, self).__init__(T0=T0, p0=p0, ivc=ivc, evo=evo)
+        super(TwoZoneEngine, self).__init__(
+            T0=T0, p0=p0, ivc=ivc, evo=evo, fuel=fuel, rxnmech=rxnmech
+        )
 
         # Engine parameters
         self.nsteps = nsteps
@@ -200,54 +260,31 @@ class TwoZoneEngine(Engine):
         self.histories = ["V", "dVdt", "dV", "ca", "t"]
 
         # Engine setup
-        self.fuel_composition(fuel)
         self.fuel_setup()
         self.history_setup()
 
     def set_initial_state(self):
         self.p0 = self.starting_cycle_p
 
-    def fuel_composition(self, fuel):
-        if fuel == "PRF85":
-            self.fuel = {"IC8H18": 0.85, "NC7H16": 0.15}
-        elif fuel == "PRF100":
-            self.fuel = {"IC8H18": 1.0, "NC7H16": 0.0}
-        else:
-            sys.exit(f"Unrecognized fuel {fuel}")
-
     def fuel_setup(self):
         """Setup the fuel and save for faster reset"""
-        mname = os.path.join(self.datadir, "llnl_gasoline_surrogate_323.xml")
-        self.initial_gas = ct.Solution(mname)
-        stoic_ox = 0.0
-        for sp, spv in self.fuel.items():
-            stoic_ox += (
-                self.initial_gas.n_atoms(self.initial_gas.species_index(sp), "C") * spv
-                + 0.25
-                * self.initial_gas.n_atoms(self.initial_gas.species_index(sp), "H")
-                * spv
-            )
-        xfu = 0.21 / stoic_ox
-        xox = 0.21
-        xbath = 1.0 - xfu - xox
-        xinit = {}
-        for sp, spv in self.fuel.items():
-            xinit[sp] = spv * xfu
-        xinit["O2"] = xox
-        xinit["N2"] = xbath
-        self.initial_xinit = xinit
-        self.initial_gas.TPX = self.T0, self.p0, xinit
-        self.initial_gas.equilibrate("HP", solver="gibbs")
-        self.initial_xburnt = self.initial_gas.X
-        self.initial_Tb_ad = self.initial_gas.T
+
+        self.injection_gas = setup_injection_gas(self.rxnmech, self.fuel)
+
+        self.injection_gas.TP = self.T0, self.p0
+        self.injection_xinit = self.injection_gas.X
+
+        self.injection_gas.equilibrate("HP", solver="gibbs")
+        self.injection_xburnt = self.injection_gas.X
+        self.injection_Tb_ad = self.injection_gas.T
 
     def reset(self):
 
         # Reset fuel and oxidizer
-        self.gas1 = self.initial_gas
-        self.xinit = self.initial_xinit
-        self.xburnt = self.initial_xburnt
-        self.Tb_ad = self.initial_Tb_ad
+        self.gas1 = self.injection_gas
+        self.xinit = self.injection_xinit
+        self.xburnt = self.injection_xburnt
+        self.Tb_ad = self.injection_Tb_ad
 
         super(TwoZoneEngine, self).reset_state()
         self.current_state[self.internals] = [self.p0, self.T0, self.Tb_ad, 0.0]
@@ -457,13 +494,14 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         T0=298.0,
         p0=103_325.0,
         nsteps=100,
-        fuel="PRF100",
         use_qdot=False,
         ivc=-100.0,
         evo=100.0,
+        fuel="PRF100",
+        rxnmech="llnl_gasoline_surrogate_323.xml",
     ):
         super(ContinuousTwoZoneEngine, self).__init__(
-            T0=T0, p0=p0, nsteps=nsteps, fuel=fuel, ivc=ivc, evo=evo
+            T0=T0, p0=p0, nsteps=nsteps, ivc=ivc, evo=evo, fuel=fuel, rxnmech=rxnmech
         )
 
         # Engine parameters
@@ -515,13 +553,14 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         T0=298.0,
         p0=103_325.0,
         nsteps=100,
-        fuel="PRF100",
         ivc=-100.0,
         evo=100.0,
         max_injections=1,
+        fuel="PRF100",
+        rxnmech="llnl_gasoline_surrogate_323.xml",
     ):
         super(DiscreteTwoZoneEngine, self).__init__(
-            T0=T0, p0=p0, nsteps=nsteps, fuel=fuel, ivc=ivc, evo=evo
+            T0=T0, p0=p0, nsteps=nsteps, ivc=ivc, evo=evo, fuel=fuel, rxnmech=rxnmech
         )
 
         # Engine parameters
@@ -594,15 +633,15 @@ class ReactorEngine(Engine):
         Tinj=900.0,  # Injection temperature of fuel/air mixture (K)
         minj=0.0002,  # Mass of injected fuel/air mixture (kg)
         max_injections=1,  # Maximum number of injections allowed
+        fuel="dodecane",
         rxnmech="dodecane_lu_nox.cti",
     ):
-        super(ReactorEngine, self).__init__(T0=T0, p0=p0)
+        super(ReactorEngine, self).__init__(T0=T0, p0=p0, fuel=fuel, rxnmech=rxnmech)
 
         # Engine parameters
         self.Tinj = Tinj
         self.minj = minj
         self.dt = dt
-        self.rxnmech = rxnmech
         self.observables = ["ca", "p", "T", "n_inj", "can_inject"]
         self.internals = ["mb", "mu"]
         self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
@@ -633,7 +672,6 @@ class ReactorEngine(Engine):
 
     def engine_setup(self):
         """Setup the fuel and reactor"""
-        ct.add_directory(self.datadir)
         self.piston_setup()
         self.reactor_setup()
 
@@ -646,9 +684,7 @@ class ReactorEngine(Engine):
         self.initial_gas = ct.Solution(self.rxnmech)
         self.initial_gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
 
-        self.injection_gas = ct.Solution(self.rxnmech)
-        self.injection_gas.TP = self.Tinj, self.p0
-        self.injection_gas.set_equivalence_ratio(1.5, "NC12H26", "O2:1.0, N2:3.76")
+        self.injection_gas = setup_injection_gas(self.rxnmech, self.fuel)
 
         # Create the reactor object
         self.gas = self.initial_gas

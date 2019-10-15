@@ -144,7 +144,23 @@ if __name__ == "__main__":
         choices=["twozone-engine", "reactor-engine"],
     )
     parser.add_argument(
-        "--use_best_agent", help="Use the best agent, do not train", action="store_true"
+        "--fuel",
+        help="Fuel to use",
+        type=str,
+        default="dodecane",
+        choices=["dodecane", "PRF100", "PRF85"],
+    )
+    parser.add_argument(
+        "--rxnmech",
+        help="Reaction mechanism to use",
+        type=str,
+        default="dodecane_lu_nox.cti",
+        choices=[
+            "dodecane_lu_nox.cti",
+            "dodecane_mars.cti",
+            "dodecane_lu.cti",
+            "llnl_gasoline_surrogate_323.xml",
+        ],
     )
     args = parser.parse_args()
 
@@ -152,10 +168,9 @@ if __name__ == "__main__":
     start = time.time()
     np.random.seed(45473)
     logdir = f"{args.agent}"
-    if not args.use_best_agent:
-        if os.path.exists(logdir):
-            shutil.rmtree(logdir)
-        os.makedirs(logdir)
+    if os.path.exists(logdir):
+        shutil.rmtree(logdir)
+    os.makedirs(logdir)
     logname = os.path.join(logdir, "logger.csv")
     logs = pd.DataFrame(
         columns=["episode", "episode_step", "total_steps", "episode_reward"]
@@ -167,14 +182,21 @@ if __name__ == "__main__":
     # Initialize the engine
     T0, p0 = engines.calibrated_engine_ic()
     if args.engine_type == "reactor-engine":
-        eng = engines.ReactorEngine(T0=T0, p0=p0)
+        eng = engines.ReactorEngine(T0=T0, p0=p0, fuel=args.fuel, rxnmech=args.rxnmech)
     elif args.engine_type == "twozone-engine":
         if args.use_continuous:
             eng = engines.ContinuousTwoZoneEngine(
-                T0=T0, p0=p0, nsteps=args.nsteps, use_qdot=args.use_qdot
+                T0=T0,
+                p0=p0,
+                nsteps=args.nsteps,
+                use_qdot=args.use_qdot,
+                fuel=args.fuel,
+                rxnmech=args.rxnmech,
             )
         else:
-            eng = engines.DiscreteTwoZoneEngine(T0=T0, p0=p0, nsteps=args.nsteps)
+            eng = engines.DiscreteTwoZoneEngine(
+                T0=T0, p0=p0, nsteps=args.nsteps, fuel=args.fuel, rxnmech=args.rxnmech
+            )
 
     # Create the agent and train
     if args.agent == "calibrated":
@@ -223,17 +245,6 @@ if __name__ == "__main__":
             agent.set_env(env)
             _, best_reward = utilities.evaluate_agent(DummyVecEnv([lambda: eng]), agent)
             agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
-        elif args.use_best_agent:
-            agent = DQN.load(os.path.join(logdir, "best_agent.pkl"))
-            agent.set_env(env)
-            _, best_reward = utilities.evaluate_agent(DummyVecEnv([lambda: eng]), agent)
-            agent.exploration_fraction = 1e-6
-            agent.exploration_final_eps = 1e-6
-            agent.learn(
-                total_timesteps=args.nep * eng.nsteps,
-                callback=callback,
-                reset_num_timesteps=True,
-            )
         else:
             if args.engine_type == "reactor-engine":
                 agent = DQN(
@@ -286,6 +297,7 @@ if __name__ == "__main__":
                 noptepochs=16,
                 cliprange=0.68,
                 n_steps=16,
+                tensorboard_log=logdir,
             )
         agent.learn(
             total_timesteps=args.nep * args.nsteps * args.nranks, callback=callback
