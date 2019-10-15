@@ -65,9 +65,6 @@ def callback(_locals, _globals):
                 _locals["episode_reward"],
             ]
 
-    elif isinstance(_locals["self"], A2C):
-        warnings.warn("Callback not implemented for this agent")
-
     elif isinstance(_locals["self"], DQN):
         try:
             done = _locals["done"]

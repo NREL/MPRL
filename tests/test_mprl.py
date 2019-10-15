@@ -111,7 +111,9 @@ class MPRLTestCase(unittest.TestCase):
         """Does the ReactorEngine work as expected?"""
 
         # Initialize engine
-        eng = engines.ReactorEngine(T0=self.T0, p0=self.p0, dt=9e-6)
+        eng = engines.ReactorEngine(
+            T0=self.T0, p0=self.p0, dt=9e-6, rxnmech="dodecane_lu.cti"
+        )
 
         # Evaluate a dummy agent that injects at a fixed time
         env = DummyVecEnv([lambda: eng])

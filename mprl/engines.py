@@ -67,14 +67,14 @@ class Engine(gym.Env):
             "p": 0.0,
             "T": 0.0,
             "n_inj": 0.0,
-            "can_inject": False,
+            "can_inject": 0,
         }
         self.observable_space_highs = {
             "ca": self.evo,
             "p": np.finfo(np.float32).max,
             "T": np.finfo(np.float32).max,
             "n_inj": np.finfo(np.float32).max,
-            "can_inject": True,
+            "can_inject": 1,
         }
         self.observable_scales = {"p": 1e5}
 
@@ -471,6 +471,7 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
 
         # Final setup
         self.action = actiontypes.ContinuousActionType(use_qdot)
+        self.action_space = self.action.space
         self.define_observable_space()
         self.reset()
 
@@ -528,6 +529,7 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
 
         # Final setup
         self.action = actiontypes.DiscreteActionType(max_injections)
+        self.action_space = self.action.space
         self.define_observable_space()
         self.reset()
 
@@ -536,7 +538,7 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         self.current_state[self.observables] = super(
             DiscreteTwoZoneEngine, self
         ).reset()
-        self.current_state["can_inject"] = True
+        self.current_state["can_inject"] = 1
 
         return self.current_state[self.observables]
 
@@ -545,7 +547,7 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         super(DiscreteTwoZoneEngine, self).update_state(integ)
         self.current_state["n_inj"] = self.action.counter["mdot"]
         self.current_state["can_inject"] = (
-            self.action.counter["mdot"] < self.action.limit["mdot"]
+            1 if self.action.counter["mdot"] < self.action.limit["mdot"] else 0
         )
 
 
@@ -588,11 +590,11 @@ class ReactorEngine(Engine):
         self,
         T0=300.0,  # Initial temperature of fuel/air mixture (K)
         p0=103_325.0,  # Atmospheric pressure (Pa)
-        dt=1e-6,  # Time step for the 0D reactor (s)
+        dt=5e-6,  # Time step for the 0D reactor (s)
         Tinj=900.0,  # Injection temperature of fuel/air mixture (K)
         minj=0.0002,  # Mass of injected fuel/air mixture (kg)
         max_injections=1,  # Maximum number of injections allowed
-        rxnmech="dodecane_lu.cti",
+        rxnmech="dodecane_lu_nox.cti",
     ):
         super(ReactorEngine, self).__init__(T0=T0, p0=p0)
 
@@ -614,6 +616,7 @@ class ReactorEngine(Engine):
         self.set_initial_state()
         self.engine_setup()
         self.action = actiontypes.DiscreteActionType(max_injections)
+        self.action_space = self.action.space
         self.define_observable_space()
         self.reset()
 
@@ -725,7 +728,7 @@ class ReactorEngine(Engine):
         self.current_state[self.histories] = self.history.loc[step + 1, self.histories]
         self.current_state["n_inj"] = self.action.counter["mdot"]
         self.current_state["can_inject"] = (
-            self.action.counter["mdot"] < self.action.limit["mdot"]
+            1 if self.action.counter["mdot"] < self.action.limit["mdot"] else 0
         )
         self.current_state[self.internals] = [0, 0]
         self.current_state.name += 1
