@@ -34,6 +34,12 @@ if __name__ == "__main__":
         nargs="+",
     )
     parser.add_argument(
+        "-s", "--nsteps", help="Total steps in a given episode", type=int, default=201
+    )
+    parser.add_argument(
+        "--use_continuous", help="Use a continuous action space", action="store_true"
+    )
+    parser.add_argument(
         "--engine_type",
         help="Engine type to use",
         type=str,

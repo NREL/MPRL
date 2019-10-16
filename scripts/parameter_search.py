@@ -297,7 +297,7 @@ class Herd:
                 done = [False]
                 while not done[0]:
                     action, _ = agent.predict(obs, deterministic=True)
-                    obs, reward, done, _, info = env.step(action)
+                    obs, reward, done, info = env.step(action)
                     total_reward += reward[0]
 
                 print(
@@ -326,11 +326,7 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--agent", help="Agent to tune", type=str, required=True)
     parser.add_argument("-p", "--pop", help="Population size", type=int, default=20)
     parser.add_argument(
-        "-s",
-        "--steps_per_epoch",
-        help="Number of steps per epoch for each agent",
-        type=int,
-        default=10000,
+        "-s", "--nsteps", help="Total steps in a given episode", type=int, default=201
     )
     parser.add_argument(
         "-e", "--epochs", help="Number of epochs", type=int, default=100
@@ -343,6 +339,9 @@ if __name__ == "__main__":
         help="Total number of episodes to train in each epoch",
         type=int,
         default=100,
+    )
+    parser.add_argument(
+        "--use_continuous", help="Use a continuous action space", action="store_true"
     )
     parser.add_argument(
         "--engine_type",
@@ -395,6 +394,4 @@ if __name__ == "__main__":
 
     # Initialize the herd and study it
     herd = Herd(args.agent, args.pop, os.getcwd())
-    herd.study_the_population(
-        env, args.epochs, args.steps_per_epoch * args.nep * args.nranks
-    )
+    herd.study_the_population(env, args.epochs, args.nsteps * args.nep * args.nranks)

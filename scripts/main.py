@@ -10,7 +10,7 @@ import shutil
 import numpy as np
 import pandas as pd
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 import warnings
 import pickle
 from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     # Setup
     start = time.time()
     np.random.seed(45473)
-    logdir = f"{args.agent}"
+    logdir = f"""{args.agent}-{datetime.now().strftime("%Y%m%d-%H:%M:%S.%f")}"""
     if os.path.exists(logdir):
         shutil.rmtree(logdir)
     os.makedirs(logdir)
