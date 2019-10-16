@@ -113,42 +113,27 @@ def evaluate_agent(env, agent):
     """
 
     eng = env.envs[0]
-
-    # Save all the history
+    variables = eng.observables + eng.internals + eng.histories
     df = pd.DataFrame(
-        0.0,
-        index=eng.history.index,
-        columns=list(
-            dict.fromkeys(
-                eng.observables
-                + eng.internals
-                + eng.action.actions
-                + eng.histories
-                + ["rewards"]
-            )
-        ),
+        columns=list(dict.fromkeys(variables + eng.action.actions + ["rewards"]))
     )
-    df[eng.histories] = eng.history[eng.histories]
-    df.loc[0, ["rewards"]] = [engines.get_reward(eng.current_state)]
 
     # Evaluate actions from the agent in the environment
+    done = False
+    cnt = 0
     obs = env.reset()
-    df.loc[0, eng.observables] = obs
-    df.loc[0, eng.internals] = eng.current_state[eng.internals]
-    for index in eng.history.index[1:]:
+    df.loc[cnt, variables] = eng.current_state[variables]
+    df.loc[cnt, eng.action.actions] = 0
+    df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
+
+    while not done:
+        cnt += 1
         action, _ = agent.predict(obs, deterministic=True)
         obs, reward, done, info = env.step(action)
+        df.loc[cnt, variables] = info[0]["current_state"][variables]
+        df.loc[cnt, eng.action.actions] = eng.action.current
+        df.loc[cnt, ["rewards"]] = reward
 
-        # save history
-        df.loc[index, eng.action.actions] = eng.action.current
-        df.loc[index, eng.internals] = info[0]["internals"]
-        df.loc[index, ["rewards"]] = reward
-        df.loc[index, eng.observables] = obs
-        if done:
-            df.loc[index, eng.observables] = info[0]["terminal_observation"]
-            break
-
-    df = df.loc[:index, :]
     return df, df.rewards.sum()
 
 

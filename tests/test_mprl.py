@@ -44,66 +44,52 @@ class MPRLTestCase(unittest.TestCase):
 
         # Evaluate the agent
         df, total_reward = utilities.evaluate_agent(env, agent)
+        utilities.plot_df(env, df, idx=1, name="calibrated")
+        utilities.save_plots("dummy.pdf")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.00219521215114374)
         npt.assert_allclose(np.linalg.norm(df.p), 224.8448162626442)
-        npt.assert_allclose(np.linalg.norm(df.T), 101005.70274507966)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 10389.766862402124)
         npt.assert_allclose(np.linalg.norm(df.rewards), 5.269396578180232)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.6641914874662471)
+        npt.assert_allclose(np.linalg.norm(df.qdot), 97686.9157424243)
 
     def test_discrete_twozone_engine(self):
         """Does the DiscreteTwoZoneEngine work as expected?"""
 
         # Initialize engine
         eng = engines.DiscreteTwoZoneEngine(T0=self.T0, p0=self.p0, nsteps=21)
+        env = DummyVecEnv([lambda: eng])
+        variables = eng.observables + eng.internals + eng.histories
+        df = pd.DataFrame(
+            columns=list(dict.fromkeys(variables + eng.action.actions + ["rewards"]))
+        )
 
         # Evaluate a dummy agent that injects at a fixed time
-        env = DummyVecEnv([lambda: eng])
-        df = pd.DataFrame(
-            0.0,
-            index=eng.history.index,
-            columns=list(
-                dict.fromkeys(
-                    eng.observables
-                    + eng.internals
-                    + eng.action.actions
-                    + eng.histories
-                    + ["rewards"]
-                )
-            ),
-        )
-        df[eng.histories] = eng.history[eng.histories]
-        df.loc[0, ["rewards"]] = [engines.get_reward(eng.current_state)]
-
-        # Evaluate actions from the agent in the environment
+        done = False
+        cnt = 0
         obs = env.reset()
-        df.loc[0, eng.observables] = obs
-        df.loc[0, eng.internals] = eng.current_state[eng.internals]
-        for index in eng.history.index[1:]:
+        df.loc[cnt, variables] = eng.current_state[variables]
+        df.loc[cnt, eng.action.actions] = 0
+        df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
 
+        while not done:
+            cnt += 1
             # Agent tries to inject twice, but is not allowed
             if (eng.current_state.ca == -10) or eng.current_state.ca == 10:
                 action = [1]
             else:
                 action = [0]
             obs, reward, done, info = env.step(action)
-
-            # save history
-            df.loc[index, eng.action.actions] = eng.action.current
-            df.loc[index, eng.internals] = info[0]["internals"]
-            df.loc[index, ["rewards"]] = reward
-            df.loc[index, eng.observables] = obs
-            if done:
-                df.loc[index, eng.observables] = info[0]["terminal_observation"]
-                break
-
-        df = df.loc[:index, :]
+            df.loc[cnt, variables] = info[0]["current_state"][variables]
+            df.loc[cnt, eng.action.actions] = eng.action.current
+            df.loc[cnt, ["rewards"]] = reward
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.0010489973276327207)
         npt.assert_allclose(np.linalg.norm(df.p), 115.96622593656717)
-        npt.assert_allclose(np.linalg.norm(df.T), 12055.299832640749)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 4987.280871301738)
         npt.assert_allclose(np.linalg.norm(df.rewards), 2.0522427523102706)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.3)
 
@@ -114,51 +100,32 @@ class MPRLTestCase(unittest.TestCase):
         eng = engines.ReactorEngine(
             T0=self.T0, p0=self.p0, dt=9e-6, rxnmech="dodecane_lu.cti"
         )
+        env = DummyVecEnv([lambda: eng])
+        variables = eng.observables + eng.internals + eng.histories
+        df = pd.DataFrame(
+            columns=list(dict.fromkeys(variables + eng.action.actions + ["rewards"]))
+        )
 
         # Evaluate a dummy agent that injects at a fixed time
-        env = DummyVecEnv([lambda: eng])
-        df = pd.DataFrame(
-            0.0,
-            index=eng.history.index,
-            columns=list(
-                dict.fromkeys(
-                    eng.observables
-                    + eng.internals
-                    + eng.action.actions
-                    + eng.histories
-                    + ["rewards"]
-                )
-            ),
-        )
-        df[eng.histories] = eng.history[eng.histories]
-        df.loc[0, ["rewards"]] = [engines.get_reward(eng.current_state)]
-
-        # Evaluate actions from the agent in the environment
+        done = False
+        cnt = 0
         obs = env.reset()
-        df.loc[0, eng.observables] = obs
-        df.loc[0, eng.internals] = eng.current_state[eng.internals]
+        df.loc[cnt, variables] = eng.current_state[variables]
+        df.loc[cnt, eng.action.actions] = 0
+        df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
 
-        idx_inj = (eng.history.ca + 10).abs().idxmin()
-        for index in eng.history.index[1:]:
-
-            action = [1] if index == idx_inj else [0.0]
+        while not done:
+            cnt += 1
+            action = [1] if cnt == 1115 else [0.0]
             obs, reward, done, info = env.step(action)
-
-            # save history
-            df.loc[index, eng.action.actions] = eng.action.current
-            df.loc[index, eng.internals] = info[0]["internals"]
-            df.loc[index, ["rewards"]] = reward
-            df.loc[index, eng.observables] = obs
-            if done:
-                df.loc[index, eng.observables] = info[0]["terminal_observation"]
-                break
-
-        df = df.loc[:index, :]
+            df.loc[cnt, variables] = info[0]["current_state"][variables]
+            df.loc[cnt, eng.action.actions] = eng.action.current
+            df.loc[cnt, ["rewards"]] = reward
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.010811037851028842)
         npt.assert_allclose(np.linalg.norm(df.p), 1279.6542882315912)
-        npt.assert_allclose(np.linalg.norm(df.T), 62700.27309082788)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 62620.61299350846)
         npt.assert_allclose(np.linalg.norm(df.rewards), 25.366506367698257)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.3)
 

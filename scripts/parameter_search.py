@@ -294,12 +294,11 @@ class Herd:
                 obs = env.reset()
                 total_reward = 0.0
                 print("Evaluating agent ...")
-                for index in env.get_attr("history", indices=0)[0].index[1:]:
+                done = [False]
+                while not done[0]:
                     action, _ = agent.predict(obs, deterministic=True)
                     obs, reward, done, _, info = env.step(action)
                     total_reward += reward[0]
-                    if done[0]:
-                        break
 
                 print(
                     f"Trial {tr_idx} (iteration {e_idx}): total reward = {total_reward}"

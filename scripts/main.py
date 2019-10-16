@@ -74,7 +74,7 @@ def callback(_locals, _globals):
         if done:
             info = [
                 _locals["num_episodes"] - 1,
-                _locals["info"]["internals"].name,
+                _locals["info"]["current_state"].name,
                 _locals["_"],
                 _locals["episode_rewards"][-2],
             ]

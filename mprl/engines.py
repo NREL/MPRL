@@ -347,7 +347,7 @@ class TwoZoneEngine(Engine):
             self.current_state[self.observables],
             reward,
             done,
-            {"internals": self.current_state[self.internals]},
+            {"current_state": self.current_state},
         )
 
     def dfundt_mdot(self, t, y, mxdot, V, dVdt, Qdot=0.0):
@@ -796,5 +796,5 @@ class ReactorEngine(Engine):
             self.current_state[self.observables],
             reward,
             done,
-            {"internals": self.current_state[self.internals]},
+            {"current_state": self.current_state},
         )
