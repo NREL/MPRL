@@ -112,13 +112,6 @@ if __name__ == "__main__":
         choices=["calibrated", "ddpg", "a2c", "dqn", "ppo"],
     )
     parser.add_argument(
-        "-t",
-        "--total_timesteps",
-        help="Total number of steps for training",
-        type=int,
-        default=100,
-    )
-    parser.add_argument(
         "-s", "--nsteps", help="Total steps in a given episode", type=int, default=201
     )
     parser.add_argument(
@@ -224,7 +217,7 @@ if __name__ == "__main__":
                 action_noise=action_noise,
                 tensorboard_log=logdir,
             )
-        agent.learn(total_timesteps=args.total_timesteps, callback=callback)
+        agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
     elif args.agent == "a2c":
         env = SubprocVecEnv([lambda: eng for i in range(args.nranks)])
         if args.use_pretrained:
@@ -232,7 +225,6 @@ if __name__ == "__main__":
             agent.set_env(env)
         else:
             agent = A2C(MlpPolicy, env, verbose=1, n_steps=1, tensorboard_log=logdir)
-        # agent.learn(total_timesteps=args.total_timesteps, callback=callback)
         agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
     elif args.agent == "dqn":
         env = DummyVecEnv([lambda: eng])
