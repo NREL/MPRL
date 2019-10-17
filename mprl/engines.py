@@ -101,7 +101,7 @@ class Engine(gym.Env):
         self.rxnmech = rxnmech
         self.Bore = 0.0860000029206276  # Bore (m)
         self.Stroke = 0.0860000029206276  # Stroke length (m)
-        self.RPM = 1495.17016601562  # RPM of the engine
+        self.RPM = 1500  # RPM of the engine
         self.TDCvol = 6.09216205775738e-5  # Volume at Top-Dead-Center (m^3)
         self.time = 0.0
         self.small_mass = 1.0e-15
@@ -156,7 +156,7 @@ class Engine(gym.Env):
     def history_setup(self):
         """Setup the engine history and save for faster reset"""
         cname = os.path.join(self.datadir, "Isooctane_MBT_DI_50C_Summ.xlsx")
-        self.tscale = 9000.0
+        self.tscale = 1.0 / (60.0 / self.RPM / 360.0)
         self.full_cycle = pd.concat(
             [
                 pd.read_excel(

@@ -160,7 +160,7 @@ if __name__ == "__main__":
     # Setup
     start = time.time()
     np.random.seed(45473)
-    logdir = f"""{args.agent}-{datetime.now().strftime("%Y%m%d-%H:%M:%S.%f")}"""
+    logdir = f"""{args.agent}-{datetime.now().strftime("%Y%m%d-%H_%M_%S.%f")}"""
     if os.path.exists(logdir):
         shutil.rmtree(logdir)
     os.makedirs(logdir)
@@ -169,7 +169,9 @@ if __name__ == "__main__":
         columns=["episode", "episode_step", "total_steps", "episode_reward"]
     )
     logs.to_csv(logname, index=False)
-    pickle.dump(args, open(os.path.join(logdir, "args.pkl"), "wb"))
+    with open(os.path.join(logdir, "args.txt"), "w") as f:
+        for arg, val in args.__dict__.items():
+            f.write(f"{arg}: {val}\n")
     best_reward = -np.inf
 
     # Initialize the engine
