@@ -15,9 +15,9 @@ from gym import spaces
 #
 # ========================================================================
 class ActionType(ABC):
-    def __init__(self):
+    def __init__(self, actions):
         super().__init__()
-        self.actions = []
+        self.actions = actions
         self.size = len(self.actions)
         self.space = None
         self.masked = False
@@ -26,8 +26,6 @@ class ActionType(ABC):
         self.counter = None
         self.limit = None
         self.use_qdot = False
-        self.max_mdot = 0.5
-        self.max_qdot = np.finfo(np.float32).max
 
     def parse(self, action):
         """Create dictionary of actions"""
@@ -54,21 +52,16 @@ class ActionType(ABC):
 
 # ========================================================================
 class ContinuousActionType(ActionType):
-    def __init__(self, use_qdot):
-        super(ContinuousActionType, self).__init__()
-        self.use_qdot = use_qdot
+    def __init__(self, actions):
+        super(ContinuousActionType, self).__init__(actions)
 
-        self.actions = ["mdot"]
-        if self.use_qdot:
-            self.actions.append("qdot")
-        self.size = len(self.actions)
+        self.use_qdot = "qdot" in actions
 
-        if self.use_qdot:
-            actions_low = np.array([0, -self.max_qdot])
-            actions_high = np.array([self.max_mdot, self.max_qdot])
-        else:
-            actions_low = np.array([0])
-            actions_high = np.array([self.max_mdot])
+        mins = {"mdot": 0.0, "qdot": -np.finfo(np.float32).max}
+        maxs = {"mdot": 0.5, "qdot": np.finfo(np.float32).max}
+
+        actions_low = np.array([mins[key] for key in actions])
+        actions_high = np.array([maxs[key] for key in actions])
         self.space = spaces.Box(low=actions_low, high=actions_high, dtype=np.float16)
 
     def preprocess(self, action):
@@ -80,14 +73,12 @@ class ContinuousActionType(ActionType):
 
 # ========================================================================
 class DiscreteActionType(ActionType):
-    def __init__(self, max_injections):
-        super(DiscreteActionType, self).__init__()
+    def __init__(self, actions, scales, limits):
+        super(DiscreteActionType, self).__init__(actions)
 
-        self.actions = ["mdot"]
-        self.size = len(self.actions)
-        self.scales = {"mdot": 0.3}
-        self.counter = {"mdot": 0}
-        self.limit = {"mdot": max_injections}
+        self.scales = scales
+        self.limit = limits
+        self.counter = {key: 0 for key in self.actions}
         self.space = spaces.Discrete(2)
 
     def preprocess(self, action):

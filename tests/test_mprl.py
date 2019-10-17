@@ -44,8 +44,6 @@ class MPRLTestCase(unittest.TestCase):
 
         # Evaluate the agent
         df, total_reward = utilities.evaluate_agent(env, agent)
-        utilities.plot_df(env, df, idx=1, name="calibrated")
-        utilities.save_plots("dummy.pdf")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.00219521215114374)
@@ -59,7 +57,7 @@ class MPRLTestCase(unittest.TestCase):
         """Does the DiscreteTwoZoneEngine work as expected?"""
 
         # Initialize engine
-        eng = engines.DiscreteTwoZoneEngine(T0=self.T0, p0=self.p0, nsteps=21)
+        eng = engines.DiscreteTwoZoneEngine(T0=self.T0, p0=self.p0, nsteps=201)
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
         df = pd.DataFrame(
@@ -76,29 +74,34 @@ class MPRLTestCase(unittest.TestCase):
 
         while not done:
             cnt += 1
-            # Agent tries to inject twice, but is not allowed
-            if (eng.current_state.ca == -10) or eng.current_state.ca == 10:
-                action = [1]
-            else:
-                action = [0]
+            # Agent tries to inject twice, but is not allowed the second time
+            action = (
+                [1]
+                if (eng.current_state.ca == -10) or eng.current_state.ca == 10
+                else [0]
+            )
             obs, reward, done, info = env.step(action)
             df.loc[cnt, variables] = info[0]["current_state"][variables]
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
 
         # Test
-        npt.assert_allclose(np.linalg.norm(df.V), 0.0010489973276327207)
-        npt.assert_allclose(np.linalg.norm(df.p), 115.96622593656717)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 4987.280871301738)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 2.0522427523102706)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.3)
+        npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
+        npt.assert_allclose(np.linalg.norm(df.p), 333.87423985351336)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 11588.56110434575)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 5.979798997051359)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 1.8)
 
     def test_reactor_engine(self):
         """Does the ReactorEngine work as expected?"""
 
         # Initialize engine
         eng = engines.ReactorEngine(
-            T0=self.T0, p0=self.p0, dt=9e-6, rxnmech="dodecane_lu.cti"
+            T0=self.T0,
+            p0=self.p0,
+            agent_steps=201,
+            dt=5e-6,
+            rxnmech="dodecane_lu_nox.cti",
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -116,18 +119,23 @@ class MPRLTestCase(unittest.TestCase):
 
         while not done:
             cnt += 1
-            action = [1] if cnt == 1115 else [0.0]
+            # Agent tries to inject twice, but is not allowed the second time
+            action = (
+                [1]
+                if (eng.current_state.ca == -10) or eng.current_state.ca == 10
+                else [0]
+            )
             obs, reward, done, info = env.step(action)
             df.loc[cnt, variables] = info[0]["current_state"][variables]
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
 
         # Test
-        npt.assert_allclose(np.linalg.norm(df.V), 0.010811037851028842)
-        npt.assert_allclose(np.linalg.norm(df.p), 1279.6542882315912)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 62620.61299350846)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 25.366506367698257)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.3)
+        npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
+        npt.assert_allclose(np.linalg.norm(df.p), 352.60457507736834)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 17713.566835234808)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 6.7807147069970926)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 1.8)
 
 
 # ========================================================================
