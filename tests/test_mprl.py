@@ -29,6 +29,9 @@ class MPRLTestCase(unittest.TestCase):
             os.path.dirname(os.path.realpath(__file__)), "trained_agents"
         )
 
+    def tearDown(self):
+        utilities.save_plots("tests.pdf")
+
     def test_calibrated_agent(self):
         """Does the calibrated agent work as expected?"""
 
@@ -44,12 +47,13 @@ class MPRLTestCase(unittest.TestCase):
 
         # Evaluate the agent
         df, total_reward = utilities.evaluate_agent(env, agent)
+        utilities.plot_df(env, df, idx=3, name="calibrated")
 
         # Test
-        npt.assert_allclose(np.linalg.norm(df.V), 0.00219521215114374)
-        npt.assert_allclose(np.linalg.norm(df.p), 224.8448162626442)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 10389.766862402124)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 5.269396578180232)
+        npt.assert_allclose(np.linalg.norm(df.V), 0.0021952121511437405)
+        npt.assert_allclose(np.linalg.norm(df.p), 23562451.47495935)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 9546.3503213235)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 109.90666061638017)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.6641914874662471)
         npt.assert_allclose(np.linalg.norm(df.qdot), 97686.9157424243)
 
@@ -85,11 +89,13 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
 
+        utilities.plot_df(env, df, idx=0, name="ppo")
+
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
-        npt.assert_allclose(np.linalg.norm(df.p), 333.87423985351336)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 11588.56110434575)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 5.979798997051359)
+        npt.assert_allclose(np.linalg.norm(df.p), 34353773.82674564)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 11479.49800333749)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 61.69149868914742)
         npt.assert_allclose(np.linalg.norm(df.mdot), 1.8)
 
     def test_reactor_engine(self):
@@ -130,11 +136,13 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
 
+        utilities.plot_df(env, df, idx=2, name="ppo")
+
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
-        npt.assert_allclose(np.linalg.norm(df.p), 352.60457507736834)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 17713.566835234808)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 6.7807147069970926)
+        npt.assert_allclose(np.linalg.norm(df.p), 34947739.8530044)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 17690.170880280697)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 70.27580232757381)
         npt.assert_allclose(np.linalg.norm(df.mdot), 1.8)
 
 

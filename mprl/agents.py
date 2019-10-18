@@ -37,13 +37,14 @@ class CalibratedAgent(Agent):
         self.actions.mdot[self.actions.mdot < 0] = 0
         self.actions = self.actions[self.env.envs[0].action.actions]
 
-    def predict(self, state, deterministic=True):
+    def predict(self, obs, deterministic=True):
 
         # Find the action matching the current CA
         idx = (
             np.abs(
                 self.env.envs[0].history.ca
-                - state.flatten()[self.env.envs[0].observables.index("ca")]
+                - obs.flatten()[self.env.envs[0].observables.index("ca")]
+                * self.env.envs[0].observable_scales["ca"]
             )
         ).idxmin()
 

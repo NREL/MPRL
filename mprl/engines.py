@@ -121,10 +121,10 @@ class Engine(gym.Env):
         self.Stroke = 0.0860000029206276  # Stroke length (m)
         self.RPM = 1500  # RPM of the engine
         self.TDCvol = 6.09216205775738e-5  # Volume at Top-Dead-Center (m^3)
-        self.tscale = 1.0 / (60.0 / self.RPM / 360.0)
+        self.s2ca = 1.0 / (60.0 / self.RPM / 360.0)
         self.total_time = (
             self.evo - self.ivc
-        ) / self.tscale  # Time take to complete (evo - ivc) rotation in seconds
+        ) / self.s2ca  # Time take to complete (evo - ivc) rotation in seconds
         self.small_mass = 1.0e-15
         self.max_burned_mass = 6e-3
         self.max_pressure = 200 * ct.one_atm
@@ -150,7 +150,13 @@ class Engine(gym.Env):
             "n_inj": np.finfo(np.float32).max,
             "can_inject": 1,
         }
-        self.observable_scales = {"p": 1e5}
+
+        # FIXME come up with better scales for p and T
+        self.observable_scales = {
+            "p": 6e6,
+            "T": 1200,
+            "ca": 0.5 * (self.evo - self.ivc),
+        }
 
     def define_observable_space(self):
         """Define the observable space"""
@@ -165,14 +171,10 @@ class Engine(gym.Env):
         )
 
     def scale_observables(self, df):
+        sdf = df.copy()
         for key in self.observable_scales:
-            df[key] /= self.observable_scales[key]
-        return df
-
-    def unscale_observables(self, df):
-        for key in self.observable_scales:
-            df[key] *= self.observable_scales[key]
-        return df
+            sdf[key] /= self.observable_scales[key]
+        return sdf
 
     def history_setup(self):
         """Setup the engine history and save for faster reset"""
@@ -192,14 +194,14 @@ class Engine(gym.Env):
                 "Crank Angle [ATDC]": "ca",
                 "Volume [Liter]": "V",
                 "PCYL1 - [kPa]_1": "p",
-                "dVolume [Liter]": "dVdt",
+                "dVolume [Liter]": "dV",
             },
             inplace=True,
         )
+        l2m3 = 1e-3
         self.full_cycle.p = self.full_cycle.p * 1e3 + 101_325.0
-        self.full_cycle.V = self.full_cycle.V * 1e-3
-        self.full_cycle.dVdt = self.full_cycle.dVdt * 1e-3 / (0.1 / self.tscale)
-        self.full_cycle["t"] = (self.full_cycle.ca + 360) / self.tscale
+        self.full_cycle.V = self.full_cycle.V * l2m3
+        self.full_cycle["t"] = (self.full_cycle.ca + 360) / self.s2ca
 
         cycle = self.full_cycle[
             (self.full_cycle.ca >= self.ivc) & (self.full_cycle.ca <= self.evo)
@@ -209,7 +211,7 @@ class Engine(gym.Env):
         # interpolate the cycle
         interp, self.dca = np.linspace(self.ivc, self.evo, self.nsteps, retstep=True)
         cycle = utilities.interpolate_df(interp, "ca", cycle)
-        self.dt = self.dca / self.tscale
+        self.dt = self.dca / self.s2ca
 
         # Initialize the engine history
         self.history = pd.DataFrame(
@@ -217,8 +219,8 @@ class Engine(gym.Env):
         )
         self.starting_cycle_p = cycle.p[0]
         self.history.V = cycle.V.copy()
-        self.history.dVdt = cycle.dVdt.copy()
-        self.history.dV = self.history.dVdt * (0.1 / self.tscale)
+        self.history.dV = np.hstack(([0], np.diff(self.history.V)))
+        self.history.dVdt = self.history.dV / self.dt
         self.history.ca = cycle.ca.copy()
         self.history.t = cycle.t.copy()
 
@@ -312,8 +314,6 @@ class TwoZoneEngine(Engine):
 
         self.action.reset()
 
-        self.current_state = self.scale_observables(self.current_state)
-
         return self.current_state[self.observables]
 
     def update_state(self, integ):
@@ -326,8 +326,6 @@ class TwoZoneEngine(Engine):
 
     def step(self, action):
         "Advance the engine to the next state using the action"
-
-        self.current_state = self.unscale_observables(self.current_state)
 
         action = self.action.preprocess(action)
 
@@ -362,9 +360,8 @@ class TwoZoneEngine(Engine):
             print(f"Finished episode #{self.nepisode}")
             self.nepisode += 1
 
-        self.current_state = self.scale_observables(self.current_state)
         return (
-            self.current_state[self.observables],
+            self.scale_observables(self.current_state)[self.observables],
             reward,
             done,
             {"current_state": self.current_state},
@@ -748,14 +745,10 @@ class ReactorEngine(Engine):
 
         self.action.reset()
 
-        self.current_state = self.scale_observables(self.current_state)
-
         return self.current_state[self.observables]
 
     def step(self, action):
         "Advance the engine to the next state using the action"
-
-        self.current_state = self.unscale_observables(self.current_state)
 
         action = self.action.preprocess(action)
 
@@ -812,8 +805,6 @@ class ReactorEngine(Engine):
 
             reward += sub_reward
 
-        reward /= self.substeps
-
         # Add negative reward if the action had to be masked
         if self.action.masked:
             reward += self.small_negative_reward
@@ -822,9 +813,8 @@ class ReactorEngine(Engine):
             print(f"Finished episode #{self.nepisode}")
             self.nepisode += 1
 
-        self.current_state = self.scale_observables(self.current_state)
         return (
-            self.current_state[self.observables],
+            self.scale_observables(self.current_state)[self.observables],
             reward,
             done,
             {"current_state": self.current_state},

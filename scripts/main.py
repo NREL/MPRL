@@ -12,7 +12,7 @@ import pandas as pd
 import time
 from datetime import datetime, timedelta
 import warnings
-import pickle
+import git
 from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.deepq.policies import FeedForwardPolicy
@@ -169,7 +169,9 @@ if __name__ == "__main__":
         columns=["episode", "episode_step", "total_steps", "episode_reward"]
     )
     logs.to_csv(logname, index=False)
+    repo = git.Repo(search_parent_directories=True)
     with open(os.path.join(logdir, "args.txt"), "w") as f:
+        f.write(f"hash: {repo.head.object.hexsha}\n")
         for arg, val in args.__dict__.items():
             f.write(f"{arg}: {val}\n")
     best_reward = -np.inf
