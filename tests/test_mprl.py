@@ -37,7 +37,12 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         eng = engines.ContinuousTwoZoneEngine(
-            T0=self.T0, p0=self.p0, nsteps=100, use_qdot=True
+            T0=self.T0,
+            p0=self.p0,
+            nsteps=100,
+            use_qdot=True,
+            fuel="PRF100",
+            rxnmech="llnl_gasoline_surrogate_323.xml",
         )
 
         # Initialize the agent
@@ -61,7 +66,14 @@ class MPRLTestCase(unittest.TestCase):
         """Does the DiscreteTwoZoneEngine work as expected?"""
 
         # Initialize engine
-        eng = engines.DiscreteTwoZoneEngine(T0=self.T0, p0=self.p0, nsteps=201)
+        eng = engines.DiscreteTwoZoneEngine(
+            T0=self.T0,
+            p0=self.p0,
+            nsteps=201,
+            fuel="PRF100",
+            rxnmech="llnl_gasoline_surrogate_323.xml",
+            small_negative_reward=-0.05,
+        )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
         df = pd.DataFrame(
@@ -108,6 +120,7 @@ class MPRLTestCase(unittest.TestCase):
             agent_steps=201,
             dt=5e-6,
             rxnmech="dodecane_lu_nox.cti",
+            small_negative_reward=-0.05,
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories

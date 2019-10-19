@@ -106,6 +106,7 @@ class Engine(gym.Env):
         evo=100.0,
         fuel="dodecane",
         rxnmech="dodecane_lu_nox.cti",
+        small_negative_reward=-1.0,
     ):
         super(Engine, self).__init__()
 
@@ -128,7 +129,7 @@ class Engine(gym.Env):
         self.small_mass = 1.0e-15
         self.max_burned_mass = 6e-3
         self.max_pressure = 200 * ct.one_atm
-        self.small_negative_reward = -0.05
+        self.small_negative_reward = small_negative_reward
         self.nepisode = 0
         self.action = None
         self.datadir = os.path.join(
@@ -263,19 +264,8 @@ class Engine(gym.Env):
 class TwoZoneEngine(Engine):
     """A two zone engine environment for OpenAI gym"""
 
-    def __init__(
-        self,
-        T0=298.0,
-        p0=103_325.0,
-        nsteps=100,
-        ivc=-100.0,
-        evo=100.0,
-        fuel="PRF100",
-        rxnmech="llnl_gasoline_surrogate_323.xml",
-    ):
-        super(TwoZoneEngine, self).__init__(
-            T0=T0, p0=p0, nsteps=nsteps, ivc=ivc, evo=evo, fuel=fuel, rxnmech=rxnmech
-        )
+    def __init__(self, *args, **kwargs):
+        super(TwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
         self.negative_reward = -self.nsteps
@@ -507,20 +497,8 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         Total injected burned mass is greater than a specified max mass (6e-4 kg)
     """
 
-    def __init__(
-        self,
-        T0=298.0,
-        p0=103_325.0,
-        nsteps=100,
-        use_qdot=False,
-        ivc=-100.0,
-        evo=100.0,
-        fuel="PRF100",
-        rxnmech="llnl_gasoline_surrogate_323.xml",
-    ):
-        super(ContinuousTwoZoneEngine, self).__init__(
-            T0=T0, p0=p0, nsteps=nsteps, ivc=ivc, evo=evo, fuel=fuel, rxnmech=rxnmech
-        )
+    def __init__(self, *args, use_qdot=False, **kwargs):
+        super(ContinuousTwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
         self.observables = ["ca", "p", "T"]
@@ -567,21 +545,8 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         Total injected burned mass is greater than a specified max mass (6e-4 kg)
     """
 
-    def __init__(
-        self,
-        T0=298.0,
-        p0=103_325.0,
-        nsteps=100,
-        ivc=-100.0,
-        evo=100.0,
-        minj=0.0002,
-        max_injections=1,
-        fuel="PRF100",
-        rxnmech="llnl_gasoline_surrogate_323.xml",
-    ):
-        super(DiscreteTwoZoneEngine, self).__init__(
-            T0=T0, p0=p0, nsteps=nsteps, ivc=ivc, evo=evo, fuel=fuel, rxnmech=rxnmech
-        )
+    def __init__(self, *args, minj=0.0002, max_injections=1, **kwargs):
+        super(DiscreteTwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
         self.observables = ["ca", "p", "T", "n_inj", "can_inject"]
@@ -650,17 +615,15 @@ class ReactorEngine(Engine):
 
     def __init__(
         self,
-        T0=300.0,  # Initial temperature of fuel/air mixture (K)
-        p0=103_325.0,  # Atmospheric pressure (Pa)
+        *args,
         agent_steps=100,
         dt=5e-6,  # Time step for integrating the 0D reactor (s)
         Tinj=900.0,  # Injection temperature of fuel/air mixture (K)
         minj=0.0002,  # Mass of injected fuel/air mixture (kg)
         max_injections=1,  # Maximum number of injections allowed
-        fuel="dodecane",
-        rxnmech="dodecane_lu_nox.cti",
+        **kwargs,
     ):
-        super(ReactorEngine, self).__init__(T0=T0, p0=p0, fuel=fuel, rxnmech=rxnmech)
+        super(ReactorEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
         self.Tinj = Tinj
