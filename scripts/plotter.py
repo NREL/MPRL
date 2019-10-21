@@ -5,6 +5,7 @@
 # ========================================================================
 import os
 import sys
+import glob
 import argparse
 import pickle
 from stable_baselines.common.vec_env import DummyVecEnv
@@ -24,7 +25,7 @@ import mprl.utilities as utilities
 if __name__ == "__main__":
 
     # Parse arguments
-    parser = argparse.ArgumentParser(description="Train and evaluate an agent")
+    parser = argparse.ArgumentParser(description="Plot agents")
     parser.add_argument(
         "-a",
         "--agents",
@@ -36,35 +37,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "-s", "--nsteps", help="Total steps in a given episode", type=int, default=201
     )
-    parser.add_argument(
-        "--use_continuous", help="Use a continuous action space", action="store_true"
-    )
-    parser.add_argument(
-        "--engine_type",
-        help="Engine type to use",
-        type=str,
-        default="twozone-engine",
-        choices=["twozone-engine", "reactor-engine"],
-    )
-    parser.add_argument(
-        "--fuel",
-        help="Fuel to use",
-        type=str,
-        default="dodecane",
-        choices=["dodecane", "PRF100", "PRF85"],
-    )
-    parser.add_argument(
-        "--rxnmech",
-        help="Reaction mechanism to use",
-        type=str,
-        default="dodecane_lu_nox.cti",
-        choices=[
-            "dodecane_lu_nox.cti",
-            "dodecane_mars.cti",
-            "dodecane_lu.cti",
-            "llnl_gasoline_surrogate_323.xml",
-        ],
-    )
     args = parser.parse_args()
 
     for k, fdir in enumerate(args.agents):
@@ -75,27 +47,27 @@ if __name__ == "__main__":
 
         # Initialize the engine
         T0, p0 = engines.calibrated_engine_ic()
-        if args.engine_type == "reactor-engine":
+        if run_args.engine_type == "reactor-engine":
             eng = engines.ReactorEngine(
-                T0=T0, p0=p0, fuel=args.fuel, rxnmech=args.rxnmech
+                T0=T0, p0=p0, fuel=run_args.fuel, rxnmech=run_args.rxnmech
             )
-        elif args.engine_type == "twozone-engine":
-            if args.use_continuous:
+        elif run_args.engine_type == "twozone-engine":
+            if run_args.use_continuous:
                 eng = engines.ContinuousTwoZoneEngine(
                     T0=T0,
                     p0=p0,
                     nsteps=args.nsteps,
-                    use_qdot=args.use_qdot,
-                    fuel=args.fuel,
-                    rxnmech=args.rxnmech,
+                    use_qdot=run_args.use_qdot,
+                    fuel=run_args.fuel,
+                    rxnmech=run_args.rxnmech,
                 )
             else:
                 eng = engines.DiscreteTwoZoneEngine(
                     T0=T0,
                     p0=p0,
                     nsteps=args.nsteps,
-                    fuel=args.fuel,
-                    rxnmech=args.rxnmech,
+                    fuel=run_args.fuel,
+                    rxnmech=run_args.rxnmech,
                 )
 
         env = DummyVecEnv([lambda: eng])
@@ -109,6 +81,7 @@ if __name__ == "__main__":
         elif run_args.agent == "a2c":
             agent = A2C.load(fname, env=env)
         elif run_args.agent == "ppo":
+            pfx = "PPO2_1"
             agent = PPO2.load(fname, env=env)
         elif run_args.agent == "dqn":
             agent = DQN.load(fname, env=env)
@@ -116,4 +89,9 @@ if __name__ == "__main__":
         df, total_reward = utilities.evaluate_agent(env, agent)
         utilities.plot_df(env, df, idx=k, name=run_args.agent)
 
+        utilities.plot_tb(
+            os.path.join(fdir, pfx, "data.csv"), idx=k, name=run_args.agent
+        )
+
     utilities.save_plots("compare.pdf")
+    utilities.save_tb_plots("compare_training.pdf")

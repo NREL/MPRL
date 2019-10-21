@@ -12,6 +12,7 @@ import pandas as pd
 import time
 from datetime import datetime, timedelta
 import warnings
+import pickle
 import git
 from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
 from stable_baselines.common.policies import MlpPolicy
@@ -79,6 +80,17 @@ def callback(_locals, _globals):
                 _locals["episode_rewards"][-2],
             ]
 
+    elif isinstance(_locals["self"], PPO2):
+        noutput = 10
+        nint = int(
+            np.ceil((_locals["total_timesteps"] / noutput) / _locals["self"].n_steps)
+        )
+        if _locals["self"].num_timesteps % (nint * _locals["self"].n_steps) == 0:
+            print(f"""Checkpoint agent at step {_locals["self"].num_timesteps}""")
+            _locals["self"].save(
+                os.path.join(_locals["self"].tensorboard_log, "checkpoint.pkl")
+            )
+
     else:
         warnings.warn("Callback not implemented for this agent")
 
@@ -120,8 +132,9 @@ if __name__ == "__main__":
     parser.add_argument("--nranks", help="Number of MPI ranks", type=int, default=1)
     parser.add_argument(
         "--use_pretrained",
-        help="Use a pretrained network as a starting point",
-        action="store_true",
+        help="Directory containing a pretrained network to use as a starting point",
+        type=str,
+        default=None,
     )
     parser.add_argument(
         "--use_qdot", help="Use a Qdot as an action", action="store_true"
@@ -174,6 +187,7 @@ if __name__ == "__main__":
         f.write(f"hash: {repo.head.object.hexsha}\n")
         for arg, val in args.__dict__.items():
             f.write(f"{arg}: {val}\n")
+    pickle.dump(args, open(os.path.join(logdir, "args.pkl"), "wb"))
     best_reward = -np.inf
 
     # Initialize the engine
@@ -203,8 +217,8 @@ if __name__ == "__main__":
     elif args.agent == "ddpg":
         eng.action.symmetrize_space()
         env = DummyVecEnv([lambda: eng])
-        if args.use_pretrained:
-            agent = DDPG.load(os.path.join(f"{args.agent}-pretrained", "agent"))
+        if args.use_pretrained is not None:
+            agent = DDPG.load(os.path.join(args.use_pretrained, "agent"))
             agent.set_env(env)
             _, best_reward = utilities.evaluate_agent(DummyVecEnv([lambda: eng]), agent)
         else:
@@ -224,17 +238,17 @@ if __name__ == "__main__":
         agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
     elif args.agent == "a2c":
         env = SubprocVecEnv([lambda: eng for i in range(args.nranks)])
-        if args.use_pretrained:
-            agent = A2C.load(os.path.join(f"{args.agent}-pretrained", "agent"))
+        if args.use_pretrained is not None:
+            agent = A2C.load(os.path.join(args.use_pretrained, "agent"))
             agent.set_env(env)
         else:
             agent = A2C(MlpPolicy, env, verbose=1, n_steps=1, tensorboard_log=logdir)
         agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
     elif args.agent == "dqn":
         env = DummyVecEnv([lambda: eng])
-        if args.use_pretrained:
+        if args.use_pretrained is not None:
             agent = DQN.load(
-                os.path.join(f"{args.agent}-pretrained", "agent"),
+                os.path.join(args.use_pretrained, "agent"),
                 exploration_fraction=0.03,
                 exploration_final_eps=0.02,
             )
@@ -275,8 +289,8 @@ if __name__ == "__main__":
                 agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
     elif args.agent == "ppo":
         env = DummyVecEnv([lambda: eng])
-        if args.use_pretrained:
-            agent = PPO2.load(os.path.join(f"{args.agent}-pretrained", "agent"))
+        if args.use_pretrained is not None:
+            agent = PPO2.load(os.path.join(args.use_pretrained, "agent"))
             agent.set_env(env)
         else:
             agent = PPO2(

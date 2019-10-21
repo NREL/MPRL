@@ -178,7 +178,7 @@ def plot_df(env, df, idx=0, name=None):
 
 # ========================================================================
 def save_plots(fname):
-    """Save Plots"""
+    """Save plots"""
 
     with PdfPages(fname) as pdf:
 
@@ -273,6 +273,38 @@ def plot_training(df, fname):
         plt.figure("step_rewards")
         ax = plt.gca()
         plt.xlabel(r"step", fontsize=22, fontweight="bold")
+        plt.ylabel(r"$\Sigma r$", fontsize=22, fontweight="bold")
+        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
+        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
+        plt.tight_layout()
+        # legend = ax.legend(loc="best")
+        pdf.savefig(dpi=300)
+
+
+# ========================================================================
+def plot_tb(fname, alpha=0.1, idx=0, name=None):
+    """Make some plots of tensorboard quantities"""
+
+    label = get_label(name)
+    df = pd.read_csv(fname)
+
+    plt.figure("episode_reward")
+    p = plt.plot(df.episode, df.episode_reward, color=cmap[idx], lw=2, alpha=0.2)
+    p[0].set_dashes(dashseq[idx])
+
+    ewma = df["episode_reward"].ewm(alpha=alpha, adjust=False).mean()
+    p = plt.plot(df.episode, ewma, color=cmap[idx], lw=2, label=label)
+    p[0].set_dashes(dashseq[idx])
+
+
+# ========================================================================
+def save_tb_plots(fname):
+    """Make some plots of tensorboard quantities"""
+
+    with PdfPages(fname) as pdf:
+        plt.figure("episode_reward")
+        ax = plt.gca()
+        plt.xlabel(r"episode", fontsize=22, fontweight="bold")
         plt.ylabel(r"$\Sigma r$", fontsize=22, fontweight="bold")
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
