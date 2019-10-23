@@ -5,7 +5,6 @@
 # ========================================================================
 import os
 import sys
-import glob
 import argparse
 import pickle
 from stable_baselines.common.vec_env import DummyVecEnv
@@ -81,7 +80,6 @@ if __name__ == "__main__":
         elif run_args.agent == "a2c":
             agent = A2C.load(fname, env=env)
         elif run_args.agent == "ppo":
-            pfx = "PPO2_1"
             agent = PPO2.load(fname, env=env)
         elif run_args.agent == "dqn":
             agent = DQN.load(fname, env=env)
@@ -89,9 +87,4 @@ if __name__ == "__main__":
         df, total_reward = utilities.evaluate_agent(env, agent)
         utilities.plot_df(env, df, idx=k, name=run_args.agent)
 
-        utilities.plot_tb(
-            os.path.join(fdir, pfx, "data.csv"), idx=k, name=run_args.agent
-        )
-
     utilities.save_plots("compare.pdf")
-    utilities.save_tb_plots("compare_training.pdf")

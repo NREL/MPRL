@@ -9,6 +9,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import tensorflow.compat.v1.train as tft
+import tensorflow.python.framework.errors_impl as tfe
 
 
 # ========================================================================
@@ -18,10 +19,13 @@ import tensorflow.compat.v1.train as tft
 # ========================================================================
 def parse_tb(fname, tag):
     lst = []
-    for event in tft.summary_iterator(efile):
-        for v in event.summary.value:
-            if v.tag == tag:
-                lst.append(v.simple_value)
+    try:
+        for event in tft.summary_iterator(efile):
+            for v in event.summary.value:
+                if v.tag == tag:
+                    lst.append(v.simple_value)
+    except tfe.DataLossError:
+        pass
 
     return pd.DataFrame({"episode": np.arange(len(lst)), tag: lst})
 
@@ -42,5 +46,4 @@ if __name__ == "__main__":
 
     efile = glob.glob(os.path.join(args.fdir, "events.out.tfevents.*"))[0]
     df = parse_tb(efile, "episode_reward")
-    print(df)
     df.to_csv(os.path.join(args.fdir, "data.csv"), index=False)
