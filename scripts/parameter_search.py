@@ -8,6 +8,7 @@ import sys
 import shutil
 import argparse
 import numpy as np
+from abc import ABC, abstractmethod
 import sherpa
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines.common.policies import MlpPolicy
@@ -29,8 +30,9 @@ import mprl.engines as engines
 # Classes
 #
 # ========================================================================
-class Agent:
+class Agent(ABC):
     def __init__(self):
+        super().__init__()
         self.sherpa_parameters = {
             "gamma": sherpa.Continuous("gamma", range=[0.8, 1]),
             "ent_coef": sherpa.Continuous("ent_coef", range=[1e-4, 1e-1], scale="log"),
@@ -84,6 +86,14 @@ class Agent:
                 ],
             ),
         }
+
+    @abstractmethod
+    def instantiate_agent(self, env, parameters):
+        pass
+
+    @abstractmethod
+    def load_agent(self, env, fname):
+        pass
 
 
 # ========================================================================
@@ -207,6 +217,11 @@ class PPOAgent(Agent):
             n_steps=parameters["n_steps"],
         )
 
+    def load_agent(self, env, fname):
+        print(f"Loading agent: {fname}")
+        agent = PPO2.load(fname, env=env)
+        return agent
+
 
 # ========================================================================
 class SACAgent(Agent):
@@ -259,7 +274,7 @@ class Herd:
 
         # Set an evolutionary algorithm for parameter search, enforce early stopping
         algorithm = sherpa.algorithms.PopulationBasedTraining(population_size=pop)
-        rule = sherpa.algorithms.MedianStoppingRule(min_iterations=5, min_trials=10)
+        rule = sherpa.algorithms.MedianStoppingRule(min_iterations=50, min_trials=5)
         self.study = sherpa.Study(
             self.agent.parameters,
             algorithm,
@@ -272,13 +287,20 @@ class Herd:
         if os.path.exists(self.logs_dir):
             shutil.rmtree(self.logs_dir)
         os.makedirs(self.logs_dir)
+        self.agent_dir = os.path.join(self.logs_dir, "agents")
+        os.makedirs(self.agent_dir)
 
     def study_the_population(self, env, n_epochs, steps_per_epoch):
 
         for tr_idx, trial in enumerate(self.study):
 
-            # Create agent for each trial
-            agent = self.agent.instantiate_agent(env, trial.parameters)
+            # Create or load agent for each trial
+            if trial.parameters.get("load_from", "") == "":
+                agent = self.agent.instantiate_agent(env, trial.parameters)
+            else:
+                agent = self.agent.load_agent(
+                    env, os.path.join(self.agent_dir, trial.parameters["load_from"])
+                )
 
             for e_idx in range(n_epochs):
                 obs = env.reset()
@@ -303,6 +325,7 @@ class Herd:
                 print(
                     f"Trial {tr_idx} (iteration {e_idx}): total reward = {total_reward}"
                 )
+                agent.save(os.path.join(self.agent_dir, trial.parameters["save_to"]))
                 self.study.add_observation(
                     trial=trial, iteration=e_idx, objective=total_reward, context={}
                 )

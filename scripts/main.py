@@ -218,8 +218,7 @@ if __name__ == "__main__":
         eng.action.symmetrize_space()
         env = DummyVecEnv([lambda: eng])
         if args.use_pretrained is not None:
-            agent = DDPG.load(os.path.join(args.use_pretrained, "agent"))
-            agent.set_env(env)
+            agent = DDPG.load(os.path.join(args.use_pretrained, "agent"), env=env)
             _, best_reward = utilities.evaluate_agent(DummyVecEnv([lambda: eng]), agent)
         else:
             n_actions = env.action.action_space.shape[-1]
@@ -239,8 +238,7 @@ if __name__ == "__main__":
     elif args.agent == "a2c":
         env = SubprocVecEnv([lambda: eng for i in range(args.nranks)])
         if args.use_pretrained is not None:
-            agent = A2C.load(os.path.join(args.use_pretrained, "agent"))
-            agent.set_env(env)
+            agent = A2C.load(os.path.join(args.use_pretrained, "agent"), env=env)
         else:
             agent = A2C(MlpPolicy, env, verbose=1, n_steps=1, tensorboard_log=logdir)
         agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
@@ -251,8 +249,8 @@ if __name__ == "__main__":
                 os.path.join(args.use_pretrained, "agent"),
                 exploration_fraction=0.03,
                 exploration_final_eps=0.02,
+                env=env,
             )
-            agent.set_env(env)
             _, best_reward = utilities.evaluate_agent(DummyVecEnv([lambda: eng]), agent)
             agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
         else:
@@ -290,8 +288,11 @@ if __name__ == "__main__":
     elif args.agent == "ppo":
         env = DummyVecEnv([lambda: eng])
         if args.use_pretrained is not None:
-            agent = PPO2.load(os.path.join(args.use_pretrained, "agent"))
-            agent.set_env(env)
+            agent = PPO2.load(
+                os.path.join(args.use_pretrained, "agent"),
+                env=env,
+                tensorboard_log=logdir,
+            )
         else:
             agent = PPO2(
                 MlpPolicy,
