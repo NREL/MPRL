@@ -6,6 +6,9 @@
 import os
 import numpy as np
 import pandas as pd
+import itertools
+import pickle
+from abc import ABC, abstractmethod
 import mprl.utilities as utilities
 
 
@@ -14,9 +17,25 @@ import mprl.utilities as utilities
 # Classes
 #
 # ========================================================================
-class Agent:
+class Agent(ABC):
     def __init__(self, env):
         self.env = env
+
+    @abstractmethod
+    def learn(self):
+        pass
+
+    @abstractmethod
+    def predict(self, obs, **kwargs):
+        pass
+
+    @abstractmethod
+    def save(self, name):
+        pass
+
+    @abstractmethod
+    def load(self, name, env):
+        pass
 
 
 # ========================================================================
@@ -37,7 +56,7 @@ class CalibratedAgent(Agent):
         self.actions.mdot[self.actions.mdot < 0] = 0
         self.actions = self.actions[self.env.envs[0].action.actions]
 
-    def predict(self, obs, deterministic=True):
+    def predict(self, obs, **kwargs):
 
         # Find the action matching the current CA
         idx = (
@@ -54,7 +73,8 @@ class CalibratedAgent(Agent):
         # do nothing
         return 0
 
-    def load(self, name):
+    def load(self, name, env):
+        self.env = env
         self.learn()
         return 0
 
@@ -73,3 +93,56 @@ class CalibratedAgent(Agent):
         np.savez(fname, **numpy_dict)
 
         return numpy_dict
+
+
+# ========================================================================
+class ExhaustiveAgent(Agent):
+    def __init__(self, env):
+        Agent.__init__(self, env)
+        self.datadir = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "datafiles"
+        )
+        self.max_ninj = self.env.envs[0].action.limits["mdot"]
+        self.best_inj = ()
+
+    def learn(self):
+
+        # Loop over all possible injection CAs
+        best_reward = -np.finfo(np.float32).max
+        self.best_inj = ()
+        eng = self.env.envs[0]
+        for inj in itertools.combinations(eng.history.ca, self.max_ninj):
+            done = False
+            obs = self.env.reset()
+            total_reward = 0
+            while not done:
+                action = [1] if (eng.current_state.ca in inj) else [0]
+                obs, reward, done, info = self.env.step(action)
+                total_reward += reward[0]
+
+            if total_reward > best_reward:
+                best_reward = total_reward
+                self.best_inj = inj
+
+    def predict(self, obs, **kwargs):
+
+        current_ca = obs[0][0] * self.env.envs[0].observable_scales["ca"]
+        tol = 1e-4
+        action = [0]
+        for inj in self.best_inj:
+            if np.fabs(inj - current_ca) < tol:
+                action = [1]
+                break
+
+        return action, {}
+
+    def save(self, name):
+        with open(name + ".pkl", "wb") as f:
+            pickle.dump(self.best_inj, f)
+        return 0
+
+    def load(self, name, env):
+        self.env = env
+        with open(name + ".pkl", "rb") as f:
+            self.best_inj = pickle.load(f)
+        return 0

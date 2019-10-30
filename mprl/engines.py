@@ -151,12 +151,13 @@ class Engine(gym.Env):
             "n_inj": np.finfo(np.float32).max,
             "can_inject": 1,
         }
-
         # FIXME come up with better scales for p and T
         self.observable_scales = {
+            "ca": 0.5 * (self.evo - self.ivc),
             "p": 6e6,
             "T": 1200,
-            "ca": 0.5 * (self.evo - self.ivc),
+            "n_inj": 1.0,
+            "can_inject": 1,
         }
 
     def define_observable_space(self):
@@ -173,8 +174,8 @@ class Engine(gym.Env):
 
     def scale_observables(self, df):
         sdf = df.copy()
-        for key in self.observable_scales:
-            sdf[key] /= self.observable_scales[key]
+        for obs in self.observables:
+            sdf[obs] /= self.observable_scales[obs]
         return sdf
 
     def history_setup(self):
@@ -304,7 +305,8 @@ class TwoZoneEngine(Engine):
 
         self.action.reset()
 
-        return self.current_state[self.observables]
+        obs = self.scale_observables(self.current_state)[self.observables]
+        return obs
 
     def update_state(self, integ):
         """Update the state"""
@@ -562,19 +564,18 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
 
     def reset(self):
 
-        self.current_state[self.observables] = super(
-            DiscreteTwoZoneEngine, self
-        ).reset()
+        super(DiscreteTwoZoneEngine, self).reset()
         self.current_state["can_inject"] = 1
 
-        return self.current_state[self.observables]
+        obs = self.scale_observables(self.current_state)[self.observables]
+        return obs
 
     def update_state(self, integ):
         """Update the state"""
         super(DiscreteTwoZoneEngine, self).update_state(integ)
         self.current_state["n_inj"] = self.action.counter["mdot"]
         self.current_state["can_inject"] = (
-            1 if self.action.counter["mdot"] < self.action.limit["mdot"] else 0
+            1 if self.action.counter["mdot"] < self.action.limits["mdot"] else 0
         )
 
 
@@ -708,7 +709,8 @@ class ReactorEngine(Engine):
 
         self.action.reset()
 
-        return self.current_state[self.observables]
+        obs = self.scale_observables(self.current_state)[self.observables]
+        return obs
 
     def step(self, action):
         "Advance the engine to the next state using the action"
@@ -758,7 +760,7 @@ class ReactorEngine(Engine):
             ]
             self.current_state["n_inj"] = self.action.counter["minj"]
             self.current_state["can_inject"] = (
-                1 if self.action.counter["minj"] < self.action.limit["minj"] else 0
+                1 if self.action.counter["minj"] < self.action.limits["minj"] else 0
             )
             nox, soot = get_nox_soot(self.gas)
             self.current_state[self.internals] = [0, 0, mdot, nox, soot]

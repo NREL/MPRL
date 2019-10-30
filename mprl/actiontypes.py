@@ -24,7 +24,7 @@ class ActionType(ABC):
         self.scales = None
         self.current = None
         self.counter = None
-        self.limit = None
+        self.limits = None
         self.use_qdot = False
 
     def parse(self, action):
@@ -77,7 +77,7 @@ class DiscreteActionType(ActionType):
         super(DiscreteActionType, self).__init__(actions)
 
         self.scales = scales
-        self.limit = limits
+        self.limits = limits
         self.counter = {key: 0 for key in self.actions}
         self.space = spaces.Discrete(2)
 
@@ -106,7 +106,7 @@ class DiscreteActionType(ActionType):
         """Mask the action if necessary"""
         self.masked = False
         for key in action:
-            if self.counter[key] > self.limit[key] and action[key] > 0:
+            if self.counter[key] > self.limits[key] and action[key] > 0:
                 print("Injection not allowed!")
                 self.masked = True
                 action[key] = 0.0

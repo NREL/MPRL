@@ -57,6 +57,7 @@ markertype = ["s", "d", "o", "p", "h"]
 def get_label(name):
     labels = {
         "calibrated": "Calibrated",
+        "exhaustive": "Exhaustive",
         "ddpg": "DDPG",
         "a2c": "A2C",
         "dqn": "DQN",

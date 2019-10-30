@@ -52,7 +52,7 @@ class MPRLTestCase(unittest.TestCase):
 
         # Evaluate the agent
         df, total_reward = utilities.evaluate_agent(env, agent)
-        utilities.plot_df(env, df, idx=3, name="calibrated")
+        utilities.plot_df(env, df, idx=0, name="calibrated")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.0021952121511437405)
@@ -61,6 +61,39 @@ class MPRLTestCase(unittest.TestCase):
         npt.assert_allclose(np.linalg.norm(df.rewards), 109.90666061638017)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.6641914874662471)
         npt.assert_allclose(np.linalg.norm(df.qdot), 97686.9157424243)
+
+    def test_exhaustive_agent(self):
+        """Does the exhaustive agent work as expected?"""
+
+        # Initialize engine
+        eng = engines.DiscreteTwoZoneEngine(
+            T0=self.T0,
+            p0=self.p0,
+            nsteps=101,
+            fuel="dodecane",
+            rxnmech="dodecane_lu_nox.cti",
+            small_negative_reward=-0.05,
+        )
+        env = DummyVecEnv([lambda: eng])
+        variables = eng.observables + eng.internals + eng.histories
+        df = pd.DataFrame(
+            columns=list(dict.fromkeys(variables + eng.action.actions + ["rewards"]))
+        )
+
+        # Initialize the agent
+        agent = agents.ExhaustiveAgent(env)
+        agent.learn()
+
+        # Evaluate the agent
+        df, total_reward = utilities.evaluate_agent(env, agent)
+        utilities.plot_df(env, df, idx=1, name="exhaustive")
+
+        # Test
+        npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
+        npt.assert_allclose(np.linalg.norm(df.p), 21672145.315614562)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 7245.285965190272)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 83.4323700059674)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.9)
 
     def test_discrete_twozone_engine(self):
         """Does the DiscreteTwoZoneEngine work as expected?"""
@@ -101,7 +134,7 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
 
-        utilities.plot_df(env, df, idx=0, name="ppo")
+        utilities.plot_df(env, df, idx=2, name="ppo")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
@@ -149,13 +182,13 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
 
-        utilities.plot_df(env, df, idx=2, name="ppo")
+        utilities.plot_df(env, df, idx=3, name="ppo")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
-        npt.assert_allclose(np.linalg.norm(df.p), 34947739.8530044)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 17690.170880280697)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 70.27580232757381)
+        npt.assert_allclose(np.linalg.norm(df.p), 34947820.529421)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 17690.180765)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 70.275994)
         npt.assert_allclose(np.linalg.norm(df.mdot), 1.8)
 
 

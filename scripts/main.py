@@ -121,7 +121,7 @@ if __name__ == "__main__":
         help="Agent to train and evaluate",
         type=str,
         default="calibrated",
-        choices=["calibrated", "ddpg", "a2c", "dqn", "ppo"],
+        choices=["calibrated", "exhaustive", "ddpg", "a2c", "dqn", "ppo"],
     )
     parser.add_argument(
         "-s", "--nsteps", help="Total steps in a given episode", type=int, default=201
@@ -213,6 +213,10 @@ if __name__ == "__main__":
     if args.agent == "calibrated":
         env = DummyVecEnv([lambda: eng])
         agent = agents.CalibratedAgent(env)
+        agent.learn()
+    elif args.agent == "exhaustive":
+        env = DummyVecEnv([lambda: eng])
+        agent = agents.ExhaustiveAgent(env)
         agent.learn()
     elif args.agent == "ddpg":
         eng.action.symmetrize_space()
