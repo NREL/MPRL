@@ -13,12 +13,10 @@ import sherpa
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
-from stable_baselines.sac.policies import MlpPolicy as sacMlpPolicy
 from stable_baselines.ddpg.noise import OrnsteinUhlenbeckActionNoise
 from stable_baselines import A2C
 from stable_baselines import DDPG
 from stable_baselines import PPO2
-from stable_baselines import SAC
 from stable_baselines import DQN
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
@@ -224,33 +222,6 @@ class PPOAgent(Agent):
 
 
 # ========================================================================
-class SACAgent(Agent):
-    def __init__(self):
-        Agent.__init__(self)
-
-        parameter_names = [
-            "gamma",
-            "tau",
-            "learning_rate",
-            "batch_size",
-            "random_exploration",
-        ]
-        self.parameters = [self.sherpa_parameters[x] for x in parameter_names]
-
-    def instantiate_agent(self, env, parameters):
-        return SAC(
-            sacMlpPolicy,
-            env,
-            verbose=1,
-            gamma=parameters["gamma"],
-            tau=parameters["tau"],
-            learning_rate=parameters["learning_rate"],
-            batch_size=parameters["batch_size"],
-            random_exploration=parameters["random_exploration"],
-        )
-
-
-# ========================================================================
 class Herd:
     """
     Herd for Sherpa
@@ -259,15 +230,13 @@ class Herd:
     def __init__(self, agent_type, pop, project_dir):
 
         # Create the agent
-        if agent_type == "A2C":
+        if agent_type == "a2c":
             self.agent = A2CAgent()
-        elif agent_type == "DDPG":
+        elif agent_type == "ddpg":
             self.agent = DDPGAgent()
-        elif agent_type == "PPO" or agent_type == "ppo":
+        elif agent_type == "ppo":
             self.agent = PPOAgent()
-        elif agent_type == "SAC":
-            self.agent = SACAgent()
-        elif agent_type == "DQN" or agent_type == "dqn":
+        elif agent_type == "dqn":
             self.agent = DQNAgent()
         else:
             sys.exit(f"Unrecognized agent type {agent_type}")
@@ -346,7 +315,14 @@ if __name__ == "__main__":
 
     # Parse arguments
     parser = argparse.ArgumentParser(description="Hyperparameter search for an agent")
-    parser.add_argument("-a", "--agent", help="Agent to tune", type=str, required=True)
+    parser.add_argument(
+        "-a",
+        "--agent",
+        help="Agent to tune",
+        type=str,
+        required=True,
+        choices=["a2c", "ddpg", "ppo", "dqn"],
+    )
     parser.add_argument("-p", "--pop", help="Population size", type=int, default=20)
     parser.add_argument(
         "-s", "--nsteps", help="Total steps in a given episode", type=int, default=201

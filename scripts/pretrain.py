@@ -6,7 +6,6 @@ import time
 from datetime import timedelta
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines.common.policies import MlpPolicy
-from stable_baselines.sac.policies import MlpPolicy as sacMlpPolicy
 from stable_baselines.ddpg.policies import MlpPolicy as ddpgMlpPolicy
 from stable_baselines.ddpg.noise import (
     NormalActionNoise,
@@ -16,7 +15,6 @@ from stable_baselines.ddpg.noise import (
 from stable_baselines.gail import ExpertDataset
 from stable_baselines import A2C
 from stable_baselines import PPO1
-from stable_baselines import SAC
 from stable_baselines import TRPO
 from stable_baselines import DDPG
 
@@ -41,7 +39,7 @@ if __name__ == "__main__":
         help="Agent to pretrain",
         type=str,
         default="a2c",
-        choices=["a2c", "ppo", "sac", "trpo", "ddpg"],
+        choices=["a2c", "ppo", "trpo", "ddpg"],
     )
     parser.add_argument(
         "-l", "--learning_rate", help="Learning rate", type=float, default=1e-3
@@ -84,10 +82,6 @@ if __name__ == "__main__":
 
     elif args.agent == "trpo":
         agent = TRPO(MlpPolicy, env, verbose=1)
-
-    elif args.agent == "sac":
-        env.envs[0].action.symmetrize_space()
-        agent = SAC(sacMlpPolicy, env, verbose=1)
 
     elif args.agent == "ddpg":
         env.envs[0].action.symmetrize_space()
