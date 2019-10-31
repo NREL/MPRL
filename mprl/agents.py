@@ -112,10 +112,10 @@ class ExhaustiveAgent(Agent):
         self.best_inj = ()
         eng = self.env.envs[0]
         for inj in itertools.combinations(eng.history.ca, self.max_ninj):
-            done = False
+            done = [False]
             obs = self.env.reset()
             total_reward = 0
-            while not done:
+            while not done[0]:
                 action = [1] if (eng.current_state.ca in inj) else [0]
                 obs, reward, done, info = self.env.step(action)
                 total_reward += reward[0]

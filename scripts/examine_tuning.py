@@ -32,7 +32,11 @@ if __name__ == "__main__":
     df = pd.read_csv(fname)
     completed = df[df.Status == "COMPLETED"]
     with pd.option_context("display.max_rows", None, "display.max_columns", None):
-        print(completed.sort_values(by=["Objective", "generation"], ascending=False).head(n=20))
+        print(
+            completed.sort_values(by=["Objective", "generation"], ascending=False).head(
+                n=20
+            )
+        )
 
     # Plot the trials
     plt.rc("text", usetex=True)
@@ -43,10 +47,11 @@ if __name__ == "__main__":
     ax.set_prop_cycle("color", [plt.cm.viridis(i) for i in np.linspace(0, 1, n)])
     colors = plt.cm.viridis(np.linspace(0, 1, completed.generation.max()))
 
+    niter = completed.Iteration.max()
     for name, group in grouped:
         ewma = group.Objective.ewm(alpha=0.05).mean()
         plt.plot(
-            (group.generation - 1) * 200 + group.Iteration,
+            (group.generation - 1) * niter + group.Iteration,
             ewma,
             color=colors[group.generation.max() - 1],
         )
