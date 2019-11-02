@@ -73,6 +73,9 @@ if __name__ == "__main__":
         if run_args.agent == "calibrated":
             agent = agents.CalibratedAgent(env)
             agent.learn()
+        elif run_args.agent == "exhaustive":
+            agent = agents.ExhaustiveAgent(env)
+            agent.load(fname, env)
         elif run_args.agent == "ddpg":
             eng.action.symmetrize_space()
             env = DummyVecEnv([lambda: eng])
