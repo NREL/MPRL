@@ -48,7 +48,11 @@ if __name__ == "__main__":
         T0, p0 = engines.calibrated_engine_ic()
         if run_args.engine_type == "reactor-engine":
             eng = engines.ReactorEngine(
-                T0=T0, p0=p0, fuel=run_args.fuel, rxnmech=run_args.rxnmech
+                T0=T0,
+                p0=p0,
+                agent_steps=args.nsteps,
+                fuel=run_args.fuel,
+                rxnmech=run_args.rxnmech,
             )
         elif run_args.engine_type == "twozone-engine":
             if run_args.use_continuous:

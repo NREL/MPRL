@@ -102,7 +102,7 @@ class ExhaustiveAgent(Agent):
         self.datadir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "datafiles"
         )
-        self.max_ninj = self.env.envs[0].action.limits["mdot"]
+        self.max_ninj = self.env.envs[0].max_injections
         self.best_inj = ()
 
     def learn(self):
@@ -111,7 +111,12 @@ class ExhaustiveAgent(Agent):
         best_reward = -np.finfo(np.float32).max
         self.best_inj = ()
         eng = self.env.envs[0]
-        for inj in itertools.combinations(eng.history.ca, self.max_ninj):
+        agent_ca = (
+            eng.history.ca
+            if len(eng.history.ca) == eng.agent_steps
+            else eng.history.ca[:: len(eng.history.ca) // eng.agent_steps + 1]
+        )
+        for inj in itertools.combinations(agent_ca, self.max_ninj):
             done = [False]
             obs = self.env.reset()
             total_reward = 0

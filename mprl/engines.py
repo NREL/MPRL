@@ -114,6 +114,7 @@ class Engine(gym.Env):
         self.T0 = T0
         self.p0 = p0
         self.nsteps = nsteps
+        self.agent_steps = self.nsteps
         self.ivc = ivc
         self.evo = evo
         self.fuel = fuel
@@ -553,10 +554,11 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         # Engine parameters
         self.observables = ["ca", "p", "T", "n_inj", "can_inject"]
         self.minj = minj
+        self.max_injections = max_injections
 
         # Final setup
         self.action = actiontypes.DiscreteActionType(
-            ["mdot"], {"mdot": self.minj / self.dt}, {"mdot": max_injections}
+            ["mdot"], {"mdot": self.minj / self.dt}, {"mdot": self.max_injections}
         )
         self.action_space = self.action.space
         self.define_observable_space()
@@ -632,10 +634,12 @@ class ReactorEngine(Engine):
         self.observables = ["ca", "p", "T", "n_inj", "can_inject"]
         self.internals = ["mb", "mu", "mdot", "nox", "soot"]
         self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
+        self.max_injections = max_injections
 
         # Figure out the subcycling of steps
         dt_agent = self.total_time / (agent_steps - 1)
         self.substeps = int(np.ceil(dt_agent / dt)) + 1
+        self.agent_steps = agent_steps
         self.nsteps = (agent_steps - 1) * (self.substeps - 1) + 1
 
         # Engine setup
@@ -643,7 +647,7 @@ class ReactorEngine(Engine):
         self.set_initial_state()
         self.engine_setup()
         self.action = actiontypes.DiscreteActionType(
-            ["minj"], {"minj": self.minj}, {"minj": max_injections}
+            ["minj"], {"minj": self.minj}, {"minj": self.max_injections}
         )
         self.mdot = self.minj / dt_agent
         self.action_space = self.action.space
