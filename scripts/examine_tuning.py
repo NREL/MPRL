@@ -37,6 +37,18 @@ if __name__ == "__main__":
                 n=20
             )
         )
+    xcols = [
+        "cliprange",
+        "ent_coef",
+        "gamma",
+        "lam",
+        "learning_rate",
+        "max_grad_norm",
+        "n_steps",
+        "nminibatches",
+        "noptepochs",
+        "vf_coef",
+    ]
 
     # Plot the trials
     plt.rc("text", usetex=True)
@@ -56,6 +68,14 @@ if __name__ == "__main__":
             color=colors[group.generation.max() - 1],
         )
 
+    # Plot the parameters from the next to last generation, colored by objective value
+    gen = completed.generation.max() - 1
+    last = completed[completed.generation == gen]
+    f, axs = plt.subplots(1, len(xcols), sharey=True, figsize=(40, 8))
+    for k, col in enumerate(xcols):
+        axs[k].scatter(last[col], last.Objective)
+        axs[k].set_xlabel(col.replace("_", " "))
+
     fname = "tuning.pdf"
     with PdfPages(fname) as pdf:
         plt.figure(0)
@@ -67,21 +87,18 @@ if __name__ == "__main__":
         plt.tight_layout()
         pdf.savefig(dpi=300)
 
+        plt.figure(f.number)
+        ax = plt.gca()
+        # plt.xlabel(r"value", fontsize=22, fontweight="bold")
+        # plt.ylabel(r"$\Sigma r$", fontsize=22, fontweight="bold")
+        # plt.setp(ax.get_xmajorticklabels(), fontsize=16)
+        # plt.setp(ax.get_ymajorticklabels(), fontsize=16)
+        plt.tight_layout()
+        pdf.savefig(dpi=300)
+
     # Get the data
     nestim = 100
     max_depth = 10
-    xcols = [
-        "cliprange",
-        "ent_coef",
-        "gamma",
-        "lam",
-        "learning_rate",
-        "max_grad_norm",
-        "n_steps",
-        "nminibatches",
-        "noptepochs",
-        "vf_coef",
-    ]
     ycols = ["Objective"]
     Xtrain = completed[xcols]
     Ytrain = completed[ycols].values.flatten()
