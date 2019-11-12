@@ -4,11 +4,14 @@
 #
 # ========================================================================
 import os
+import sys
 import unittest
 import numpy as np
 import pandas as pd
 import numpy.testing as npt
 from stable_baselines.common.vec_env import DummyVecEnv
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 import mprl.engines as engines
 import mprl.agents as agents
 import mprl.utilities as utilities
@@ -56,9 +59,9 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.0021952121511437405)
-        npt.assert_allclose(np.linalg.norm(df.p), 23562451.47495935)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 9546.3503213235)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 109.90666061638017)
+        npt.assert_allclose(np.linalg.norm(df.p), 22481171.960251164)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 10388.328371677868)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 106.4513982783545)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.6641914874662471)
         npt.assert_allclose(np.linalg.norm(df.qdot), 97686.9157424243)
 
@@ -90,9 +93,9 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 21672145.315614562)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 7245.285965190272)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 83.4323700059674)
+        npt.assert_allclose(np.linalg.norm(df.p), 20032252.048329815)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 7305.088913420635)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 79.08349799746054)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.9)
 
     def test_discrete_twozone_engine(self):
@@ -138,9 +141,9 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
-        npt.assert_allclose(np.linalg.norm(df.p), 34353773.82674564)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 11479.49800333749)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 61.69149868914742)
+        npt.assert_allclose(np.linalg.norm(df.p), 33395323.89519612)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 11587.72263843385)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 59.859483882062264)
         npt.assert_allclose(np.linalg.norm(df.mdot), 1.8)
 
     def test_reactor_engine(self):
@@ -186,9 +189,9 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
-        npt.assert_allclose(np.linalg.norm(df.p), 34947820.529421)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 17690.180765)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 70.275994)
+        npt.assert_allclose(np.linalg.norm(df.p), 35262571.67185785)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 17713.666566451608)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 70.79674473694782)
         npt.assert_allclose(np.linalg.norm(df.mdot), 1.8)
 
 

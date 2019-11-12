@@ -222,7 +222,7 @@ class Engine(gym.Env):
         )
         self.starting_cycle_p = cycle.p[0]
         self.history.V = cycle.V.copy()
-        self.history.dV = np.hstack(([0], np.diff(self.history.V)))
+        self.history.dV = np.gradient(self.history.V)
         self.history.dVdt = self.history.dV / self.dt
         self.history.ca = cycle.ca.copy()
         self.history.t = cycle.t.copy()
