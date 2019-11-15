@@ -32,7 +32,7 @@ def calibrated_engine_ic():
 
 
 # ========================================================================
-def setup_injection_gas(rxnmech, fuel):
+def setup_injection_gas(rxnmech, fuel, pure_fuel=True):
     """Setup the injection gas"""
     gas = ct.Solution(rxnmech)
 
@@ -43,7 +43,10 @@ def setup_injection_gas(rxnmech, fuel):
         fuel_composition = {"IC8H18": 0.85, "NC7H16": 0.15}
         gas.X = x_from_fuel_composition(gas, fuel_composition)
     elif fuel == "dodecane":
-        gas.set_equivalence_ratio(1.5, "NC12H26", "O2:1.0, N2:3.76")
+        if pure_fuel:
+            gas.X = {'NC12H26':1.0}
+        else:
+            gas.set_equivalence_ratio(1.0, "NC12H26", "O2:1.0, N2:3.76")
     else:
         sys.exit(f"Unrecognized fuel {fuel}")
 
@@ -334,11 +337,19 @@ class TwoZoneEngine(Engine):
 
     def set_initial_state(self):
         self.p0 = self.starting_cycle_p
+        self.T0 = (
+            (self.p0 / ct.one_atm)
+            * (
+                self.history.V[0]
+                / (np.pi / 4.0 * self.Bore ** 2 * self.Stroke + self.TDCvol)
+            )
+            * 300.0
+        )
 
     def fuel_setup(self):
         """Setup the fuel and save for faster reset"""
 
-        self.injection_gas = setup_injection_gas(self.rxnmech, self.fuel)
+        self.injection_gas = setup_injection_gas(self.rxnmech, self.fuel, pure_fuel=False)
 
         self.injection_gas.TP = self.T0, self.p0
         self.injection_xinit = self.injection_gas.X
@@ -671,7 +682,7 @@ class ReactorEngine(Engine):
         agent_steps=100,
         dt=5e-6,  # Time step for integrating the 0D reactor (s)
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
-        minj=0.0002,  # Mass of injected fuel/air mixture (kg)
+        minj=0.0001,  # Mass of injected fuel/air mixture (kg)
         max_injections=1,  # Maximum number of injections allowed
         observables=["ca", "p", "T", "n_inj", "can_inject"],
         **kwargs,
@@ -754,7 +765,7 @@ class ReactorEngine(Engine):
         self.initial_gas = ct.Solution(self.rxnmech)
         self.initial_gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
 
-        self.injection_gas = setup_injection_gas(self.rxnmech, self.fuel)
+        self.injection_gas = setup_injection_gas(self.rxnmech, self.fuel, pure_fuel=True)
 
         # Create the reactor object
         self.gas = self.initial_gas
@@ -850,3 +861,120 @@ class ReactorEngine(Engine):
             done,
             {"current_state": self.current_state},
         )
+
+# ========================================================================
+class EquilibrateEngine(ReactorEngine):
+
+    def __init__(
+        self,
+        *args,
+        agent_steps=100,
+        dt=None,
+        Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
+        minj=0.0001,  # Mass of injected fuel/air mixture (kg)
+        max_injections=1,  # Maximum number of injections allowed
+        **kwargs,
+    ):
+        super(EquilibrateEngine, self).__init__(*args, **kwargs)
+
+        # Engine parameters
+        self.Tinj = Tinj
+        self.minj = minj
+        self.observables = ["ca", "p", "T", "n_inj", "can_inject"]
+        self.internals = ["mb", "mu", "mdot", "nox", "soot"]
+        self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
+        self.max_injections = max_injections
+
+        # Set nsteps
+        self.nsteps=agent_steps
+
+        # Engine setup
+        self.history_setup()
+        self.set_initial_state()
+        self.engine_setup()
+        self.action = actiontypes.DiscreteActionType(
+            ["minj"], {"minj": self.minj}, {"minj": self.max_injections}
+        )
+        # self.mdot = self.minj / dt_agent
+        self.mdot = self.minj / self.dt
+        self.action_space = self.action.space
+        self.define_observable_space()
+        self.reset()
+
+    def reactor_setup(self):
+        super(EquilibrateEngine, self).reactor_setup()
+    
+
+    def step(self, action):
+        "Advance the engine to the next state using the action"
+
+        action = self.action.preprocess(action)
+
+        # Integrate the model using the action
+        reward = 0
+        mdot = 0
+
+        step = self.current_state.name
+        self.piston.set_velocity(self.current_state.piston_velocity)
+
+        # inject
+        if action["minj"] > 0:
+            m0 = self.gas.density_mass * self.reactor.volume
+            Tnew = (m0 * self.gas.T + self.minj * self.Tinj) / (m0 + self.minj)
+            Pnew = self.gas.P
+            Xnew = (m0 * self.gas.X + self.minj * self.injection_gas.X) / (
+                m0 + self.minj
+            )
+            mdot = self.mdot
+
+            self.gas = ct.Solution(self.rxnmech)
+            self.gas.TPX = Tnew, Pnew, Xnew
+            self.reactor = ct.Reactor(self.gas)
+            self.reactor.chemistry_enabled = True
+            self.reactor.volume = self.current_state.V
+            self.piston = ct.Wall(
+                left=self.reactor,
+                right=self.rempty,
+                A=np.pi / 4.0 * self.Bore ** 2,
+                U=0.0,
+                velocity=self.current_state.piston_velocity,
+            )
+
+            self.sim = ct.ReactorNet([self.reactor])
+            self.sim.set_initial_time(self.current_state.t)
+
+            self.gas.equilibrate("HP", solver="auto",rtol=1e-9,maxiter=100,loglevel=0)
+        self.sim.advance(self.history.loc[step + 1, "t"])
+
+        # Update state
+        self.current_state.p = self.gas.P
+        self.current_state.T = self.gas.T
+        self.current_state[self.histories] = self.history.loc[
+            step + 1, self.histories
+        ]
+        self.current_state["n_inj"] = self.action.counter["minj"]
+        self.current_state["can_inject"] = (
+            1 if self.action.counter["minj"] < self.action.limits["minj"] else 0
+        )
+        nox, soot = get_nox_soot(self.gas)
+        self.current_state[self.internals] = [0, 0, mdot, nox, soot]
+        self.current_state.name += 1
+
+        reward, done = self.termination()
+
+
+        # Add negative reward if the action had to be masked
+        if self.action.masked:
+            reward += self.small_negative_reward
+
+        if done:
+            print(f"Finished episode #{self.nepisode}")
+            self.nepisode += 1
+
+        return (
+            self.scale_observables(self.current_state)[self.observables],
+            reward,
+            done,
+            {"current_state": self.current_state},
+        )
+

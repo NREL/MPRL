@@ -194,6 +194,54 @@ class MPRLTestCase(unittest.TestCase):
         npt.assert_allclose(np.linalg.norm(df.rewards), 70.79674473694782)
         npt.assert_allclose(np.linalg.norm(df.mdot), 1.8)
 
+    def test_equilibrate_engine(self):
+        """Does the EquilibrateEngine work as expected?"""
+
+        # Initialize engine
+        eng = engines.EquilibrateEngine(
+            T0=self.T0,
+            p0=self.p0,
+            agent_steps=201,
+            dt=None,
+            rxnmech="dodecane_lu_nox.cti",
+            small_negative_reward=-0.05,
+        )
+        env = DummyVecEnv([lambda: eng])
+        variables = eng.observables + eng.internals + eng.histories
+        df = pd.DataFrame(
+            columns=list(dict.fromkeys(variables + eng.action.actions + ["rewards"]))
+        )
+
+        # Evaluate a dummy agent that injects at a fixed time
+        done = False
+        cnt = 0
+        obs = env.reset()
+        df.loc[cnt, variables] = eng.current_state[variables]
+        df.loc[cnt, eng.action.actions] = 0
+        df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
+
+        while not done:
+            cnt += 1
+            # Agent tries to inject twice, but is not allowed the second time
+            action = (
+                [1]
+                if (eng.current_state.ca == -10) or eng.current_state.ca == 10
+                else [0]
+            )
+            obs, reward, done, info = env.step(action)
+            df.loc[cnt, variables] = info[0]["current_state"][variables]
+            df.loc[cnt, eng.action.actions] = eng.action.current
+            df.loc[cnt, ["rewards"]] = reward
+
+        utilities.plot_df(env, df, idx=4, name="ppo")
+
+        # Test
+        npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
+        npt.assert_allclose(np.linalg.norm(df.p), 35262571.67185785)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 17713.666566451608)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 70.79674473694782)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 1.8)
+
 
 # ========================================================================
 #
