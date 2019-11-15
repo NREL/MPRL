@@ -72,7 +72,7 @@ def x_from_fuel_composition(gas, fuel_composition):
 
 
 # ========================================================================
-def get_nox_soot(gas):
+def get_nox(gas):
     try:
         no = gas.mass_fraction_dict()["NO"]
     except KeyError:
@@ -81,12 +81,28 @@ def get_nox_soot(gas):
         no2 = gas.mass_fraction_dict()["NO2"]
     except KeyError:
         no2 = 0.0
-    try:
-        soot = gas.mass_fraction_dict()["C2H2"]
-    except KeyError:
-        soot = 0.0
 
-    return no + no2, soot
+    return no + no2
+
+
+# ========================================================================
+def get_soot(gas):
+    try:
+        return gas.mass_fraction_dict()["C2H2"]
+    except KeyError:
+        return 0.0
+
+
+# ========================================================================
+def get_observables_internals(other, histories, observables):
+    valid_observables = other + histories
+    if len(list(set(valid_observables) & set(observables))) == 0:
+        sys.exit(
+            f"Selected observables ({observables}) not in valid observables ({valid_observables})"
+        )
+
+    internals = list(set(other) - set(observables))
+    return observables, internals
 
 
 # ========================================================================
@@ -133,6 +149,8 @@ class Engine(gym.Env):
         self.small_negative_reward = small_negative_reward
         self.nepisode = 0
         self.action = None
+        self.state_updater = {}
+        self.state_reseter = {}
         self.datadir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "datafiles"
         )
@@ -230,6 +248,7 @@ class Engine(gym.Env):
     def reset_state(self):
         """Reset the starting state"""
         self.set_initial_state()
+
         self.current_state = pd.Series(
             0.0,
             index=list(
@@ -237,9 +256,20 @@ class Engine(gym.Env):
             ),
             name=0,
         )
+
         self.current_state.p = self.p0
-        self.current_state.T = self.T0
+        self.current_state["T"] = self.T0
         self.current_state[self.histories] = self.history.loc[0, self.histories]
+
+        for key, reseter in self.state_reseter.items():
+            if key in self.current_state.index:
+                self.current_state[key] = reseter()
+
+    def update_state(self):
+        """Update the state"""
+        for key in self.current_state.index:
+            self.current_state[key] = self.state_updater[key]()
+        self.current_state.name += 1
 
     def termination(self):
         """Evaluate termination criteria"""
@@ -271,8 +301,32 @@ class TwoZoneEngine(Engine):
 
         # Engine parameters
         self.negative_reward = -self.nsteps
-        self.internals = ["p", "Tu", "Tb", "mb"]
+        self.ode_state = ["p", "Tu", "Tb", "mb"]
         self.histories = ["V", "dVdt", "dV", "ca", "t"]
+        self.integ = ode(lambda t, y: self.dfundt_mdot(t, y, 0, 0, 0))
+
+        self.state_reseter = {
+            "Tu": lambda: self.T0,
+            "Tb": lambda: self.Tb_ad,
+            "can_inject": lambda: 1,
+        }
+
+        self.state_updater = {
+            "p": lambda: self.integ.y[0],
+            "Tu": lambda: self.integ.y[1],
+            "Tb": lambda: self.integ.y[2],
+            "mb": lambda: self.integ.y[3],
+            "T": lambda: self.current_state["T"],
+            "V": lambda: self.history.loc[self.current_state.name + 1].V,
+            "dVdt": lambda: self.history.loc[self.current_state.name + 1].dVdt,
+            "dV": lambda: self.history.loc[self.current_state.name + 1].dV,
+            "ca": lambda: self.history.loc[self.current_state.name + 1].ca,
+            "t": lambda: self.history.loc[self.current_state.name + 1].t,
+            "n_inj": lambda: self.action.counter["mdot"],
+            "can_inject": lambda: 1
+            if self.action.counter["mdot"] < self.action.limits["mdot"]
+            else 0,
+        }
 
         # Engine setup
         self.fuel_setup()
@@ -302,20 +356,11 @@ class TwoZoneEngine(Engine):
         self.Tb_ad = self.injection_Tb_ad
 
         super(TwoZoneEngine, self).reset_state()
-        self.current_state[self.internals] = [self.p0, self.T0, self.Tb_ad, 0.0]
 
         self.action.reset()
 
         obs = self.scale_observables(self.current_state)[self.observables]
         return obs
-
-    def update_state(self, integ):
-        """Update the state"""
-        self.current_state[self.histories] = self.history.loc[
-            self.current_state.name + 1, self.histories
-        ]
-        self.current_state[self.internals] = integ.y
-        self.current_state.name += 1
 
     def step(self, action):
         "Advance the engine to the next state using the action"
@@ -324,7 +369,7 @@ class TwoZoneEngine(Engine):
 
         # Integrate the model using the action
         step = self.current_state.name
-        integ = ode(
+        self.integ = ode(
             lambda t, y: self.dfundt_mdot(
                 t,
                 y,
@@ -334,14 +379,14 @@ class TwoZoneEngine(Engine):
                 Qdot=action["qdot"] if self.action.use_qdot else 0.0,
             )
         )
-        integ.set_initial_value(
-            self.current_state[self.internals], self.current_state.t
+        self.integ.set_initial_value(
+            self.current_state[self.ode_state], self.current_state.t
         )
-        integ.set_integrator("vode", atol=1.0e-8, rtol=1.0e-4)
-        integ.integrate(self.history.t.loc[step + 1])
+        self.integ.set_integrator("vode", atol=1.0e-8, rtol=1.0e-4)
+        self.integ.integrate(self.history.t.loc[step + 1])
 
         # Update state
-        self.update_state(integ)
+        self.update_state()
 
         reward, done = self.termination()
 
@@ -504,7 +549,9 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         super(ContinuousTwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
-        self.observables = ["ca", "p", "T"]
+        self.observables, self.internals = get_observables_internals(
+            ["p", "T", "Tu", "Tb", "mb"], self.histories, ["ca"]
+        )
 
         # Final setup
         action_names = ["mdot", "qdot"] if use_qdot else ["mdot"]
@@ -548,11 +595,22 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         Total injected burned mass is greater than a specified max mass (6e-4 kg)
     """
 
-    def __init__(self, *args, minj=0.0002, max_injections=1, **kwargs):
+    def __init__(
+        self,
+        *args,
+        minj=0.0002,
+        max_injections=1,
+        observables=["ca", "p", "T", "n_inj", "can_inject"],
+        **kwargs,
+    ):
         super(DiscreteTwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
-        self.observables = ["ca", "p", "T", "n_inj", "can_inject"]
+        self.observables, self.internals = get_observables_internals(
+            ["n_inj", "can_inject", "p", "T", "Tu", "Tb", "mb"],
+            self.histories,
+            observables,
+        )
         self.minj = minj
         self.max_injections = max_injections
 
@@ -567,18 +625,9 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
     def reset(self):
 
         super(DiscreteTwoZoneEngine, self).reset()
-        self.current_state["can_inject"] = 1
 
         obs = self.scale_observables(self.current_state)[self.observables]
         return obs
-
-    def update_state(self, integ):
-        """Update the state"""
-        super(DiscreteTwoZoneEngine, self).update_state(integ)
-        self.current_state["n_inj"] = self.action.counter["mdot"]
-        self.current_state["can_inject"] = (
-            1 if self.action.counter["mdot"] < self.action.limits["mdot"] else 0
-        )
 
 
 # ========================================================================
@@ -624,6 +673,7 @@ class ReactorEngine(Engine):
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
         minj=0.0002,  # Mass of injected fuel/air mixture (kg)
         max_injections=1,  # Maximum number of injections allowed
+        observables=["ca", "p", "T", "n_inj", "can_inject"],
         **kwargs,
     ):
         super(ReactorEngine, self).__init__(*args, **kwargs)
@@ -631,14 +681,40 @@ class ReactorEngine(Engine):
         # Engine parameters
         self.Tinj = Tinj
         self.minj = minj
-        self.observables = ["ca", "p", "T", "n_inj", "can_inject"]
-        self.internals = ["mb", "mu", "mdot", "nox", "soot"]
         self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
+        self.observables, self.internals = get_observables_internals(
+            ["n_inj", "can_inject", "p", "T", "mb", "mdot", "nox", "soot"],
+            self.histories,
+            observables,
+        )
         self.max_injections = max_injections
 
+        self.state_reseter = {"can_inject": lambda: 1}
+
+        self.state_updater = {
+            "p": lambda: self.gas.P,
+            "T": lambda: self.gas.T,
+            "mb": lambda: 0,
+            "mdot": lambda: self.mdot,
+            "nox": lambda: get_nox(self.gas),
+            "soot": lambda: get_soot(self.gas),
+            "V": lambda: self.history.loc[self.current_state.name + 1].V,
+            "dVdt": lambda: self.history.loc[self.current_state.name + 1].dVdt,
+            "dV": lambda: self.history.loc[self.current_state.name + 1].dV,
+            "ca": lambda: self.history.loc[self.current_state.name + 1].ca,
+            "t": lambda: self.history.loc[self.current_state.name + 1].t,
+            "piston_velocity": lambda: self.history.loc[
+                self.current_state.name + 1
+            ].piston_velocity,
+            "n_inj": lambda: self.action.counter["minj"],
+            "can_inject": lambda: 1
+            if self.action.counter["minj"] < self.action.limits["minj"]
+            else 0,
+        }
+
         # Figure out the subcycling of steps
-        dt_agent = self.total_time / (agent_steps - 1)
-        self.substeps = int(np.ceil(dt_agent / dt)) + 1
+        self.dt_agent = self.total_time / (agent_steps - 1)
+        self.substeps = int(np.ceil(self.dt_agent / dt)) + 1
         self.agent_steps = agent_steps
         self.nsteps = (agent_steps - 1) * (self.substeps - 1) + 1
 
@@ -649,7 +725,6 @@ class ReactorEngine(Engine):
         self.action = actiontypes.DiscreteActionType(
             ["minj"], {"minj": self.minj}, {"minj": self.max_injections}
         )
-        self.mdot = self.minj / dt_agent
         self.action_space = self.action.space
         self.define_observable_space()
         self.reset()
@@ -709,8 +784,6 @@ class ReactorEngine(Engine):
         self.reactor_setup()
         self.sim.set_initial_time(self.current_state.t)
 
-        self.current_state[self.internals] = [0.0, 0.0, 0.0, 0.0, 0.0]
-
         self.action.reset()
 
         obs = self.scale_observables(self.current_state)[self.observables]
@@ -723,7 +796,7 @@ class ReactorEngine(Engine):
 
         # Integrate the model using the action
         reward = 0
-        mdot = 0
+        self.mdot = 0
         for substep in range(self.substeps - 1):
             step = self.current_state.name
             self.piston.set_velocity(self.current_state.piston_velocity)
@@ -736,7 +809,7 @@ class ReactorEngine(Engine):
                 Xnew = (m0 * self.gas.X + self.minj * self.injection_gas.X) / (
                     m0 + self.minj
                 )
-                mdot = self.mdot
+                self.mdot = self.minj / self.dt_agent
 
                 self.gas = ct.Solution(self.rxnmech)
                 self.gas.TPX = Tnew, Pnew, Xnew
@@ -757,18 +830,7 @@ class ReactorEngine(Engine):
             self.sim.advance(self.history.loc[step + 1, "t"])
 
             # Update state
-            self.current_state.p = self.gas.P
-            self.current_state.T = self.gas.T
-            self.current_state[self.histories] = self.history.loc[
-                step + 1, self.histories
-            ]
-            self.current_state["n_inj"] = self.action.counter["minj"]
-            self.current_state["can_inject"] = (
-                1 if self.action.counter["minj"] < self.action.limits["minj"] else 0
-            )
-            nox, soot = get_nox_soot(self.gas)
-            self.current_state[self.internals] = [0, 0, mdot, nox, soot]
-            self.current_state.name += 1
+            self.update_state()
 
             sub_reward, done = self.termination()
 

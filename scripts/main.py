@@ -168,6 +168,13 @@ if __name__ == "__main__":
             "llnl_gasoline_surrogate_323.xml",
         ],
     )
+    parser.add_argument(
+        "--observables",
+        help="Engine observables",
+        type=str,
+        nargs="+",
+        default=["ca", "p", "T", "n_inj", "can_inject"],
+    )
     args = parser.parse_args()
 
     # Setup
@@ -194,11 +201,12 @@ if __name__ == "__main__":
     T0, p0 = engines.calibrated_engine_ic()
     if args.engine_type == "reactor-engine":
         eng = engines.ReactorEngine(
-                T0=T0, 
-                p0=p0, 
-                agent_steps=args.nsteps, 
-                fuel=args.fuel, 
-                rxnmech=args.rxnmech,
+            T0=T0,
+            p0=p0,
+            agent_steps=args.nsteps,
+            fuel=args.fuel,
+            rxnmech=args.rxnmech,
+            observables=args.observables,
         )
     elif args.engine_type == "twozone-engine":
         if args.use_continuous:
@@ -212,7 +220,12 @@ if __name__ == "__main__":
             )
         else:
             eng = engines.DiscreteTwoZoneEngine(
-                T0=T0, p0=p0, nsteps=args.nsteps, fuel=args.fuel, rxnmech=args.rxnmech
+                T0=T0,
+                p0=p0,
+                nsteps=args.nsteps,
+                fuel=args.fuel,
+                rxnmech=args.rxnmech,
+                observables=args.observables,
             )
 
     # Create the agent and train
