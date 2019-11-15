@@ -877,42 +877,22 @@ class EquilibrateEngine(ReactorEngine):
     ):
         super(EquilibrateEngine, self).__init__(*args, **kwargs)
 
-        # Engine parameters
-        self.Tinj = Tinj
-        self.minj = minj
-        self.observables = ["ca", "p", "T", "n_inj", "can_inject"]
-        self.internals = ["mb", "mu", "mdot", "nox", "soot"]
-        self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
-        self.max_injections = max_injections
-
-        # Set nsteps
+        # Overwrite nsteps
         self.nsteps=agent_steps
 
         # Engine setup
         self.history_setup()
         self.set_initial_state()
         self.engine_setup()
-        self.action = actiontypes.DiscreteActionType(
-            ["minj"], {"minj": self.minj}, {"minj": self.max_injections}
-        )
-        # self.mdot = self.minj / dt_agent
-        self.mdot = self.minj / self.dt
-        self.action_space = self.action.space
-        self.define_observable_space()
         self.reset()
-
-    def reactor_setup(self):
-        super(EquilibrateEngine, self).reactor_setup()
     
-
     def step(self, action):
         "Advance the engine to the next state using the action"
 
         action = self.action.preprocess(action)
 
         # Integrate the model using the action
-        reward = 0
-        mdot = 0
+        self.mdot = 0
 
         step = self.current_state.name
         self.piston.set_velocity(self.current_state.piston_velocity)
@@ -925,7 +905,7 @@ class EquilibrateEngine(ReactorEngine):
             Xnew = (m0 * self.gas.X + self.minj * self.injection_gas.X) / (
                 m0 + self.minj
             )
-            mdot = self.mdot
+            self.mdot = self.minj / self.dt
 
             self.gas = ct.Solution(self.rxnmech)
             self.gas.TPX = Tnew, Pnew, Xnew
@@ -946,19 +926,7 @@ class EquilibrateEngine(ReactorEngine):
             self.gas.equilibrate("HP", solver="auto", rtol=1e-9, maxiter=100, loglevel=0)
         self.sim.advance(self.history.loc[step + 1, "t"])
 
-        # Update state
-        self.current_state.p = self.gas.P
-        self.current_state.T = self.gas.T
-        self.current_state[self.histories] = self.history.loc[
-            step + 1, self.histories
-        ]
-        self.current_state["n_inj"] = self.action.counter["minj"]
-        self.current_state["can_inject"] = (
-            1 if self.action.counter["minj"] < self.action.limits["minj"] else 0
-        )
-        nox, soot = get_nox_soot(self.gas)
-        self.current_state[self.internals] = [0, 0, mdot, nox, soot]
-        self.current_state.name += 1
+        self.update_state()
 
         reward, done = self.termination()
 
