@@ -165,6 +165,8 @@ class MPRLTestCase(unittest.TestCase):
             T0=self.T0,
             p0=self.p0,
             agent_steps=201,
+            Tinj=300.0,
+            minj=0.0001,
             dt=5e-6,
             rxnmech="dodecane_lu_nox.cti",
             small_negative_reward=-0.05,
@@ -216,8 +218,9 @@ class MPRLTestCase(unittest.TestCase):
         eng = engines.EquilibrateEngine(
             T0=self.T0,
             p0=self.p0,
-            agent_steps=201,
-            dt=None,
+            nsteps=201,
+            Tinj=300.0,
+            minj=0.0001,
             rxnmech="dodecane_lu_nox.cti",
             small_negative_reward=-0.05,
         )

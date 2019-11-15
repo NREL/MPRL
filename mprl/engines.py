@@ -868,17 +868,17 @@ class EquilibrateEngine(ReactorEngine):
     def __init__(
         self,
         *args,
-        agent_steps=100,
-        dt=None,
+        nsteps=100,
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
         minj=0.0001,  # Mass of injected fuel (kg)
         max_injections=1,  # Maximum number of injections allowed
+        observables=["ca", "p", "T", "n_inj", "can_inject"],
         **kwargs,
     ):
-        super(EquilibrateEngine, self).__init__(*args, **kwargs)
+        super(EquilibrateEngine, self).__init__(*args, Tinj=Tinj, minj=minj, **kwargs)
 
         # Overwrite nsteps
-        self.nsteps=agent_steps
+        self.nsteps=nsteps
 
         # Engine setup
         self.history_setup()
