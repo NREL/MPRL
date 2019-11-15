@@ -871,7 +871,7 @@ class EquilibrateEngine(ReactorEngine):
         agent_steps=100,
         dt=None,
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
-        minj=0.0001,  # Mass of injected fuel/air mixture (kg)
+        minj=0.0001,  # Mass of injected fuel (kg)
         max_injections=1,  # Maximum number of injections allowed
         **kwargs,
     ):
@@ -943,7 +943,7 @@ class EquilibrateEngine(ReactorEngine):
             self.sim = ct.ReactorNet([self.reactor])
             self.sim.set_initial_time(self.current_state.t)
 
-            self.gas.equilibrate("HP", solver="auto",rtol=1e-9,maxiter=100,loglevel=0)
+            self.gas.equilibrate("HP", solver="auto", rtol=1e-9, maxiter=100, loglevel=0)
         self.sim.advance(self.history.loc[step + 1, "t"])
 
         # Update state

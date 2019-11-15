@@ -5,6 +5,7 @@
 # ========================================================================
 import os
 import sys
+import time
 import unittest
 import numpy as np
 import pandas as pd
@@ -54,16 +55,19 @@ class MPRLTestCase(unittest.TestCase):
         agent.learn()
 
         # Evaluate the agent
+        t0 = time.time()
         df, total_reward = utilities.evaluate_agent(env, agent)
+        t_calibrated_agent = time.time() - t0
         utilities.plot_df(env, df, idx=0, name="calibrated")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.0021952121511437405)
-        npt.assert_allclose(np.linalg.norm(df.p), 22481171.960251164)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 10388.328371677868)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 106.4513982783545)
+        npt.assert_allclose(np.linalg.norm(df.p), 22135415.810781036)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 14294.35906971223)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 105.13630723422598)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.6641914874662471)
         npt.assert_allclose(np.linalg.norm(df.qdot), 97686.9157424243)
+        print('Wall time for CalibratedAgent = ', t_calibrated_agent, " seconds")
 
     def test_exhaustive_agent(self):
         """Does the exhaustive agent work as expected?"""
@@ -88,15 +92,18 @@ class MPRLTestCase(unittest.TestCase):
         agent.learn()
 
         # Evaluate the agent
+        t0 = time.time()
         df, total_reward = utilities.evaluate_agent(env, agent)
+        t_exhaustive_agent = time.time() - t0
         utilities.plot_df(env, df, idx=1, name="exhaustive")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 20032252.048329815)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 7305.088913420635)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 79.08349799746054)
+        npt.assert_allclose(np.linalg.norm(df.p), 20166551.0606587)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 10702.697172931328)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 80.00996887426106)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.9)
+        print('Wall time for ExhaustiveAgent = ', t_exhaustive_agent, " seconds")
 
     def test_discrete_twozone_engine(self):
         """Does the DiscreteTwoZoneEngine work as expected?"""
@@ -117,6 +124,7 @@ class MPRLTestCase(unittest.TestCase):
         )
 
         # Evaluate a dummy agent that injects at a fixed time
+        t0 = time.time()
         done = False
         cnt = 0
         obs = env.reset()
@@ -137,14 +145,17 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
 
+        t_discrete_twozone_engine = time.time() - t0
+
         utilities.plot_df(env, df, idx=2, name="ppo")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
-        npt.assert_allclose(np.linalg.norm(df.p), 33395323.89519612)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 11587.72263843385)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 59.859483882062264)
+        npt.assert_allclose(np.linalg.norm(df.p), 32287395.509347167)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 15696.023931640237)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 58.306067227633854)
         npt.assert_allclose(np.linalg.norm(df.mdot), 1.8)
+        print('Wall time for DiscreteTwoZoneEngine = ', t_discrete_twozone_engine, " seconds")
 
     def test_reactor_engine(self):
         """Does the ReactorEngine work as expected?"""
@@ -165,6 +176,7 @@ class MPRLTestCase(unittest.TestCase):
         )
 
         # Evaluate a dummy agent that injects at a fixed time
+        t0 = time.time()
         done = False
         cnt = 0
         obs = env.reset()
@@ -185,14 +197,17 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
 
+        t_reactor_engine = time.time() - t0
+
         utilities.plot_df(env, df, idx=3, name="ppo")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
-        npt.assert_allclose(np.linalg.norm(df.p), 35262571.67185785)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 17713.666566451608)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 70.79674473694782)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 1.8)
+        npt.assert_allclose(np.linalg.norm(df.p), 42192062.9571028)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 13554.750403610049)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 79.54371897595097)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.9)
+        print('Wall time for ReactorEngine = ', t_reactor_engine, " seconds")
 
     def test_equilibrate_engine(self):
         """Does the EquilibrateEngine work as expected?"""
@@ -213,6 +228,7 @@ class MPRLTestCase(unittest.TestCase):
         )
 
         # Evaluate a dummy agent that injects at a fixed time
+        t0 = time.time()
         done = False
         cnt = 0
         obs = env.reset()
@@ -233,14 +249,17 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
 
+        t_equilibrate_engine = time.time() - t0
+
         utilities.plot_df(env, df, idx=4, name="ppo")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
-        npt.assert_allclose(np.linalg.norm(df.p), 35262571.67185785)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 17713.666566451608)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 70.79674473694782)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 1.8)
+        npt.assert_allclose(np.linalg.norm(df.p), 44325216.29019342)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 13638.628651318271)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 83.6415467353074)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.9)
+        print('Wall time for EquilibrateEngine = ', t_equilibrate_engine, " seconds")
 
 
 # ========================================================================
