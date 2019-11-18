@@ -62,6 +62,9 @@ def get_label(name):
         "a2c": "A2C",
         "dqn": "DQN",
         "ppo": "PPO2",
+        "reactor": "ReactorEngine",
+        "EQ": "EQEngine",
+        "discrete": "DiscreteTwoZone"
     }
     return labels[name]
 

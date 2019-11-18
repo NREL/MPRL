@@ -863,7 +863,7 @@ class ReactorEngine(Engine):
         )
 
 # ========================================================================
-class EquilibrateEngine(ReactorEngine):
+class EquilibrateEngine(Engine):
 
     def __init__(
         self,
@@ -875,16 +875,78 @@ class EquilibrateEngine(ReactorEngine):
         observables=["ca", "p", "T", "n_inj", "can_inject"],
         **kwargs,
     ):
-        super(EquilibrateEngine, self).__init__(*args, Tinj=Tinj, minj=minj, **kwargs)
+        super(EquilibrateEngine, self).__init__(*args, **kwargs)
 
-        # Overwrite nsteps
-        self.nsteps=nsteps
+        # Engine parameters
+        self.Tinj = Tinj
+        self.minj = minj
+        self.nsteps = nsteps
+        self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
+        self.observables, self.internals = get_observables_internals(
+            ["n_inj", "can_inject", "p", "T", "mb", "mdot", "nox", "soot"],
+            self.histories,
+            observables,
+        )
+        self.max_injections = max_injections
+
+        self.state_reseter = {"can_inject": lambda: 1}
+
+        self.state_updater = {
+            "p": lambda: self.gas.P,
+            "T": lambda: self.gas.T,
+            "mb": lambda: 0,
+            "mdot": lambda: self.mdot,
+            "nox": lambda: get_nox(self.gas),
+            "soot": lambda: get_soot(self.gas),
+            "V": lambda: self.history.loc[self.current_state.name + 1].V,
+            "dVdt": lambda: self.history.loc[self.current_state.name + 1].dVdt,
+            "dV": lambda: self.history.loc[self.current_state.name + 1].dV,
+            "ca": lambda: self.history.loc[self.current_state.name + 1].ca,
+            "t": lambda: self.history.loc[self.current_state.name + 1].t,
+            "piston_velocity": lambda: self.history.loc[
+                self.current_state.name + 1
+            ].piston_velocity,
+            "n_inj": lambda: self.action.counter["minj"],
+            "can_inject": lambda: 1
+            if self.action.counter["minj"] < self.action.limits["minj"]
+            else 0,
+        }
 
         # Engine setup
         self.history_setup()
         self.set_initial_state()
-        self.engine_setup()
+        self.gas_setup()
+        self.action = actiontypes.DiscreteActionType(
+            ["minj"], {"minj": self.minj}, {"minj": self.max_injections}
+        )
+        self.action_space = self.action.space
+        self.define_observable_space()
         self.reset()
+
+    def set_initial_state(self):
+        self.p0 = self.starting_cycle_p
+        self.T0 = (
+            (self.p0 / ct.one_atm)
+            * (
+                self.history.V[0]
+                / (np.pi / 4.0 * self.Bore ** 2 * self.Stroke + self.TDCvol)
+            )
+            * 300.0
+        )
+
+    def gas_setup(self):
+        self.initial_gas = ct.Solution(self.rxnmech)
+        self.initial_gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
+        self.injection_gas = setup_injection_gas(self.rxnmech, self.fuel, pure_fuel=True)
+        self.gas = self.initial_gas
+
+    def reset(self):
+        super(EquilibrateEngine, self).reset_state()
+
+        self.gas_setup()
+        self.action.reset()
+        obs = self.scale_observables(self.current_state)[self.observables]
+        return obs
     
     def step(self, action):
         "Advance the engine to the next state using the action"
@@ -895,11 +957,18 @@ class EquilibrateEngine(ReactorEngine):
         self.mdot = 0
 
         step = self.current_state.name
-        self.piston.set_velocity(self.current_state.piston_velocity)
 
-        # inject
+        gamma = self.gas.cp/self.gas.cv
+
+        P1 = self.gas.P
+        V1 = self.history.V[step]
+        V2 = self.history.V[step+1]
+        P2 = P1/((V2/V1)**gamma)
+        T2 = P2*V2/(self.gas.density_mole*V1*ct.gas_constant)
+        self.gas.TP = T2, P2
+
         if action["minj"] > 0:
-            m0 = self.gas.density_mass * self.reactor.volume
+            m0 = self.gas.density_mass * self.current_state.V
             Tnew = (m0 * self.gas.T + self.minj * self.Tinj) / (m0 + self.minj)
             Pnew = self.gas.P
             Xnew = (m0 * self.gas.X + self.minj * self.injection_gas.X) / (
@@ -909,22 +978,7 @@ class EquilibrateEngine(ReactorEngine):
 
             self.gas = ct.Solution(self.rxnmech)
             self.gas.TPX = Tnew, Pnew, Xnew
-            self.reactor = ct.Reactor(self.gas)
-            self.reactor.chemistry_enabled = True
-            self.reactor.volume = self.current_state.V
-            self.piston = ct.Wall(
-                left=self.reactor,
-                right=self.rempty,
-                A=np.pi / 4.0 * self.Bore ** 2,
-                U=0.0,
-                velocity=self.current_state.piston_velocity,
-            )
-
-            self.sim = ct.ReactorNet([self.reactor])
-            self.sim.set_initial_time(self.current_state.t)
-
-            self.gas.equilibrate("HP", solver="auto", rtol=1e-9, maxiter=100, loglevel=0)
-        self.sim.advance(self.history.loc[step + 1, "t"])
+            self.gas.equilibrate("UV", solver="auto", rtol=1e-9)
 
         self.update_state()
 

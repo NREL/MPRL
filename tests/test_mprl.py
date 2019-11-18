@@ -147,7 +147,7 @@ class MPRLTestCase(unittest.TestCase):
 
         t_discrete_twozone_engine = time.time() - t0
 
-        utilities.plot_df(env, df, idx=2, name="ppo")
+        utilities.plot_df(env, df, idx=2, name="discrete")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
@@ -166,7 +166,7 @@ class MPRLTestCase(unittest.TestCase):
             p0=self.p0,
             agent_steps=201,
             Tinj=300.0,
-            minj=0.0001,
+            minj=0.000026,
             dt=5e-6,
             rxnmech="dodecane_lu_nox.cti",
             small_negative_reward=-0.05,
@@ -201,14 +201,14 @@ class MPRLTestCase(unittest.TestCase):
 
         t_reactor_engine = time.time() - t0
 
-        utilities.plot_df(env, df, idx=3, name="ppo")
+        utilities.plot_df(env, df, idx=3, name="reactor")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
-        npt.assert_allclose(np.linalg.norm(df.p), 42192062.9571028)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 13554.750403610049)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 79.54371897595097)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.9)
+        npt.assert_allclose(np.linalg.norm(df.p), 52601090.68967889)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 18840.68504413367)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 95.92261538930752)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.23399999999999999)
         print('Wall time for ReactorEngine = ', t_reactor_engine, " seconds")
 
     def test_equilibrate_engine(self):
@@ -220,7 +220,7 @@ class MPRLTestCase(unittest.TestCase):
             p0=self.p0,
             nsteps=201,
             Tinj=300.0,
-            minj=0.0001,
+            minj=0.000026,
             rxnmech="dodecane_lu_nox.cti",
             small_negative_reward=-0.05,
         )
@@ -254,14 +254,14 @@ class MPRLTestCase(unittest.TestCase):
 
         t_equilibrate_engine = time.time() - t0
 
-        utilities.plot_df(env, df, idx=4, name="ppo")
+        utilities.plot_df(env, df, idx=4, name="EQ")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.003094822855555559)
-        npt.assert_allclose(np.linalg.norm(df.p), 44325216.29019342)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 13638.628651318271)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 83.6415467353074)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.9)
+        npt.assert_allclose(np.linalg.norm(df.p), 58396518.33341535)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 17672.067301618787)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 99.77931581596377)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.23399999999999999)
         print('Wall time for EquilibrateEngine = ', t_equilibrate_engine, " seconds")
 
 
