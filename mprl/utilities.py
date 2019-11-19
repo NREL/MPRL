@@ -83,6 +83,7 @@ def get_fields():
         "qdot": r"$\dot{Q}~[\mathrm{J/s}]$",
         "nox": r"$Y_{NO_x}$",
         "soot": r"$Y_{C_2 H_2}$",
+        "n_inj": r"\# injections",
     }
 
 
