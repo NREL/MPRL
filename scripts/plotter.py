@@ -53,6 +53,16 @@ if __name__ == "__main__":
                 agent_steps=args.nsteps,
                 fuel=run_args.fuel,
                 rxnmech=run_args.rxnmech,
+                observables=run_args.observables,
+            )
+        elif run_args.engine_type == "EQ-engine":
+            eng = engines.EquilibrateEngine(
+                T0=T0,
+                p0=p0,
+                nsteps=args.nsteps,
+                fuel=run_args.fuel,
+                rxnmech=run_args.rxnmech,
+                observables=run_args.observables,
             )
         elif run_args.engine_type == "twozone-engine":
             if run_args.use_continuous:
@@ -71,6 +81,7 @@ if __name__ == "__main__":
                     nsteps=args.nsteps,
                     fuel=run_args.fuel,
                     rxnmech=run_args.rxnmech,
+                    observables=run_args.observables,
                 )
 
         env = DummyVecEnv([lambda: eng])

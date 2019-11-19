@@ -682,7 +682,7 @@ class ReactorEngine(Engine):
         self,
         *args,
         agent_steps=100,
-        dt=5e-6,  # Time step for integrating the 0D reactor (s)
+        dt=4e-6,  # Time step for integrating the 0D reactor (s)
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
         minj=0.0001,  # Mass of injected fuel/air mixture (kg)
         max_injections=1,  # Maximum number of injections allowed

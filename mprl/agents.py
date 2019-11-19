@@ -114,7 +114,7 @@ class ExhaustiveAgent(Agent):
         agent_ca = (
             eng.history.ca
             if len(eng.history.ca) == eng.agent_steps
-            else eng.history.ca[:: len(eng.history.ca) // eng.agent_steps + 1]
+            else eng.history.ca[:: eng.substeps - 1]
         )
         for inj in itertools.combinations(agent_ca, self.max_ninj):
             done = [False]
