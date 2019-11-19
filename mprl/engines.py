@@ -44,7 +44,7 @@ def setup_injection_gas(rxnmech, fuel, pure_fuel=True):
         gas.X = x_from_fuel_composition(gas, fuel_composition)
     elif fuel == "dodecane":
         if pure_fuel:
-            gas.X = {'NC12H26':1.0}
+            gas.X = {"NC12H26": 1.0}
         else:
             gas.set_equivalence_ratio(1.0, "NC12H26", "O2:1.0, N2:3.76")
     else:
@@ -248,6 +248,17 @@ class Engine(gym.Env):
         self.history.ca = cycle.ca.copy()
         self.history.t = cycle.t.copy()
 
+    def set_initial_state(self):
+        self.p0 = self.starting_cycle_p
+        self.T0 = (
+            (self.p0 / ct.one_atm)
+            * (
+                self.history.V[0]
+                / (np.pi / 4.0 * self.Bore ** 2 * self.Stroke + self.TDCvol)
+            )
+            * 300.0
+        )
+
     def reset_state(self):
         """Reset the starting state"""
         self.set_initial_state()
@@ -335,21 +346,12 @@ class TwoZoneEngine(Engine):
         self.fuel_setup()
         self.history_setup()
 
-    def set_initial_state(self):
-        self.p0 = self.starting_cycle_p
-        self.T0 = (
-            (self.p0 / ct.one_atm)
-            * (
-                self.history.V[0]
-                / (np.pi / 4.0 * self.Bore ** 2 * self.Stroke + self.TDCvol)
-            )
-            * 300.0
-        )
-
     def fuel_setup(self):
         """Setup the fuel and save for faster reset"""
 
-        self.injection_gas = setup_injection_gas(self.rxnmech, self.fuel, pure_fuel=False)
+        self.injection_gas = setup_injection_gas(
+            self.rxnmech, self.fuel, pure_fuel=False
+        )
 
         self.injection_gas.TP = self.T0, self.p0
         self.injection_xinit = self.injection_gas.X
@@ -740,17 +742,6 @@ class ReactorEngine(Engine):
         self.define_observable_space()
         self.reset()
 
-    def set_initial_state(self):
-        self.p0 = self.starting_cycle_p
-        self.T0 = (
-            (self.p0 / ct.one_atm)
-            * (
-                self.history.V[0]
-                / (np.pi / 4.0 * self.Bore ** 2 * self.Stroke + self.TDCvol)
-            )
-            * 300.0
-        )
-
     def engine_setup(self):
         """Setup the fuel and reactor"""
         self.piston_setup()
@@ -765,7 +756,9 @@ class ReactorEngine(Engine):
         self.initial_gas = ct.Solution(self.rxnmech)
         self.initial_gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
 
-        self.injection_gas = setup_injection_gas(self.rxnmech, self.fuel, pure_fuel=True)
+        self.injection_gas = setup_injection_gas(
+            self.rxnmech, self.fuel, pure_fuel=True
+        )
 
         # Create the reactor object
         self.gas = self.initial_gas
@@ -862,9 +855,9 @@ class ReactorEngine(Engine):
             {"current_state": self.current_state},
         )
 
+
 # ========================================================================
 class EquilibrateEngine(Engine):
-
     def __init__(
         self,
         *args,
@@ -923,21 +916,12 @@ class EquilibrateEngine(Engine):
         self.define_observable_space()
         self.reset()
 
-    def set_initial_state(self):
-        self.p0 = self.starting_cycle_p
-        self.T0 = (
-            (self.p0 / ct.one_atm)
-            * (
-                self.history.V[0]
-                / (np.pi / 4.0 * self.Bore ** 2 * self.Stroke + self.TDCvol)
-            )
-            * 300.0
-        )
-
     def gas_setup(self):
         self.initial_gas = ct.Solution(self.rxnmech)
         self.initial_gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
-        self.injection_gas = setup_injection_gas(self.rxnmech, self.fuel, pure_fuel=True)
+        self.injection_gas = setup_injection_gas(
+            self.rxnmech, self.fuel, pure_fuel=True
+        )
         self.gas = self.initial_gas
 
     def reset(self):
@@ -947,7 +931,7 @@ class EquilibrateEngine(Engine):
         self.action.reset()
         obs = self.scale_observables(self.current_state)[self.observables]
         return obs
-    
+
     def step(self, action):
         "Advance the engine to the next state using the action"
 
@@ -958,13 +942,13 @@ class EquilibrateEngine(Engine):
 
         step = self.current_state.name
 
-        gamma = self.gas.cp/self.gas.cv
+        gamma = self.gas.cp / self.gas.cv
 
         P1 = self.gas.P
         V1 = self.history.V[step]
-        V2 = self.history.V[step+1]
-        P2 = P1/((V2/V1)**gamma)
-        T2 = P2*V2/(self.gas.density_mole*V1*ct.gas_constant)
+        V2 = self.history.V[step + 1]
+        P2 = P1 / ((V2 / V1) ** gamma)
+        T2 = P2 * V2 / (self.gas.density_mole * V1 * ct.gas_constant)
         self.gas.TP = T2, P2
 
         if action["minj"] > 0:
@@ -984,7 +968,6 @@ class EquilibrateEngine(Engine):
 
         reward, done = self.termination()
 
-
         # Add negative reward if the action had to be masked
         if self.action.masked:
             reward += self.small_negative_reward
@@ -999,4 +982,3 @@ class EquilibrateEngine(Engine):
             done,
             {"current_state": self.current_state},
         )
-

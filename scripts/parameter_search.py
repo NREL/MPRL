@@ -347,7 +347,7 @@ if __name__ == "__main__":
         help="Engine type to use",
         type=str,
         default="twozone-engine",
-        choices=["twozone-engine", "reactor-engine"],
+        choices=["twozone-engine", "reactor-engine", "EQ-engine"],
     )
     parser.add_argument(
         "--fuel",
@@ -385,6 +385,15 @@ if __name__ == "__main__":
             T0=T0,
             p0=p0,
             agent_steps=args.nsteps,
+            fuel=args.fuel,
+            rxnmech=args.rxnmech,
+            observables=args.observables,
+        )
+    elif args.engine_type == "EQ-engine":
+        eng = engines.EquilibrateEngine(
+            T0=T0,
+            p0=p0,
+            nsteps=args.nsteps,
             fuel=args.fuel,
             rxnmech=args.rxnmech,
             observables=args.observables,

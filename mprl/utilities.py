@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib import rcParams
 from scipy import interpolate as interp
 import mprl.engines as engines
 
@@ -47,6 +48,7 @@ dashseq = [
     [3, 3],
 ]
 markertype = ["s", "d", "o", "p", "h"]
+rcParams.update({"figure.autolayout": True})
 
 
 # ========================================================================
@@ -64,7 +66,7 @@ def get_label(name):
         "ppo": "PPO2",
         "reactor": "ReactorEngine",
         "EQ": "EQEngine",
-        "discrete": "DiscreteTwoZone"
+        "discrete": "DiscreteTwoZone",
     }
     return labels[name]
 
@@ -192,7 +194,6 @@ def save_plots(fname):
         plt.ylabel(r"$p~[\mathrm{bar}]$", fontsize=22, fontweight="bold")
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
         legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
 
@@ -202,7 +203,6 @@ def save_plots(fname):
         plt.ylabel(r"$p~[\mathrm{bar}]$", fontsize=22, fontweight="bold")
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
 
@@ -214,7 +214,6 @@ def save_plots(fname):
                 plt.ylabel(label, fontsize=22, fontweight="bold")
                 plt.setp(ax.get_xmajorticklabels(), fontsize=16)
                 plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-                plt.tight_layout()
                 # legend = ax.legend(loc="best")
                 pdf.savefig(dpi=300)
 
@@ -224,7 +223,6 @@ def save_plots(fname):
         plt.ylabel(r"$\Sigma r$", fontsize=22, fontweight="bold")
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
 
@@ -260,7 +258,6 @@ def plot_training(df, fname):
         plt.ylabel(r"$\Sigma r$", fontsize=22, fontweight="bold")
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
 
@@ -270,7 +267,6 @@ def plot_training(df, fname):
         plt.ylabel(r"step", fontsize=22, fontweight="bold")
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
 
@@ -280,7 +276,6 @@ def plot_training(df, fname):
         plt.ylabel(r"$\Sigma r$", fontsize=22, fontweight="bold")
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
 
@@ -312,6 +307,5 @@ def save_tb_plots(fname):
         plt.ylabel(r"$\Sigma r$", fontsize=22, fontweight="bold")
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        plt.tight_layout()
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
