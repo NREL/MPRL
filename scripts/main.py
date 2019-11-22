@@ -124,7 +124,11 @@ if __name__ == "__main__":
         choices=["calibrated", "exhaustive", "ddpg", "a2c", "dqn", "ppo"],
     )
     parser.add_argument(
-        "-s", "--nsteps", help="Total steps in a given episode", type=int, default=201
+        "-s",
+        "--nsteps",
+        help="Total agent steps in a given episode",
+        type=int,
+        default=201,
     )
     parser.add_argument(
         "-nep", help="Total number of episodes to train over", type=int, default=100
@@ -212,7 +216,7 @@ if __name__ == "__main__":
         eng = engines.EquilibrateEngine(
             T0=T0,
             p0=p0,
-            nsteps=args.nsteps,
+            agent_steps=args.nsteps,
             fuel=args.fuel,
             rxnmech=args.rxnmech,
             observables=args.observables,
@@ -222,7 +226,7 @@ if __name__ == "__main__":
             eng = engines.ContinuousTwoZoneEngine(
                 T0=T0,
                 p0=p0,
-                nsteps=args.nsteps,
+                agent_steps=args.nsteps,
                 use_qdot=args.use_qdot,
                 fuel=args.fuel,
                 rxnmech=args.rxnmech,
@@ -231,7 +235,7 @@ if __name__ == "__main__":
             eng = engines.DiscreteTwoZoneEngine(
                 T0=T0,
                 p0=p0,
-                nsteps=args.nsteps,
+                agent_steps=args.nsteps,
                 fuel=args.fuel,
                 rxnmech=args.rxnmech,
                 observables=args.observables,
@@ -330,15 +334,15 @@ if __name__ == "__main__":
                 MlpPolicy,
                 env,
                 verbose=1,
-                gamma=0.998,
-                ent_coef=5.33e-3,
-                learning_rate=1.76e-5,
-                vf_coef=0.188,
-                max_grad_norm=0.88,
-                lam=0.99,
-                nminibatches=4,
-                noptepochs=16,
-                cliprange=0.68,
+                gamma=0.8,
+                ent_coef=0.000284,
+                learning_rate=0.000757,
+                vf_coef=0.025848,
+                max_grad_norm=0.668213,
+                lam=0.834662,
+                nminibatches=2,
+                noptepochs=8,
+                cliprange=0.881595,
                 n_steps=16,
                 tensorboard_log=logdir,
             )

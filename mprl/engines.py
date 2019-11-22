@@ -120,7 +120,7 @@ class Engine(gym.Env):
         self,
         T0=298.0,
         p0=103_325.0,
-        nsteps=100,
+        agent_steps=100,
         ivc=-100.0,
         evo=100.0,
         fuel="dodecane",
@@ -132,8 +132,8 @@ class Engine(gym.Env):
         # Engine parameters
         self.T0 = T0
         self.p0 = p0
-        self.nsteps = nsteps
-        self.agent_steps = self.nsteps
+        self.agent_steps = agent_steps
+        self.nsteps = self.agent_steps
         self.ivc = ivc
         self.evo = evo
         self.fuel = fuel
@@ -314,7 +314,7 @@ class TwoZoneEngine(Engine):
         super(TwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
-        self.negative_reward = -self.nsteps
+        self.negative_reward = -self.agent_steps
         self.ode_state = ["p", "Tu", "Tb", "mb"]
         self.histories = ["V", "dVdt", "dV", "ca", "t"]
         self.integ = ode(lambda t, y: self.dfundt_mdot(t, y, 0, 0, 0))
@@ -681,7 +681,6 @@ class ReactorEngine(Engine):
     def __init__(
         self,
         *args,
-        agent_steps=100,
         dt=4e-6,  # Time step for integrating the 0D reactor (s)
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
         minj=0.0001,  # Mass of injected fuel/air mixture (kg)
@@ -726,10 +725,9 @@ class ReactorEngine(Engine):
         }
 
         # Figure out the subcycling of steps
-        self.dt_agent = self.total_time / (agent_steps - 1)
+        self.dt_agent = self.total_time / (self.agent_steps - 1)
         self.substeps = int(np.ceil(self.dt_agent / dt)) + 1
-        self.agent_steps = agent_steps
-        self.nsteps = (agent_steps - 1) * (self.substeps - 1) + 1
+        self.nsteps = (self.agent_steps - 1) * (self.substeps - 1) + 1
 
         # Engine setup
         self.history_setup()
@@ -861,7 +859,6 @@ class EquilibrateEngine(Engine):
     def __init__(
         self,
         *args,
-        nsteps=100,
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
         minj=0.0001,  # Mass of injected fuel (kg)
         max_injections=1,  # Maximum number of injections allowed
@@ -873,7 +870,6 @@ class EquilibrateEngine(Engine):
         # Engine parameters
         self.Tinj = Tinj
         self.minj = minj
-        self.nsteps = nsteps
         self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
         self.observables, self.internals = get_observables_internals(
             ["n_inj", "can_inject", "p", "T", "mb", "mdot", "nox", "soot"],

@@ -34,7 +34,11 @@ if __name__ == "__main__":
         nargs="+",
     )
     parser.add_argument(
-        "-s", "--nsteps", help="Total steps in a given episode", type=int, default=201
+        "-s",
+        "--nsteps",
+        help="Total agent steps in a given episode",
+        type=int,
+        default=201,
     )
     args = parser.parse_args()
 
@@ -59,7 +63,7 @@ if __name__ == "__main__":
             eng = engines.EquilibrateEngine(
                 T0=T0,
                 p0=p0,
-                nsteps=args.nsteps,
+                agent_steps=args.nsteps,
                 fuel=run_args.fuel,
                 rxnmech=run_args.rxnmech,
                 observables=run_args.observables,
@@ -69,7 +73,7 @@ if __name__ == "__main__":
                 eng = engines.ContinuousTwoZoneEngine(
                     T0=T0,
                     p0=p0,
-                    nsteps=args.nsteps,
+                    agent_steps=args.nsteps,
                     use_qdot=run_args.use_qdot,
                     fuel=run_args.fuel,
                     rxnmech=run_args.rxnmech,
@@ -78,7 +82,7 @@ if __name__ == "__main__":
                 eng = engines.DiscreteTwoZoneEngine(
                     T0=T0,
                     p0=p0,
-                    nsteps=args.nsteps,
+                    agent_steps=args.nsteps,
                     fuel=run_args.fuel,
                     rxnmech=run_args.rxnmech,
                     observables=run_args.observables,

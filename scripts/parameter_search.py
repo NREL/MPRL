@@ -325,7 +325,11 @@ if __name__ == "__main__":
     )
     parser.add_argument("-p", "--pop", help="Population size", type=int, default=20)
     parser.add_argument(
-        "-s", "--nsteps", help="Total steps in a given episode", type=int, default=201
+        "-s",
+        "--nsteps",
+        help="Total agent steps in a given episode",
+        type=int,
+        default=201,
     )
     parser.add_argument(
         "-e", "--epochs", help="Number of epochs", type=int, default=100
@@ -393,7 +397,7 @@ if __name__ == "__main__":
         eng = engines.EquilibrateEngine(
             T0=T0,
             p0=p0,
-            nsteps=args.nsteps,
+            agent_steps=args.nsteps,
             fuel=args.fuel,
             rxnmech=args.rxnmech,
             observables=args.observables,
@@ -403,7 +407,7 @@ if __name__ == "__main__":
             eng = engines.ContinuousTwoZoneEngine(
                 T0=T0,
                 p0=p0,
-                nsteps=args.nsteps,
+                agent_steps=args.nsteps,
                 use_qdot=args.use_qdot,
                 fuel=args.fuel,
                 rxnmech=args.rxnmech,
@@ -412,7 +416,7 @@ if __name__ == "__main__":
             eng = engines.DiscreteTwoZoneEngine(
                 T0=T0,
                 p0=p0,
-                nsteps=args.nsteps,
+                agent_steps=args.nsteps,
                 fuel=args.fuel,
                 rxnmech=args.rxnmech,
                 observables=args.observables,

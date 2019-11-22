@@ -43,7 +43,7 @@ class MPRLTestCase(unittest.TestCase):
         eng = engines.ContinuousTwoZoneEngine(
             T0=self.T0,
             p0=self.p0,
-            nsteps=100,
+            agent_steps=100,
             use_qdot=True,
             fuel="PRF100",
             rxnmech="llnl_gasoline_surrogate_323.xml",
@@ -76,7 +76,7 @@ class MPRLTestCase(unittest.TestCase):
         eng = engines.DiscreteTwoZoneEngine(
             T0=self.T0,
             p0=self.p0,
-            nsteps=101,
+            agent_steps=101,
             fuel="dodecane",
             rxnmech="dodecane_lu_nox.cti",
             small_negative_reward=-0.05,
@@ -112,7 +112,7 @@ class MPRLTestCase(unittest.TestCase):
         eng = engines.DiscreteTwoZoneEngine(
             T0=self.T0,
             p0=self.p0,
-            nsteps=201,
+            agent_steps=201,
             fuel="PRF100",
             rxnmech="llnl_gasoline_surrogate_323.xml",
             small_negative_reward=-0.05,
@@ -218,7 +218,7 @@ class MPRLTestCase(unittest.TestCase):
         eng = engines.EquilibrateEngine(
             T0=self.T0,
             p0=self.p0,
-            nsteps=201,
+            agent_steps=201,
             Tinj=300.0,
             minj=0.000026,
             rxnmech="dodecane_lu_nox.cti",

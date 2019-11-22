@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
     # Create the environment
     T0, p0 = engines.calibrated_engine_ic()
-    eng = engines.ContinuousTwoZoneEngine(T0=T0, p0=p0, nsteps=200, use_qdot=False)
+    eng = engines.ContinuousTwoZoneEngine(T0=T0, p0=p0, agent_steps=200, use_qdot=False)
     env = DummyVecEnv([lambda: eng])
 
     # Generate expert trajectories
