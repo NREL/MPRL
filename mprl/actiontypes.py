@@ -107,7 +107,7 @@ class DiscreteActionType(ActionType):
         self.masked = False
         for key in action:
             if self.counter[key] > self.limits[key] and action[key] > 0:
-                print("Injection not allowed!")
+                # print("Injection not allowed!")
                 self.masked = True
                 action[key] = 0.0
 

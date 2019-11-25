@@ -125,7 +125,7 @@ class Engine(gym.Env):
         evo=100.0,
         fuel="dodecane",
         rxnmech="dodecane_lu_nox.cti",
-        small_negative_reward=-1.0,
+        small_negative_reward=-200.0,
     ):
         super(Engine, self).__init__()
 
@@ -149,7 +149,7 @@ class Engine(gym.Env):
         self.small_mass = 1.0e-15
         self.max_burned_mass = 6e-3
         self.max_pressure = 200 * ct.one_atm
-        self.small_negative_reward = small_negative_reward
+        self.small_negative_reward = small_negative_reward * (1 / (self.nsteps - 1))
         self.nepisode = 0
         self.action = None
         self.state_updater = {}
@@ -173,11 +173,10 @@ class Engine(gym.Env):
             "n_inj": np.finfo(np.float32).max,
             "can_inject": 1,
         }
-        # FIXME come up with better scales for p and T
         self.observable_scales = {
             "ca": 0.5 * (self.evo - self.ivc),
-            "p": 6e6,
-            "T": 1200,
+            "p": ct.one_atm * 100,
+            "T": 2000,
             "n_inj": 1.0,
             "can_inject": 1,
         }

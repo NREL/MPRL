@@ -88,7 +88,10 @@ def callback(_locals, _globals):
         if _locals["self"].num_timesteps % (nint * _locals["self"].n_steps) == 0:
             print(f"""Checkpoint agent at step {_locals["self"].num_timesteps}""")
             _locals["self"].save(
-                os.path.join(_locals["self"].tensorboard_log, "checkpoint.pkl")
+                os.path.join(
+                    _locals["self"].tensorboard_log,
+                    f"""checkpoint_{_locals["self"].num_timesteps}.pkl""",
+                )
             )
 
     else:
@@ -131,7 +134,21 @@ if __name__ == "__main__":
         default=201,
     )
     parser.add_argument(
+        "-snr",
+        "--small_negative_reward",
+        help="Negative reward for extra injections",
+        type=float,
+        default=-200,
+    )
+    parser.add_argument(
         "-nep", help="Total number of episodes to train over", type=int, default=100
+    )
+    parser.add_argument(
+        "-up",
+        "--update_nepisodes",
+        help="Number of episodes per agent update (PPO)",
+        type=int,
+        default=20,
     )
     parser.add_argument("--nranks", help="Number of MPI ranks", type=int, default=1)
     parser.add_argument(
@@ -208,6 +225,7 @@ if __name__ == "__main__":
             T0=T0,
             p0=p0,
             agent_steps=args.nsteps,
+            small_negative_reward=args.small_negative_reward,
             fuel=args.fuel,
             rxnmech=args.rxnmech,
             observables=args.observables,
@@ -217,6 +235,7 @@ if __name__ == "__main__":
             T0=T0,
             p0=p0,
             agent_steps=args.nsteps,
+            small_negative_reward=args.small_negative_reward,
             fuel=args.fuel,
             rxnmech=args.rxnmech,
             observables=args.observables,
@@ -227,6 +246,7 @@ if __name__ == "__main__":
                 T0=T0,
                 p0=p0,
                 agent_steps=args.nsteps,
+                small_negative_reward=args.small_negative_reward,
                 use_qdot=args.use_qdot,
                 fuel=args.fuel,
                 rxnmech=args.rxnmech,
@@ -236,6 +256,7 @@ if __name__ == "__main__":
                 T0=T0,
                 p0=p0,
                 agent_steps=args.nsteps,
+                small_negative_reward=args.small_negative_reward,
                 fuel=args.fuel,
                 rxnmech=args.rxnmech,
                 observables=args.observables,
@@ -270,14 +291,14 @@ if __name__ == "__main__":
                 action_noise=action_noise,
                 tensorboard_log=logdir,
             )
-        agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
+        agent.learn(total_timesteps=args.nep * (args.nsteps - 1), callback=callback)
     elif args.agent == "a2c":
         env = SubprocVecEnv([lambda: eng for i in range(args.nranks)])
         if args.use_pretrained is not None:
             agent = A2C.load(os.path.join(args.use_pretrained, "agent"), env=env)
         else:
             agent = A2C(MlpPolicy, env, verbose=1, n_steps=1, tensorboard_log=logdir)
-        agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
+        agent.learn(total_timesteps=args.nep * (args.nsteps - 1), callback=callback)
     elif args.agent == "dqn":
         env = DummyVecEnv([lambda: eng])
         if args.use_pretrained is not None:
@@ -288,7 +309,7 @@ if __name__ == "__main__":
                 env=env,
             )
             _, best_reward = utilities.evaluate_agent(DummyVecEnv([lambda: eng]), agent)
-            agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
+            agent.learn(total_timesteps=args.nep * (args.nsteps - 1), callback=callback)
         else:
             if args.engine_type == "reactor-engine" or args.engine_type == "EQ-engine":
                 agent = DQN(
@@ -298,10 +319,10 @@ if __name__ == "__main__":
                     tensorboard_log=logdir,
                     exploration_fraction=0.05,
                     exploration_final_eps=0.001,
-                    target_network_update_freq=eng.nsteps * 2,
-                    learning_starts=eng.nsteps * 2,
+                    target_network_update_freq=(args.nsteps - 1) * 2,
+                    learning_starts=(args.nsteps - 1) * 2,
                     learning_rate=1e-3,
-                    buffer_size=eng.nsteps * args.nep,
+                    buffer_size=(args.nsteps - 1) * args.nep,
                     gamma=0.99,
                 )
                 agent.learn(total_timesteps=args.nep * eng.nsteps, callback=callback)
@@ -315,18 +336,21 @@ if __name__ == "__main__":
                     exploration_final_eps=0.02,
                     learning_rate=3e-4,
                     gamma=0.9,
-                    buffer_size=args.nsteps * args.nep,
+                    buffer_size=(args.nsteps - 1) * args.nep,
                     batch_size=128,
                     prioritized_replay=True,
-                    learning_starts=args.nsteps * 10,
+                    learning_starts=(args.nsteps - 1) * 10,
                 )
-                agent.learn(total_timesteps=args.nep * args.nsteps, callback=callback)
+                agent.learn(
+                    total_timesteps=args.nep * (args.nsteps - 1), callback=callback
+                )
     elif args.agent == "ppo":
         env = DummyVecEnv([lambda: eng])
         if args.use_pretrained is not None:
             agent = PPO2.load(
                 os.path.join(args.use_pretrained, "agent"),
                 env=env,
+                reset_num_timesteps=False,
                 tensorboard_log=logdir,
             )
         else:
@@ -334,20 +358,21 @@ if __name__ == "__main__":
                 MlpPolicy,
                 env,
                 verbose=1,
-                gamma=0.8,
-                ent_coef=0.000284,
-                learning_rate=0.000757,
-                vf_coef=0.025848,
-                max_grad_norm=0.668213,
-                lam=0.834662,
-                nminibatches=2,
-                noptepochs=8,
-                cliprange=0.881595,
-                n_steps=16,
+                # gamma=0.8,
+                # ent_coef=0.000284,
+                # learning_rate=0.000757,
+                # vf_coef=0.025848,
+                # max_grad_norm=0.668213,
+                # lam=0.834662,
+                # nminibatches=2,
+                # noptepochs=8,
+                # cliprange=0.881595,
+                n_steps=args.update_nepisodes * (args.nsteps - 1),
                 tensorboard_log=logdir,
             )
         agent.learn(
-            total_timesteps=args.nep * args.nsteps * args.nranks, callback=callback
+            total_timesteps=args.nep * (args.nsteps - 1) * args.nranks,
+            callback=callback,
         )
 
     # Save, evaluate, and plot the agent

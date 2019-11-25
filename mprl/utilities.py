@@ -68,7 +68,10 @@ def get_label(name):
         "EQ": "EQEngine",
         "discrete": "DiscreteTwoZone",
     }
-    return labels[name]
+    if name in labels:
+        return labels[name]
+    else:
+        return name
 
 
 # ========================================================================
@@ -152,35 +155,38 @@ def plot_df(env, df, idx=0, name=None):
     pa2bar = 1e-5
     label = get_label(name)
 
+    cidx = np.mod(idx, len(cmap))
+    didx = np.mod(idx, len(dashseq))
+
     plt.figure("p")
     _, labels = plt.gca().get_legend_handles_labels()
     if "Exp." not in labels:
         plt.plot(eng.exact.ca, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
-    p = plt.plot(df.ca, df.p * pa2bar, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
+    p = plt.plot(df.ca, df.p * pa2bar, color=cmap[cidx], lw=2, label=label)
+    p[0].set_dashes(dashseq[didx])
 
     plt.figure("p_v")
     _, labels = plt.gca().get_legend_handles_labels()
     if "Exp." not in labels:
         plt.plot(eng.exact.V, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
-    p = plt.plot(df.V, df.p * pa2bar, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
+    p = plt.plot(df.V, df.p * pa2bar, color=cmap[cidx], lw=2, label=label)
+    p[0].set_dashes(dashseq[didx])
 
     for field in get_fields():
         if field in df.columns:
             plt.figure(field)
-            p = plt.plot(df.ca, df[field], color=cmap[idx], lw=2, label=label)
-            p[0].set_dashes(dashseq[idx])
+            p = plt.plot(df.ca, df[field], color=cmap[cidx], lw=2, label=label)
+            p[0].set_dashes(dashseq[didx])
 
     plt.figure("cumulative_reward")
     p = plt.plot(
         df.ca.values.flatten(),
         np.cumsum(df.rewards),
-        color=cmap[idx],
+        color=cmap[cidx],
         lw=2,
         label=label,
     )
-    p[0].set_dashes(dashseq[idx])
+    p[0].set_dashes(dashseq[didx])
 
 
 # ========================================================================
@@ -234,22 +240,26 @@ def plot_training(df, fname):
 
     idx = 0
 
+    cidx = np.mod(idx, len(cmap))
+    didx = np.mod(idx, len(dashseq))
+    midx = np.mod(idx, len(markertype))
+
     plt.figure("episode_reward")
-    p = plt.plot(df.episode, df.episode_reward, color=cmap[idx], lw=2)
-    p[0].set_dashes(dashseq[idx])
+    p = plt.plot(df.episode, df.episode_reward, color=cmap[cidx], lw=2)
+    p[0].set_dashes(dashseq[didx])
 
     plt.figure("episode_step")
-    p = plt.plot(df.episode, df.episode_step, color=cmap[idx], lw=2)
-    p[0].set_dashes(dashseq[idx])
+    p = plt.plot(df.episode, df.episode_step, color=cmap[cidx], lw=2)
+    p[0].set_dashes(dashseq[didx])
 
     plt.figure("step_rewards")
     plt.scatter(
         df.episode_step,
         df.episode_reward,
-        c=cmap[idx],
+        c=cmap[cidx],
         alpha=0.2,
         s=15,
-        marker=markertype[idx],
+        marker=markertype[midx],
     )
 
     with PdfPages(fname) as pdf:
@@ -288,13 +298,16 @@ def plot_tb(fname, alpha=0.1, idx=0, name=None):
     label = get_label(name)
     df = pd.read_csv(fname)
 
+    cidx = np.mod(idx, len(cmap))
+    didx = np.mod(idx, len(dashseq))
+
     plt.figure("episode_reward")
-    p = plt.plot(df.episode, df.episode_reward, color=cmap[idx], lw=2, alpha=0.2)
-    p[0].set_dashes(dashseq[idx])
+    p = plt.plot(df.episode, df.episode_reward, color=cmap[cidx], lw=2, alpha=0.2)
+    p[0].set_dashes(dashseq[didx])
 
     ewma = df["episode_reward"].ewm(alpha=alpha, adjust=False).mean()
-    p = plt.plot(df.episode, ewma, color=cmap[idx], lw=2, label=label)
-    p[0].set_dashes(dashseq[idx])
+    p = plt.plot(df.episode, ewma, color=cmap[cidx], lw=2, label=label)
+    p[0].set_dashes(dashseq[didx])
 
 
 # ========================================================================

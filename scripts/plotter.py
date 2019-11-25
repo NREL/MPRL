@@ -34,6 +34,14 @@ if __name__ == "__main__":
         nargs="+",
     )
     parser.add_argument(
+        "-c",
+        "--checkpoints",
+        help="Checkpoint numbers to plot",
+        type=str,
+        required=False,
+        nargs="+",
+    )
+    parser.add_argument(
         "-s",
         "--nsteps",
         help="Total agent steps in a given episode",
@@ -42,10 +50,22 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    for k, fdir in enumerate(args.agents):
+    if args.checkpoints:
+        mode = "checkpoints"
+        iter_arg = args.checkpoints
+    else:
+        mode = "agents"
+        iter_arg = args.agents
 
-        # Setup
-        fname = os.path.join(fdir, "agent")
+    for k, fiter in enumerate(iter_arg):
+
+        if mode == "checkpoints":
+            fdir = args.agents[0]
+            fname = os.path.join(fdir, "checkpoint_" + fiter + ".pkl")
+        else:
+            fdir = fiter
+            fname = os.path.join(fdir, "agent")
+
         run_args = pickle.load(open(os.path.join(fdir, "args.pkl"), "rb"))
 
         # Initialize the engine
@@ -107,6 +127,9 @@ if __name__ == "__main__":
             agent = DQN.load(fname, env=env)
 
         df, total_reward = utilities.evaluate_agent(env, agent)
-        utilities.plot_df(env, df, idx=k, name=run_args.agent)
+        if mode == "checkpoints":
+            utilities.plot_df(env, df, idx=k, name=k)
+        else:
+            utilities.plot_df(env, df, idx=k, name=run_args.agent)
 
     utilities.save_plots("compare.pdf")
