@@ -4,11 +4,13 @@
 #
 # ========================================================================
 import os
+import sys
 import numpy as np
 import pandas as pd
 import itertools
 import pickle
 from abc import ABC, abstractmethod
+from stable_baselines.common.vec_env import DummyVecEnv
 import mprl.utilities as utilities
 
 
@@ -19,7 +21,12 @@ import mprl.utilities as utilities
 # ========================================================================
 class Agent(ABC):
     def __init__(self, env):
+        # Only support DummyVecEnv
+        if not isinstance(env, DummyVecEnv):
+            sys.exit("Please use DummyVecEnv for this agent")
+
         self.env = env
+        self.eng = self.env.envs[0]
 
     @abstractmethod
     def learn(self):
@@ -48,22 +55,22 @@ class CalibratedAgent(Agent):
 
     def learn(self):
         self.actions = utilities.interpolate_df(
-            self.env.envs[0].history.ca,
+            self.eng.history.ca,
             "ca",
             pd.read_csv(os.path.join(self.datadir, "calibrated_data.csv")),
         )
-        self.actions.index = self.env.envs[0].history.index
+        self.actions.index = self.eng.history.index
         self.actions.mdot[self.actions.mdot < 0] = 0
-        self.actions = self.actions[self.env.envs[0].action.actions]
+        self.actions = self.actions[self.eng.action.actions]
 
     def predict(self, obs, **kwargs):
 
         # Find the action matching the current CA
         idx = (
             np.abs(
-                self.env.envs[0].history.ca
-                - obs.flatten()[self.env.envs[0].observables.index("ca")]
-                * self.env.envs[0].observable_scales["ca"]
+                self.eng.history.ca
+                - obs.flatten()[self.eng.observables.index("ca")]
+                * self.eng.observable_scales["ca"]
             )
         ).idxmin()
 
@@ -84,7 +91,7 @@ class CalibratedAgent(Agent):
         episode_starts[-1] = True
 
         numpy_dict = {
-            "actions": df[self.env.envs[0].action.actions].values,
+            "actions": df[self.eng.action.actions].values,
             "obs": df[self.env.get_attr("observables", indices=0)[0]].values,
             "rewards": df.rewards.values,
             "episode_returns": np.array([total_reward]),
@@ -102,7 +109,7 @@ class ExhaustiveAgent(Agent):
         self.datadir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "datafiles"
         )
-        self.max_ninj = self.env.envs[0].max_injections
+        self.max_ninj = self.eng.max_injections
         self.best_inj = ()
 
     def learn(self):
@@ -110,18 +117,17 @@ class ExhaustiveAgent(Agent):
         # Loop over all possible injection CAs
         best_reward = -np.finfo(np.float32).max
         self.best_inj = ()
-        eng = self.env.envs[0]
         agent_ca = (
-            eng.history.ca
-            if len(eng.history.ca) == eng.agent_steps
-            else eng.history.ca[:: eng.substeps - 1]
+            self.eng.history.ca
+            if len(self.eng.history.ca) == self.eng.agent_steps
+            else self.eng.history.ca[:: self.eng.substeps - 1]
         )
         for inj in itertools.combinations(agent_ca, self.max_ninj):
             done = [False]
             obs = self.env.reset()
             total_reward = 0
             while not done[0]:
-                action = [1] if (eng.current_state.ca in inj) else [0]
+                action = [1] if (self.eng.current_state.ca in inj) else [0]
                 obs, reward, done, info = self.env.step(action)
                 total_reward += reward[0]
 
@@ -131,7 +137,7 @@ class ExhaustiveAgent(Agent):
 
     def predict(self, obs, **kwargs):
 
-        current_ca = obs[0][0] * self.env.envs[0].observable_scales["ca"]
+        current_ca = obs[0][0] * self.eng.observable_scales["ca"]
         tol = 1e-4
         action = [0]
         for inj in self.best_inj:
