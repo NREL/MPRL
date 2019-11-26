@@ -48,6 +48,13 @@ if __name__ == "__main__":
         type=int,
         default=201,
     )
+    parser.add_argument(
+        "--engine_type",
+        help="Engine type to use",
+        type=str,
+        choices=["twozone-engine", "reactor-engine", "EQ-engine"],
+    )
+
     args = parser.parse_args()
 
     if args.checkpoints:
@@ -69,8 +76,13 @@ if __name__ == "__main__":
         run_args = pickle.load(open(os.path.join(fdir, "args.pkl"), "rb"))
 
         # Initialize the engine
+        if args.engine_type:
+            engine_type = args.engine_type
+        else:
+            engine_type = run_args.engine_type
+
         T0, p0 = engines.calibrated_engine_ic()
-        if run_args.engine_type == "reactor-engine":
+        if engine_type == "reactor-engine":
             eng = engines.ReactorEngine(
                 T0=T0,
                 p0=p0,
@@ -79,7 +91,7 @@ if __name__ == "__main__":
                 rxnmech=run_args.rxnmech,
                 observables=run_args.observables,
             )
-        elif run_args.engine_type == "EQ-engine":
+        elif engine_type == "EQ-engine":
             eng = engines.EquilibrateEngine(
                 T0=T0,
                 p0=p0,
@@ -88,7 +100,7 @@ if __name__ == "__main__":
                 rxnmech=run_args.rxnmech,
                 observables=run_args.observables,
             )
-        elif run_args.engine_type == "twozone-engine":
+        elif engine_type == "twozone-engine":
             if run_args.use_continuous:
                 eng = engines.ContinuousTwoZoneEngine(
                     T0=T0,

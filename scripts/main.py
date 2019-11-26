@@ -141,6 +141,13 @@ if __name__ == "__main__":
         default=-200,
     )
     parser.add_argument(
+        "-m",
+        "--max_injections",
+        help="Maximum number of injections allowed",
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
         "-nep", help="Total number of episodes to train over", type=int, default=100
     )
     parser.add_argument(
@@ -225,6 +232,7 @@ if __name__ == "__main__":
             T0=T0,
             p0=p0,
             agent_steps=args.nsteps,
+            max_injections=args.max_injections,
             small_negative_reward=args.small_negative_reward,
             fuel=args.fuel,
             rxnmech=args.rxnmech,
@@ -235,6 +243,7 @@ if __name__ == "__main__":
             T0=T0,
             p0=p0,
             agent_steps=args.nsteps,
+            max_injections=args.max_injections,
             small_negative_reward=args.small_negative_reward,
             fuel=args.fuel,
             rxnmech=args.rxnmech,
@@ -256,6 +265,7 @@ if __name__ == "__main__":
                 T0=T0,
                 p0=p0,
                 agent_steps=args.nsteps,
+                max_injections=args.max_injections,
                 small_negative_reward=args.small_negative_reward,
                 fuel=args.fuel,
                 rxnmech=args.rxnmech,
@@ -351,6 +361,7 @@ if __name__ == "__main__":
                 os.path.join(args.use_pretrained, "agent"),
                 env=env,
                 reset_num_timesteps=False,
+                n_steps=args.update_nepisodes * (args.nsteps - 1) * args.nranks,
                 tensorboard_log=logdir,
             )
         else:

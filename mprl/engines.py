@@ -125,7 +125,7 @@ class Engine(gym.Env):
         evo=100.0,
         fuel="dodecane",
         rxnmech="dodecane_lu_nox.cti",
-        small_negative_reward=-200.0,
+        small_negative_reward=-800.0,
     ):
         super(Engine, self).__init__()
 
@@ -682,7 +682,7 @@ class ReactorEngine(Engine):
         *args,
         dt=4e-6,  # Time step for integrating the 0D reactor (s)
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
-        minj=0.0001,  # Mass of injected fuel/air mixture (kg)
+        minj=0.000026,  # Mass of injected fuel/air mixture (kg)
         max_injections=1,  # Maximum number of injections allowed
         observables=["ca", "p", "T", "n_inj", "can_inject"],
         **kwargs,
@@ -859,7 +859,7 @@ class EquilibrateEngine(Engine):
         self,
         *args,
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
-        minj=0.0001,  # Mass of injected fuel (kg)
+        minj=0.000026,  # Mass of injected fuel (kg)
         max_injections=1,  # Maximum number of injections allowed
         observables=["ca", "p", "T", "n_inj", "can_inject"],
         **kwargs,
