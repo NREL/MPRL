@@ -20,11 +20,8 @@ class ActionType(ABC):
         self.actions = actions
         self.size = len(self.actions)
         self.space = None
-        self.masked = False
-        self.scales = None
         self.current = None
-        self.counter = None
-        self.limits = None
+        self.masked = False
         self.use_qdot = False
 
     def parse(self, action):
@@ -73,21 +70,26 @@ class ContinuousActionType(ActionType):
 
 # ========================================================================
 class DiscreteActionType(ActionType):
-    def __init__(self, actions, scales, limits):
-        super(DiscreteActionType, self).__init__(actions)
+    def __init__(self, action, scales, limits, delays):
+        super(DiscreteActionType, self).__init__(action)
 
         self.scales = scales
         self.limits = limits
-        self.counter = {key: 0 for key in self.actions}
+        self.delays = delays
+        self.attempt_counter = None
+        self.success_counter = None
+        self.success_time = None  # time since last successful action
         self.space = spaces.Discrete(2)
+        self.reset()
 
     def preprocess(self, action):
         """Preprocess the actions for use by engine"""
         action = self.parse(action)
-        self.count(action)
+        self.count_attempt(action)
         action = self.scale(action)
         action = self.mask(action)
         self.current = action
+        self.count_success(action)
 
         return action
 
@@ -97,17 +99,27 @@ class DiscreteActionType(ActionType):
             action[key] *= self.scales[key]
         return action
 
-    def count(self, action):
-        """Keep a running counter of discrete actions"""
+    def count_attempt(self, action):
+        """Keep a running counter of attempted discrete actions"""
         for key in action:
-            self.counter[key] += action[key]
+            self.attempt_counter[key] += action[key]
+
+    def count_success(self, action):
+        """Keep a running counter of successful discrete actions and increment
+           time since last successful action"""
+        for key in self.actions:
+            if action[key] > 0:
+                self.success_counter[key] += 1
+                self.success_time[key] = 0
+            else:
+                self.success_time[key] += 1
 
     def mask(self, action):
         """Mask the action if necessary"""
         self.masked = False
+        allowed = self.isallowed()
         for key in action:
-            if self.counter[key] > self.limits[key] and action[key] > 0:
-                # print("Injection not allowed!")
+            if not allowed[key] and action[key] > 0:
                 self.masked = True
                 action[key] = 0.0
 
@@ -116,5 +128,16 @@ class DiscreteActionType(ActionType):
     def reset(self):
         """Reset the actions"""
         self.masked = False
-        for key in self.actions:
-            self.counter[key] = 0
+        self.attempt_counter = {key: 0 for key in self.actions}
+        self.success_counter = {key: 0 for key in self.actions}
+        self.success_time = {key: np.iinfo(np.int32).max // 2 for key in self.actions}
+
+    def isallowed(self):
+        """Check if the action is allowed"""
+        allowed = {key: True for key in self.actions}
+        for key in allowed:
+            if (self.success_counter[key] >= self.limits[key]) or (
+                self.success_time[key] <= self.delays[key]
+            ):
+                allowed[key] = False
+        return allowed

@@ -163,21 +163,24 @@ class Engine(gym.Env):
             "ca": self.ivc,
             "p": 0.0,
             "T": 0.0,
-            "n_inj": 0.0,
+            "attempt_ninj": 0.0,
+            "success_ninj": 0.0,
             "can_inject": 0,
         }
         self.observable_space_highs = {
             "ca": self.evo,
             "p": np.finfo(np.float32).max,
             "T": np.finfo(np.float32).max,
-            "n_inj": np.finfo(np.float32).max,
+            "attempt_ninj": np.iinfo(np.int32).max,
+            "success_ninj": np.iinfo(np.int32).max,
             "can_inject": 1,
         }
         self.observable_scales = {
             "ca": 0.5 * (self.evo - self.ivc),
             "p": ct.one_atm * 100,
             "T": 2000,
-            "n_inj": 1.0,
+            "attempt_ninj": 1.0,
+            "success_ninj": 1.0,
             "can_inject": 1,
         }
 
@@ -235,6 +238,8 @@ class Engine(gym.Env):
         interp, self.dca = np.linspace(self.ivc, self.evo, self.nsteps, retstep=True)
         cycle = utilities.interpolate_df(interp, "ca", cycle)
         self.dt = self.dca / self.s2ca
+        self.dt_agent = self.total_time / (self.agent_steps - 1)
+        self.dca_agent = self.dt_agent * self.s2ca
 
         # Initialize the engine history
         self.history = pd.DataFrame(
@@ -335,10 +340,9 @@ class TwoZoneEngine(Engine):
             "dV": lambda: self.history.loc[self.current_state.name + 1].dV,
             "ca": lambda: self.history.loc[self.current_state.name + 1].ca,
             "t": lambda: self.history.loc[self.current_state.name + 1].t,
-            "n_inj": lambda: self.action.counter["mdot"],
-            "can_inject": lambda: 1
-            if self.action.counter["mdot"] < self.action.limits["mdot"]
-            else 0,
+            "attempt_ninj": lambda: self.action.attempt_counter["mdot"],
+            "success_ninj": lambda: self.action.success_counter["mdot"],
+            "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
         }
 
         # Engine setup
@@ -360,8 +364,7 @@ class TwoZoneEngine(Engine):
         self.injection_Tb_ad = self.injection_gas.T
 
     def reset(self):
-
-        # Reset fuel and oxidizer
+        """Reset fuel and oxidizer"""
         self.gas1 = self.injection_gas
         self.xinit = self.injection_xinit
         self.xburnt = self.injection_xburnt
@@ -375,7 +378,7 @@ class TwoZoneEngine(Engine):
         return obs
 
     def step(self, action):
-        "Advance the engine to the next state using the action"
+        """Advance the engine to the next state using the action"""
 
         action = self.action.preprocess(action)
 
@@ -536,8 +539,8 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         ca     Engine crank angle                         ivc deg     evo deg
         p      Engine pressure                            0           Inf
         T      Gas temperature                            0           Inf
-        V      (possible) Engine volume                   0           Inf
-        dVdt   (possible) Engine volume rate of change   -Inf         Inf
+        V      Engine volume                              0           Inf
+        dVdt   Engine volume rate of change              -Inf         Inf
 
     Available actions:
         Type: Box(2)
@@ -582,13 +585,14 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
 
     Observation:
         Type: Box(4)
-        Name   Observation                                Min         Max
-        ca     Engine crank angle                         ivc deg     evo deg
-        p      Engine pressure                            0           Inf
-        T      Gas temperature                            0           Inf
-        n_inj  Number of injections                       0           Inf
-        V      (possible) Engine volume                   0           Inf
-        dVdt   (possible) Engine volume rate of change   -Inf         Inf
+        Name           Observation                                Min         Max
+        ca             Engine crank angle                         ivc deg     evo deg
+        p              Engine pressure                            0           Inf
+        T              Gas temperature                            0           Inf
+        attempt_ninj   Attempted number of injections             0           Inf
+        success_ninj   Successful number of injections            0           Inf
+        V              Engine volume                              0           Inf
+        dVdt           Engine volume rate of change              -Inf         Inf
 
     Available actions:
         Type: Discrete
@@ -610,25 +614,30 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
     def __init__(
         self,
         *args,
-        minj=0.0002,
-        max_injections=1,
-        observables=["ca", "p", "T", "n_inj", "can_inject"],
+        minj=0.0002,  # Mass of injected fuel/air mixture (kg)
+        max_injections=1,  # Maximum number of injections allowed
+        injection_delay=0,  # Time delay between injections (s)
+        observables=["ca", "p", "T", "success_ninj", "can_inject"],
         **kwargs,
     ):
         super(DiscreteTwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
         self.observables, self.internals = get_observables_internals(
-            ["n_inj", "can_inject", "p", "T", "Tu", "Tb", "mb"],
+            ["attempt_ninj", "success_ninj", "can_inject", "p", "T", "Tu", "Tb", "mb"],
             self.histories,
             observables,
         )
         self.minj = minj
         self.max_injections = max_injections
+        self.injection_delay = injection_delay
 
         # Final setup
         self.action = actiontypes.DiscreteActionType(
-            ["mdot"], {"mdot": self.minj / self.dt}, {"mdot": self.max_injections}
+            ["mdot"],
+            scales={"mdot": self.minj / self.dt},
+            limits={"mdot": self.max_injections},
+            delays={"mdot": self.injection_delay / self.dt_agent},
         )
         self.action_space = self.action.space
         self.define_observable_space()
@@ -651,13 +660,14 @@ class ReactorEngine(Engine):
 
     Observation:
         Type: Box(5)
-        Name   Observation                                Min         Max
-        ca     Engine crank angle                         ivc deg     evo deg
-        p      Engine pressure                            0           Inf
-        T      Gas temperature                            0           Inf
-        n_inj  Number of prior injections                 0           max_injections
-        V      (possible) Engine volume                   0           Inf
-        dVdt   (possible) Engine volume rate of change   -Inf         Inf
+        Name           Observation                                Min         Max
+        ca             Engine crank angle                         ivc deg     evo deg
+        p              Engine pressure                            0           Inf
+        T              Gas temperature                            0           Inf
+        attempt_ninj   Attempted number of injections             0           Inf
+        success_ninj   Successful number of injections            0           Inf
+        V              Engine volume                              0           Inf
+        dVdt           Engine volume rate of change              -Inf         Inf
 
     Available actions:
         Type: Discrete
@@ -684,7 +694,8 @@ class ReactorEngine(Engine):
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
         minj=0.000026,  # Mass of injected fuel/air mixture (kg)
         max_injections=1,  # Maximum number of injections allowed
-        observables=["ca", "p", "T", "n_inj", "can_inject"],
+        injection_delay=0,  # Time delay between injections (s)
+        observables=["ca", "p", "T", "success_ninj", "can_inject"],
         **kwargs,
     ):
         super(ReactorEngine, self).__init__(*args, **kwargs)
@@ -694,11 +705,22 @@ class ReactorEngine(Engine):
         self.minj = minj
         self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
         self.observables, self.internals = get_observables_internals(
-            ["n_inj", "can_inject", "p", "T", "mb", "mdot", "nox", "soot"],
+            [
+                "attempt_ninj",
+                "success_ninj",
+                "can_inject",
+                "p",
+                "T",
+                "mb",
+                "mdot",
+                "nox",
+                "soot",
+            ],
             self.histories,
             observables,
         )
         self.max_injections = max_injections
+        self.injection_delay = injection_delay
 
         self.state_reseter = {"can_inject": lambda: 1}
 
@@ -717,10 +739,9 @@ class ReactorEngine(Engine):
             "piston_velocity": lambda: self.history.loc[
                 self.current_state.name + 1
             ].piston_velocity,
-            "n_inj": lambda: self.action.counter["minj"],
-            "can_inject": lambda: 1
-            if self.action.counter["minj"] < self.action.limits["minj"]
-            else 0,
+            "attempt_ninj": lambda: self.action.attempt_counter["minj"],
+            "success_ninj": lambda: self.action.success_counter["minj"],
+            "can_inject": lambda: 1 if self.action.isallowed()["minj"] else 0,
         }
 
         # Figure out the subcycling of steps
@@ -733,7 +754,10 @@ class ReactorEngine(Engine):
         self.set_initial_state()
         self.engine_setup()
         self.action = actiontypes.DiscreteActionType(
-            ["minj"], {"minj": self.minj}, {"minj": self.max_injections}
+            ["minj"],
+            scales={"minj": self.minj},
+            limits={"minj": self.max_injections},
+            delays={"minj": self.injection_delay / self.dt_agent},
         )
         self.action_space = self.action.space
         self.define_observable_space()
@@ -861,7 +885,8 @@ class EquilibrateEngine(Engine):
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
         minj=0.000026,  # Mass of injected fuel (kg)
         max_injections=1,  # Maximum number of injections allowed
-        observables=["ca", "p", "T", "n_inj", "can_inject"],
+        injection_delay=0,  # Time delay between injections (s)
+        observables=["ca", "p", "T", "success_ninj", "can_inject"],
         **kwargs,
     ):
         super(EquilibrateEngine, self).__init__(*args, **kwargs)
@@ -871,11 +896,22 @@ class EquilibrateEngine(Engine):
         self.minj = minj
         self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
         self.observables, self.internals = get_observables_internals(
-            ["n_inj", "can_inject", "p", "T", "mb", "mdot", "nox", "soot"],
+            [
+                "attempt_ninj",
+                "success_ninj",
+                "can_inject",
+                "p",
+                "T",
+                "mb",
+                "mdot",
+                "nox",
+                "soot",
+            ],
             self.histories,
             observables,
         )
         self.max_injections = max_injections
+        self.injection_delay = injection_delay
 
         self.state_reseter = {"can_inject": lambda: 1}
 
@@ -894,10 +930,9 @@ class EquilibrateEngine(Engine):
             "piston_velocity": lambda: self.history.loc[
                 self.current_state.name + 1
             ].piston_velocity,
-            "n_inj": lambda: self.action.counter["minj"],
-            "can_inject": lambda: 1
-            if self.action.counter["minj"] < self.action.limits["minj"]
-            else 0,
+            "attempt_ninj": lambda: self.action.attempt_counter["minj"],
+            "success_ninj": lambda: self.action.success_counter["minj"],
+            "can_inject": lambda: 1 if self.action.isallowed()["minj"] else 0,
         }
 
         # Engine setup
@@ -905,7 +940,10 @@ class EquilibrateEngine(Engine):
         self.set_initial_state()
         self.gas_setup()
         self.action = actiontypes.DiscreteActionType(
-            ["minj"], {"minj": self.minj}, {"minj": self.max_injections}
+            ["minj"],
+            scales={"minj": self.minj},
+            limits={"minj": self.max_injections},
+            delays={"minj": self.injection_delay / self.dt_agent},
         )
         self.action_space = self.action.space
         self.define_observable_space()
@@ -928,7 +966,7 @@ class EquilibrateEngine(Engine):
         return obs
 
     def step(self, action):
-        "Advance the engine to the next state using the action"
+        """Advance the engine to the next state using the action"""
 
         action = self.action.preprocess(action)
 

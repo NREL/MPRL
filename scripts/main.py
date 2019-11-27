@@ -148,6 +148,9 @@ if __name__ == "__main__":
         default=1,
     )
     parser.add_argument(
+        "--injection_delay", help="Time delay between injections", type=float, default=0
+    )
+    parser.add_argument(
         "-nep", help="Total number of episodes to train over", type=int, default=100
     )
     parser.add_argument(
@@ -201,7 +204,7 @@ if __name__ == "__main__":
         help="Engine observables",
         type=str,
         nargs="+",
-        default=["ca", "p", "T", "n_inj", "can_inject"],
+        default=["ca", "p", "T", "success_ninj", "can_inject"],
     )
     args = parser.parse_args()
 
@@ -233,6 +236,7 @@ if __name__ == "__main__":
             p0=p0,
             agent_steps=args.nsteps,
             max_injections=args.max_injections,
+            injection_delay=args.injection_delay,
             small_negative_reward=args.small_negative_reward,
             fuel=args.fuel,
             rxnmech=args.rxnmech,
@@ -244,6 +248,7 @@ if __name__ == "__main__":
             p0=p0,
             agent_steps=args.nsteps,
             max_injections=args.max_injections,
+            injection_delay=args.injection_delay,
             small_negative_reward=args.small_negative_reward,
             fuel=args.fuel,
             rxnmech=args.rxnmech,
@@ -266,6 +271,7 @@ if __name__ == "__main__":
                 p0=p0,
                 agent_steps=args.nsteps,
                 max_injections=args.max_injections,
+                injection_delay=args.injection_delay,
                 small_negative_reward=args.small_negative_reward,
                 fuel=args.fuel,
                 rxnmech=args.rxnmech,
