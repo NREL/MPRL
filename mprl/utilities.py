@@ -83,6 +83,7 @@ def get_fields():
         "Tu": r"$T_u~[\mathrm{K}]$",
         "Tb": r"$T_b~[\mathrm{K}]$",
         "mb": r"$m_b~[\mathrm{kg}]$",
+        "minj": r"$m_i~[\mathrm{kg}]$",
         "qdot": r"$\dot{Q}~[\mathrm{J/s}]$",
         "nox": r"$Y_{NO_x}$",
         "soot": r"$Y_{C_2 H_2}$",

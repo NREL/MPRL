@@ -141,11 +141,17 @@ if __name__ == "__main__":
         default=-200,
     )
     parser.add_argument(
+        "--mdot", help="Injected mass flow rate [kg/s]", type=int, default=0.234
+    )
+    parser.add_argument(
+        "--max_minj", help="Maximum fuel injected mass [kg]", type=int, default=2.6e-5
+    )
+    parser.add_argument(
         "-m",
         "--max_injections",
         help="Maximum number of injections allowed",
         type=int,
-        default=1,
+        default=None,
     )
     parser.add_argument(
         "--injection_delay", help="Time delay between injections", type=float, default=0
@@ -235,6 +241,8 @@ if __name__ == "__main__":
             T0=T0,
             p0=p0,
             agent_steps=args.nsteps,
+            mdot=args.mdot,
+            max_minj=args.max_minj,
             max_injections=args.max_injections,
             injection_delay=args.injection_delay,
             small_negative_reward=args.small_negative_reward,
@@ -247,6 +255,8 @@ if __name__ == "__main__":
             T0=T0,
             p0=p0,
             agent_steps=args.nsteps,
+            mdot=args.mdot,
+            max_minj=args.max_minj,
             max_injections=args.max_injections,
             injection_delay=args.injection_delay,
             small_negative_reward=args.small_negative_reward,
@@ -270,6 +280,8 @@ if __name__ == "__main__":
                 T0=T0,
                 p0=p0,
                 agent_steps=args.nsteps,
+                mdot=args.mdot,
+                max_minj=args.max_minj,
                 max_injections=args.max_injections,
                 injection_delay=args.injection_delay,
                 small_negative_reward=args.small_negative_reward,
