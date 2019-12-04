@@ -303,12 +303,18 @@ def plot_tb(fname, alpha=0.1, idx=0, name=None):
     cidx = np.mod(idx, len(cmap))
     didx = np.mod(idx, len(dashseq))
 
+    ewma = df["episode_reward"].ewm(alpha=alpha, adjust=False).mean()
+
     plt.figure("episode_reward")
-    p = plt.plot(df.episode, df.episode_reward, color=cmap[cidx], lw=2, alpha=0.2)
+    p = plt.plot(df.index, df.episode_reward, color=cmap[cidx], lw=2, alpha=0.2)
+    p[0].set_dashes(dashseq[didx])
+    p = plt.plot(df.index, ewma, color=cmap[cidx], lw=2, label=label)
     p[0].set_dashes(dashseq[didx])
 
-    ewma = df["episode_reward"].ewm(alpha=alpha, adjust=False).mean()
-    p = plt.plot(df.episode, ewma, color=cmap[cidx], lw=2, label=label)
+    plt.figure("episode_reward_vs_time")
+    p = plt.plot(df.time, df.episode_reward, color=cmap[cidx], lw=2, alpha=0.2)
+    p[0].set_dashes(dashseq[didx])
+    p = plt.plot(df.time, ewma, color=cmap[cidx], lw=2, label=label)
     p[0].set_dashes(dashseq[didx])
 
 
@@ -320,6 +326,15 @@ def save_tb_plots(fname):
         plt.figure("episode_reward")
         ax = plt.gca()
         plt.xlabel(r"episode", fontsize=22, fontweight="bold")
+        plt.ylabel(r"$\Sigma r$", fontsize=22, fontweight="bold")
+        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
+        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
+        # legend = ax.legend(loc="best")
+        pdf.savefig(dpi=300)
+
+        plt.figure("episode_reward_vs_time")
+        ax = plt.gca()
+        plt.xlabel(r"$t~[s]$", fontsize=22, fontweight="bold")
         plt.ylabel(r"$\Sigma r$", fontsize=22, fontweight="bold")
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
