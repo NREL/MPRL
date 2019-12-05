@@ -203,6 +203,7 @@ class Engine(gym.Env):
             self.max_injections = np.int(
                 np.rint(self.max_minj / (self.mdot * self.dt_agent))
             )
+            print("Maximum number of injections is ", self.max_injections)
         else:
             print("Warning: engine setup is overwriting the default max_injections")
 
@@ -632,8 +633,8 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
     def __init__(
         self,
         *args,
-        mdot=0.12,  # Rate of mass injection (kg/s)
-        max_minj=1.3e-05,  # Maximum mass of injected burned fuel/air mixture (kg) allowed
+        mdot=0.1,  # Rate of mass injection (kg/s)
+        max_minj=5e-05,  # Maximum mass of injected burned fuel/air mixture (kg) allowed
         max_injections=None,  # Maximum number of injections allowed
         injection_delay=0,  # Time delay between injections (s)
         observables=["ca", "p", "T", "success_ninj", "can_inject"],
@@ -706,8 +707,8 @@ class ReactorEngine(Engine):
         *args,
         dt=4e-6,  # Time step for integrating the 0D reactor (s)
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
-        mdot=0.234,  # Rate of mass injections (kg/s)
-        max_minj=2.6e-5,  # Mass of injected fuel/air mixture (kg)
+        mdot=0.1,  # Rate of mass injections (kg/s)
+        max_minj=5e-5,  # Mass of injected fuel/air mixture (kg)
         max_injections=None,  # Maximum number of injections allowed
         injection_delay=0,  # Time delay between injections (s)
         observables=["ca", "p", "T", "success_ninj", "can_inject"],
@@ -890,8 +891,8 @@ class EquilibrateEngine(Engine):
         self,
         *args,
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
-        mdot=0.234,  # Rate of mass injections (kg/s)
-        max_minj=2.6e-5,  # Mass of injected fuel (kg)
+        mdot=0.1,  # Rate of mass injections (kg/s)
+        max_minj=5e-5,  # Mass of injected fuel (kg)
         max_injections=None,  # Maximum number of injections allowed
         injection_delay=0,  # Time delay between injections (s)
         observables=["ca", "p", "T", "success_ninj", "can_inject"],

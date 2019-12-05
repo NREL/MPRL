@@ -77,7 +77,8 @@ class MPRLTestCase(unittest.TestCase):
             T0=self.T0,
             p0=self.p0,
             agent_steps=101,
-            mdot=0.06,
+            mdot=0.1,
+            max_minj=5e-5,
             fuel="dodecane",
             rxnmech="dodecane_lu_nox.cti",
             small_negative_reward=-0.05,
@@ -100,10 +101,10 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 20572538.28271788)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 10898.581771085652)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 81.66283376986)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.06)
+        npt.assert_allclose(np.linalg.norm(df.p), 37808279.50349433)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 21061.100819984735)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 153.19968366157858)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for ExhaustiveAgent = {elapsed} seconds")
 
     def test_discrete_twozone_engine(self):
@@ -113,9 +114,11 @@ class MPRLTestCase(unittest.TestCase):
         eng = engines.DiscreteTwoZoneEngine(
             T0=self.T0,
             p0=self.p0,
-            agent_steps=201,
+            agent_steps=101,
             fuel="PRF100",
             rxnmech="llnl_gasoline_surrogate_323.xml",
+            mdot=0.1,
+            max_minj=5e-5,
             small_negative_reward=-0.05,
         )
         env = DummyVecEnv([lambda: eng])
@@ -138,7 +141,7 @@ class MPRLTestCase(unittest.TestCase):
             # Agent tries to inject twice, but is not allowed the second time
             action = (
                 [1]
-                if (eng.current_state.ca == -10) or eng.current_state.ca == 10
+                if (eng.current_state.ca == -2) or eng.current_state.ca == 2
                 else [0]
             )
             obs, reward, done, info = env.step(action)
@@ -151,11 +154,11 @@ class MPRLTestCase(unittest.TestCase):
         utilities.plot_df(env, df, idx=2, name="discrete")
 
         # Test
-        npt.assert_allclose(np.linalg.norm(df.V), 0.00309482286)
-        npt.assert_allclose(np.linalg.norm(df.p), 33065804.01287277)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 16041.097802786)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 59.55618932595)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.12)
+        npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
+        npt.assert_allclose(np.linalg.norm(df.p), 37091026.33424249)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 21272.660424423644)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 155.27880219948767)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for DiscreteTwoZoneEngine = {elapsed} seconds")
 
     def test_discrete_twozone_engine_with_delay(self):
@@ -165,10 +168,11 @@ class MPRLTestCase(unittest.TestCase):
         eng = engines.DiscreteTwoZoneEngine(
             T0=self.T0,
             p0=self.p0,
-            agent_steps=201,
+            agent_steps=101,
             fuel="PRF100",
             rxnmech="llnl_gasoline_surrogate_323.xml",
-            max_minj=2.6e-05,
+            mdot=0.1,
+            max_minj=5e-5,
             injection_delay=0.0025,
         )
         env = DummyVecEnv([lambda: eng])
@@ -206,11 +210,11 @@ class MPRLTestCase(unittest.TestCase):
         utilities.plot_df(env, df, idx=5, name="DiscreteTwoZone (delay)")
 
         # Test
-        npt.assert_allclose(np.linalg.norm(df.V), 0.00309482286)
-        npt.assert_allclose(np.linalg.norm(df.p), 38183095.277402)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 20579.33210553)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 80.24604264916)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.1697056274848)
+        npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
+        npt.assert_allclose(np.linalg.norm(df.p), 29368413.21384358)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 14499.415561284017)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 102.80455421172557)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.1)
         print(f"Wall time for DiscreteTwoZoneEngine with delay = {elapsed} seconds")
 
     def test_reactor_engine(self):
@@ -220,10 +224,12 @@ class MPRLTestCase(unittest.TestCase):
         eng = engines.ReactorEngine(
             T0=self.T0,
             p0=self.p0,
-            agent_steps=201,
+            agent_steps=101,
             Tinj=300.0,
             dt=4e-6,
             rxnmech="dodecane_lu_nox.cti",
+            mdot=0.1,
+            max_minj=5e-5,
             small_negative_reward=-0.05,
         )
         env = DummyVecEnv([lambda: eng])
@@ -259,11 +265,11 @@ class MPRLTestCase(unittest.TestCase):
         utilities.plot_df(env, df, idx=3, name="reactor")
 
         # Test
-        npt.assert_allclose(np.linalg.norm(df.V), 0.00309482286)
-        npt.assert_allclose(np.linalg.norm(df.p), 52577638.641465, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 18839.561176, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 95.882818, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.234)
+        npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
+        npt.assert_allclose(np.linalg.norm(df.p), 39472544.14618649, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 13040.23077865307, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 148.66188240588772, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for ReactorEngine = {elapsed} seconds")
 
     def test_equilibrate_engine(self):
@@ -273,9 +279,11 @@ class MPRLTestCase(unittest.TestCase):
         eng = engines.EquilibrateEngine(
             T0=self.T0,
             p0=self.p0,
-            agent_steps=201,
+            agent_steps=101,
             Tinj=300.0,
             rxnmech="dodecane_lu_nox.cti",
+            mdot=0.1,
+            max_minj=5e-5,
             small_negative_reward=-0.05,
         )
         env = DummyVecEnv([lambda: eng])
@@ -311,11 +319,11 @@ class MPRLTestCase(unittest.TestCase):
         utilities.plot_df(env, df, idx=4, name="EQ")
 
         # Test
-        npt.assert_allclose(np.linalg.norm(df.V), 0.00309482286)
-        npt.assert_allclose(np.linalg.norm(df.p), 58396518.33341535)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 17672.067301618787)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 99.783967)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.234)
+        npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
+        npt.assert_allclose(np.linalg.norm(df.p), 44024925.44422519)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 12768.241249831073)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 159.80034835184017)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for EquilibrateEngine = {elapsed} seconds")
 
 
