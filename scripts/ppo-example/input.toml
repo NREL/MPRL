@@ -1,0 +1,13 @@
+[agent]
+agent = "ppo"
+update_nepisodes = 20
+number_episodes = 100
+
+[engine]
+engine = "twozone-engine"
+fuel = "dodecane"
+rxnmech = "dodecane_lu_nox.cti"
+observables = ['ca', 'p', 'T', 'success_ninj', 'can_inject']
+nsteps = 21
+mdot = 0.234
+max_minj = 2.6e-05
