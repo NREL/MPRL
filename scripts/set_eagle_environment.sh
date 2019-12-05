@@ -1,23 +1,13 @@
 #!/bin/bash
 
-#SBATCH --job-name=mprl
-#SBATCH --account=exact
-#SBATCH --nodes=1
-#SBATCH --gres=gpu:2
-#SBATCH --time=01:00:00
-#SBATCH --partition=debug
-#SBATCH -o %x.o%j
-
-# Environment stuff
 module purge
-MODULES=modules-2019-05-08
-COMPILER=gcc-7.4.0
 module unuse ${MODULEPATH}
 module use /nopt/nrel/ecom/hpacf/binaries/${MODULES}
 module use /nopt/nrel/ecom/hpacf/compilers/${MODULES}
 module use /nopt/nrel/ecom/hpacf/utilities/${MODULES}
 module use /nopt/nrel/ecom/hpacf/software/${MODULES}/${COMPILER}
 module load gcc
+module load git
 module load mpich
 module load texlive/live
 
@@ -27,10 +17,12 @@ if [ -d "$MINICONDA_DIR" ]; then
 fi
 conda activate /projects/exact/mhenryde/.conda/MPRL
 
-# Run jobs
-#nranks=1
-#total_timesteps=1000000
-# agent="ddpg"
-# python3 main.py -a ${agent} -s ${steps} -n ${nranks} --use_pretrained
-#python3 main.py -a dqn -s 201 -t 200000 --use_discrete
-python3 main.py -a ppo --use_discrete -s 21 -nep 6000
+export ranks_per_node=36
+export OMP_NUM_THREADS=1  # Max hardware threads = 4
+export OMP_PLACES=threads
+export OMP_PROC_BIND=spread
+
+echo "Job name       = $SLURM_JOB_NAME"
+echo "Num. nodes     = $SLURM_JOB_NUM_NODES"
+echo "Num. threads   = $OMP_NUM_THREADS"
+echo "Working dir    = $PWD"
