@@ -81,7 +81,7 @@ class MPRLTestCase(unittest.TestCase):
             max_minj=5e-5,
             fuel="dodecane",
             rxnmech="dodecane_lu_nox.cti",
-            small_negative_reward=-0.05,
+            negative_reward=-0.05,
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -119,7 +119,7 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="llnl_gasoline_surrogate_323.xml",
             mdot=0.1,
             max_minj=5e-5,
-            small_negative_reward=-0.05,
+            negative_reward=-0.05,
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -230,7 +230,7 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.1,
             max_minj=5e-5,
-            small_negative_reward=-0.05,
+            negative_reward=-0.05,
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -284,7 +284,7 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.1,
             max_minj=5e-5,
-            small_negative_reward=-0.05,
+            negative_reward=-0.05,
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories

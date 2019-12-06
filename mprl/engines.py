@@ -119,7 +119,7 @@ class Engine(gym.Env):
         evo=100.0,
         fuel="dodecane",
         rxnmech="dodecane_lu_nox.cti",
-        small_negative_reward=-800.0,
+        negative_reward=-800.0,
     ):
         super(Engine, self).__init__()
 
@@ -143,7 +143,7 @@ class Engine(gym.Env):
         self.small_mass = 1.0e-15
         self.max_burned_mass = 6e-3
         self.max_pressure = 200 * ct.one_atm
-        self.small_negative_reward = small_negative_reward * (1 / (self.nsteps - 1))
+        self.negative_reward = negative_reward * (1 / (self.nsteps - 1))
         self.nepisode = 0
         self.action = None
         self.state_updater = {}
@@ -420,7 +420,7 @@ class TwoZoneEngine(Engine):
 
         # Add negative reward if the action had to be masked
         if self.action.masked:
-            reward += self.small_negative_reward
+            reward += self.negative_reward
 
         if done:
             print(f"Finished episode #{self.nepisode}")
@@ -871,7 +871,7 @@ class ReactorEngine(Engine):
 
         # Add negative reward if the action had to be masked
         if self.action.masked:
-            reward += self.small_negative_reward
+            reward += self.negative_reward
 
         if done:
             print(f"Finished episode #{self.nepisode}")
@@ -1004,7 +1004,7 @@ class EquilibrateEngine(Engine):
 
         # Add negative reward if the action had to be masked
         if self.action.masked:
-            reward += self.small_negative_reward
+            reward += self.negative_reward
 
         if done:
             print(f"Finished episode #{self.nepisode}")

@@ -98,8 +98,8 @@ class Input:
                 "injection_delay": Parameter(
                     0.0, "Time delay between injections", float
                 ),
-                "small_negative_reward": Parameter(
-                    -200.0, "Negative reward for unallowed actions", float
+                "negative_reward": Parameter(
+                    -800.0, "Negative reward for unallowed actions", float
                 ),
                 "use_qdot": Parameter(False, "Use a Qdot as an action", bool),
                 "use_continuous": Parameter(
