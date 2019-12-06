@@ -101,79 +101,80 @@ if __name__ == "__main__":
 
     # Initialize the engine
     T0, p0 = engines.calibrated_engine_ic()
-    eng_params = params.input["engine"]
-    if eng_params["engine"] == "reactor-engine":
+    eng_params = params.inputs["engine"]
+    if eng_params["engine"].value == "reactor-engine":
         eng = engines.ReactorEngine(
             T0=T0,
             p0=p0,
-            agent_steps=eng_params["nsteps"],
-            mdot=eng_params["mdot"],
-            max_minj=eng_params["max_minj"],
-            max_injections=eng_params["max_injections"],
-            injection_delay=eng_params["injection_delay"],
-            small_negative_reward=eng_params["small_negative_reward"],
-            fuel=eng_params["fuel"],
-            rxnmech=eng_params["rxnmech"],
-            observables=eng_params["observables"],
+            agent_steps=eng_params["nsteps"].value,
+            mdot=eng_params["mdot"].value,
+            max_minj=eng_params["max_minj"].value,
+            max_injections=eng_params["max_injections"].value,
+            injection_delay=eng_params["injection_delay"].value,
+            small_negative_reward=eng_params["small_negative_reward"].value,
+            fuel=eng_params["fuel"].value,
+            rxnmech=eng_params["rxnmech"].value,
+            observables=eng_params["observables"].value,
         )
-    elif eng_params["engine"] == "EQ-engine":
+    elif eng_params["engine"].value == "EQ-engine":
         eng = engines.EquilibrateEngine(
             T0=T0,
             p0=p0,
-            agent_steps=eng_params["nsteps"],
-            mdot=eng_params["mdot"],
-            max_minj=eng_params["max_minj"],
-            max_injections=eng_params["max_injections"],
-            injection_delay=eng_params["injection_delay"],
-            small_negative_reward=eng_params["small_negative_reward"],
-            fuel=eng_params["fuel"],
-            rxnmech=eng_params["rxnmech"],
-            observables=eng_params["observables"],
+            agent_steps=eng_params["nsteps"].value,
+            mdot=eng_params["mdot"].value,
+            max_minj=eng_params["max_minj"].value,
+            max_injections=eng_params["max_injections"].value,
+            injection_delay=eng_params["injection_delay"].value,
+            small_negative_reward=eng_params["small_negative_reward"].value,
+            fuel=eng_params["fuel"].value,
+            rxnmech=eng_params["rxnmech"].value,
+            observables=eng_params["observables"].value,
         )
-    elif eng_params["engine"] == "twozone-engine":
-        if eng_params["use_continuous"]:
+    elif eng_params["engine"].value == "twozone-engine":
+        if eng_params["use_continuous"].value:
             eng = engines.ContinuousTwoZoneEngine(
                 T0=T0,
                 p0=p0,
-                agent_steps=eng_params["nsteps"],
-                small_negative_reward=eng_params["small_negative_reward"],
-                fuel=eng_params["fuel"],
-                rxnmech=eng_params["rxnmech"],
-                use_qdot=eng_params["use_qdot"],
+                agent_steps=eng_params["nsteps"].value,
+                small_negative_reward=eng_params["small_negative_reward"].value,
+                fuel=eng_params["fuel"].value,
+                rxnmech=eng_params["rxnmech"].value,
+                use_qdot=eng_params["use_qdot"].value,
             )
         else:
             eng = engines.DiscreteTwoZoneEngine(
                 T0=T0,
                 p0=p0,
-                agent_steps=eng_params["nsteps"],
-                mdot=eng_params["mdot"],
-                max_minj=eng_params["max_minj"],
-                max_injections=eng_params["max_injections"],
-                injection_delay=eng_params["injection_delay"],
-                small_negative_reward=eng_params["small_negative_reward"],
-                fuel=eng_params["fuel"],
-                rxnmech=eng_params["rxnmech"],
-                observables=eng_params["observables"],
+                agent_steps=eng_params["nsteps"].value,
+                mdot=eng_params["mdot"].value,
+                max_minj=eng_params["max_minj"].value,
+                max_injections=eng_params["max_injections"].value,
+                injection_delay=eng_params["injection_delay"].value,
+                small_negative_reward=eng_params["small_negative_reward"].value,
+                fuel=eng_params["fuel"].value,
+                rxnmech=eng_params["rxnmech"].value,
+                observables=eng_params["observables"].value,
             )
 
     # Create the agent and train
-    agent_params = params.input["agent"]
-    if agent_params["agent"] == "calibrated":
+    agent_params = params.inputs["agent"]
+    if agent_params["agent"].value == "calibrated":
         env = DummyVecEnv([lambda: eng])
         agent = agents.CalibratedAgent(env)
         agent.learn()
-    elif agent_params["agent"] == "exhaustive":
+    elif agent_params["agent"].value == "exhaustive":
         env = DummyVecEnv([lambda: eng])
         agent = agents.ExhaustiveAgent(env)
         agent.learn()
-    elif agent_params["agent"] == "ppo":
+    elif agent_params["agent"].value == "ppo":
         env = DummyVecEnv([lambda: eng])
-        if agent_params["use_pretrained"] is not None:
+        if agent_params["use_pretrained"].value is not None:
             agent = PPO2.load(
-                os.path.join(agent_params["use_pretrained"], "agent"),
+                os.path.join(agent_params["use_pretrained"].value, "agent"),
                 env=env,
                 reset_num_timesteps=False,
-                n_steps=agent_params["update_nepisodes"] * (eng_params["nsteps"] - 1),
+                n_steps=agent_params["update_nepisodes"].value
+                * (eng_params["nsteps"].value - 1),
                 tensorboard_log=logdir,
             )
         else:
@@ -181,13 +182,14 @@ if __name__ == "__main__":
                 MlpPolicy,
                 env,
                 verbose=1,
-                n_steps=agent_params["update_nepisodes"] * (eng_params["nsteps"] - 1),
+                n_steps=agent_params["update_nepisodes"].value
+                * (eng_params["nsteps"].value - 1),
                 tensorboard_log=logdir,
             )
         agent.learn(
-            total_timesteps=agent_params["number_episodes"]
-            * (eng_params["nsteps"] - 1)
-            * agent_params["nranks"],
+            total_timesteps=agent_params["number_episodes"].value
+            * (eng_params["nsteps"].value - 1)
+            * agent_params["nranks"].value,
             callback=callback,
         )
 

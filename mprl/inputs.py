@@ -8,130 +8,129 @@ import copy
 # Classes
 #
 # ========================================================================
+class Parameter:
+    def __init__(self, default, helper, typer, choices=None):
+        self.default = default
+        self.helper = helper
+        self.typer = typer
+        self.choices = choices
+        self.set_value(self.default)
+
+    def __repr__(self):
+        return "Parameter()"
+
+    def __srt__(self):
+        return "member of Parameter"
+
+    def set_value(self, value):
+        if type(value) == self.typer:
+            self.value = value
+        elif value is None:
+            self.value = value
+        else:
+            sys.exit(
+                f"Type does not match for {self.name} ({self.typer} is not {type(value)})"
+            )
+
+        if (self.choices is not None) and (value not in self.choices):
+            sys.exit(
+                f"Value {value} is not part of the available choices {self.choices}"
+            )
+
+
+# ========================================================================
 class Input:
     def __init__(self):
-        self.defaults = {
+
+        self.inputs = {
             "agent": {
-                "agent": "ppo",
-                "number_episodes": 100,
-                "update_nepisodes": 20,
-                "nranks": 1,
-                "use_pretrained": None,
+                "agent": Parameter(
+                    "ppo",
+                    "Agent to train and evaluate",
+                    str,
+                    choices=["calibrated", "exhaustive", "ppo"],
+                ),
+                "number_episodes": Parameter(
+                    100, "Total number of episodes to train over", int
+                ),
+                "update_nepisodes": Parameter(
+                    20, "Number of episodes per agent update", int
+                ),
+                "nranks": Parameter(1, "Number of MPI ranks", int),
+                "use_pretrained": Parameter(
+                    None,
+                    "Directory containing a pretrained network to use as a starting point",
+                    str,
+                ),
             },
             "engine": {
-                "engine": "twozone-engine",
-                "fuel": "dodecane",
-                "rxnmech": "dodecane_lu_nox.cti",
-                "observables": ["ca", "p", "T", "success_ninj", "can_inject"],
-                "nsteps": 101,
-                "mdot": 0.1,
-                "max_minj": 5e-5,
-                "max_injections": None,
-                "injection_delay": 0.0,
-                "small_negative_reward": -200.0,
-                "use_qdot": False,
-                "use_continuous": False,
+                "engine": Parameter(
+                    "twozone-engine",
+                    "Engine",
+                    str,
+                    choices=["twozone-engine", "reactor-engine", "EQ-engine"],
+                ),
+                "fuel": Parameter(
+                    "dodecane", "Fuel", str, choices=["dodecane", "PRF100", "PRF85"]
+                ),
+                "rxnmech": Parameter(
+                    "dodecane_lu_nox.cti",
+                    "Reaction mechanism file",
+                    str,
+                    choices=[
+                        "dodecane_lu_nox.cti",
+                        "dodecane_mars.cti",
+                        "dodecane_lu.cti",
+                        "llnl_gasoline_surrogate_323.xml",
+                    ],
+                ),
+                "observables": Parameter(
+                    ["ca", "p", "T", "success_ninj", "can_inject"],
+                    "Engine observables",
+                    list,
+                ),
+                "nsteps": Parameter(101, "Engine steps in a given episode", int),
+                "mdot": Parameter(0.1, "Injected mass flow rate [kg/s]", float),
+                "max_minj": Parameter(5e-5, "Maximum fuel injected mass [kg]", float),
+                "max_injections": Parameter(
+                    None, "Maximum number of injections allowed", int
+                ),
+                "injection_delay": Parameter(
+                    0.0, "Time delay between injections", float
+                ),
+                "small_negative_reward": Parameter(
+                    -200.0, "Negative reward for unallowed actions", float
+                ),
+                "use_qdot": Parameter(False, "Use a Qdot as an action", bool),
+                "use_continuous": Parameter(
+                    False, "Use a continuous action space", bool
+                ),
             },
         }
-        self.input = copy.deepcopy(self.defaults)
 
     def write_toml(self):
         """Write inputs as TOML format"""
-        for section in self.input.keys():
+        for section in self.inputs.keys():
             print(f"""[{section}]""")
-            for key, value in self.input[section].items():
-                if type(value) is str:
-                    print(f"""{key} = "{value}" """)
+            for name, param in self.inputs[section].items():
+                if type(param.value) is str:
+                    print(f"""{name} = "{param.value}" """)
                 else:
-                    print(f"""{key} = {value}""")
+                    print(f"""{name} = {param.value}""")
 
     def print_help(self):
         """Print the defaults and help"""
-        helper = {
-            "agent": {
-                "agent": "Agent to train and evaluate",
-                "number_episodes": "Total number of episodes to train over",
-                "update_nepisodes": "Number of episodes per agent update",
-                "nranks": "Number of MPI ranks",
-                "use_pretrained": "Directory containing a pretrained network to use as a starting point",
-            },
-            "engine": {
-                "engine": "Engine",
-                "fuel": "Fuel",
-                "rxnmech": "Reaction mechanism",
-                "observables": "Engine observables",
-                "nsteps": "Engine steps in a given episode",
-                "mdot": "Injected mass flow rate [kg/s]",
-                "max_minj": "Maximum fuel injected mass [kg]",
-                "max_injections": "Maximum number of injections allowed",
-                "small_negative_reward": "Negative reward for unallowed actions",
-                "injection_delay": "Time delay between injections",
-                "use_qdot": "Use a Qdot as an action",
-                "use_continuous": "Use a continuous action space",
-            },
-        }
-
-        for section in self.defaults.keys():
+        for section in self.inputs.keys():
             print(f"""[{section}]""")
-            for key, value in helper[section].items():
-                if type(self.defaults[section][key]) is str:
-                    print(f"""{key} = "{self.defaults[section][key]}" # {value}""")
+            for name, param in self.inputs[section].items():
+                if type(param.value) is str:
+                    print(f"""{name} = "{param.default}" # {param.helper}""")
                 else:
-                    print(f"""{key} = {self.defaults[section][key]} # {value}""")
-
-    def check(self):
-        """Check the inputs"""
-
-        choices = {
-            "agent": {"agent": ["calibrated", "exhaustive", "ppo"]},
-            "engine": {
-                "engine": ["twozone-engine", "reactor-engine", "EQ-engine"],
-                "fuel": ["dodecane", "PRF100", "PRF85"],
-                "rxnmech": [
-                    "dodecane_lu_nox.cti",
-                    "dodecane_mars.cti",
-                    "dodecane_lu.cti",
-                    "llnl_gasoline_surrogate_323.xml",
-                ],
-            },
-        }
-        types = {
-            "agent": {
-                "agent": str,
-                "number_episodes": int,
-                "update_nepisodes": int,
-                "nranks": int,
-            },
-            "engine": {
-                "engine": str,
-                "fuel": str,
-                "rxnmech": str,
-                "observables": list,
-                "mdot": float,
-                "max_minj": float,
-                "injection_delay": float,
-                "small_negative_reward": float,
-                "use_qdot": bool,
-                "use_continuous": bool,
-            },
-        }
-
-        for section in types.keys():
-            for key, value in types[section].items():
-                if type(self.input[section][key]) != value:
-                    sys.exit(
-                        f"""Invalid type: {self.input[section][key]} not {value}"""
-                    )
-
-            for key, value in choices[section].items():
-                if not self.input[section][key] in value:
-                    sys.exit(
-                        f"""Invalid choice: {self.input[section][key]} not in {value}"""
-                    )
+                    print(f"""{name} = {param.default} # {param.helper}""")
 
     def from_toml(self, fname):
         """Read TOML file for inputs"""
         parsed = toml.load(fname)
-        for section in self.defaults.keys():
-            self.input[section].update(parsed[section])
-        self.check()
+        for section in parsed.keys():
+            for key, value in parsed[section].items():
+                self.inputs[section][key].set_value(value)
