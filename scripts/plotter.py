@@ -41,73 +41,73 @@ if __name__ == "__main__":
 
         # Initialize the engine
         T0, p0 = engines.calibrated_engine_ic()
-        eng_params = params.input["engine"]
-        if eng_params["engine"] == "reactor-engine":
+        eng_params = params.inputs["engine"]
+        if eng_params["engine"].value == "reactor-engine":
             eng = engines.ReactorEngine(
                 T0=T0,
                 p0=p0,
-                agent_steps=eng_params["nsteps"],
-                mdot=eng_params["mdot"],
-                max_minj=eng_params["max_minj"],
-                max_injections=eng_params["max_injections"],
-                injection_delay=eng_params["injection_delay"],
-                negative_reward=eng_params["negative_reward"],
-                fuel=eng_params["fuel"],
-                rxnmech=eng_params["rxnmech"],
-                observables=eng_params["observables"],
+                agent_steps=eng_params["nsteps"].value,
+                mdot=eng_params["mdot"].value,
+                max_minj=eng_params["max_minj"].value,
+                max_injections=eng_params["max_injections"].value,
+                injection_delay=eng_params["injection_delay"].value,
+                negative_reward=eng_params["negative_reward"].value,
+                fuel=eng_params["fuel"].value,
+                rxnmech=eng_params["rxnmech"].value,
+                observables=eng_params["observables"].value,
             )
-        elif eng_params["engine"] == "EQ-engine":
+        elif eng_params["engine"].value == "EQ-engine":
             eng = engines.EquilibrateEngine(
                 T0=T0,
                 p0=p0,
-                agent_steps=eng_params["nsteps"],
-                mdot=eng_params["mdot"],
-                max_minj=eng_params["max_minj"],
-                max_injections=eng_params["max_injections"],
-                injection_delay=eng_params["injection_delay"],
-                negative_reward=eng_params["negative_reward"],
-                fuel=eng_params["fuel"],
-                rxnmech=eng_params["rxnmech"],
-                observables=eng_params["observables"],
+                agent_steps=eng_params["nsteps"].value,
+                mdot=eng_params["mdot"].value,
+                max_minj=eng_params["max_minj"].value,
+                max_injections=eng_params["max_injections"].value,
+                injection_delay=eng_params["injection_delay"].value,
+                negative_reward=eng_params["negative_reward"].value,
+                fuel=eng_params["fuel"].value,
+                rxnmech=eng_params["rxnmech"].value,
+                observables=eng_params["observables"].value,
             )
-        elif eng_params["engine"] == "twozone-engine":
-            if eng_params["use_continuous"]:
+        elif eng_params["engine"].value == "twozone-engine":
+            if eng_params["use_continuous"].value:
                 eng = engines.ContinuousTwoZoneEngine(
                     T0=T0,
                     p0=p0,
-                    agent_steps=eng_params["nsteps"],
-                    negative_reward=eng_params["negative_reward"],
-                    fuel=eng_params["fuel"],
-                    rxnmech=eng_params["rxnmech"],
-                    use_qdot=eng_params["use_qdot"],
+                    agent_steps=eng_params["nsteps"].value,
+                    negative_reward=eng_params["negative_reward"].value,
+                    fuel=eng_params["fuel"].value,
+                    rxnmech=eng_params["rxnmech"].value,
+                    use_qdot=eng_params["use_qdot"].value,
                 )
             else:
                 eng = engines.DiscreteTwoZoneEngine(
                     T0=T0,
                     p0=p0,
-                    agent_steps=eng_params["nsteps"],
-                    mdot=eng_params["mdot"],
-                    max_minj=eng_params["max_minj"],
-                    max_injections=eng_params["max_injections"],
-                    injection_delay=eng_params["injection_delay"],
-                    negative_reward=eng_params["negative_reward"],
-                    fuel=eng_params["fuel"],
-                    rxnmech=eng_params["rxnmech"],
-                    observables=eng_params["observables"],
+                    agent_steps=eng_params["nsteps"].value,
+                    mdot=eng_params["mdot"].value,
+                    max_minj=eng_params["max_minj"].value,
+                    max_injections=eng_params["max_injections"].value,
+                    injection_delay=eng_params["injection_delay"].value,
+                    negative_reward=eng_params["negative_reward"].value,
+                    fuel=eng_params["fuel"].value,
+                    rxnmech=eng_params["rxnmech"].value,
+                    observables=eng_params["observables"].value,
                 )
 
         env = DummyVecEnv([lambda: eng])
-        agent_params = params.input["agent"]
-        if agent_params["agent"] == "calibrated":
+        agent_params = params.inputs["agent"]
+        if agent_params["agent"].value == "calibrated":
             agent = agents.CalibratedAgent(env)
             agent.learn()
-        elif agent_params["agent"] == "exhaustive":
+        elif agent_params["agent"].value == "exhaustive":
             agent = agents.ExhaustiveAgent(env)
             agent.load(fname, env)
-        elif agent_params["agent"] == "ppo":
+        elif agent_params["agent"].value == "ppo":
             agent = PPO2.load(fname, env=env)
 
         df, total_reward = utilities.evaluate_agent(env, agent)
-        utilities.plot_df(env, df, idx=k, name=agent_params["agent"])
+        utilities.plot_df(env, df, idx=k, name=agent_params["agent"].value)
 
     utilities.save_plots("compare.pdf")

@@ -77,7 +77,9 @@ if __name__ == "__main__":
 
     # Parse arguments
     parser = argparse.ArgumentParser(description="Train and evaluate an agent")
-    parser.add_argument("--fname", help="Input file name", type=str, required=True)
+    parser.add_argument(
+        "-f", "--fname", help="Input file name", type=str, required=True
+    )
     args = parser.parse_args()
 
     # Read input parameters
@@ -200,7 +202,7 @@ if __name__ == "__main__":
     df, total_reward = utilities.evaluate_agent(env, agent)
 
     df.to_csv(pfx + ".csv", index=False)
-    utilities.plot_df(env, df, idx=0, name=agent_params["agent"])
+    utilities.plot_df(env, df, idx=0, name=agent_params["agent"].value)
     utilities.save_plots(pfx + ".pdf")
 
     # Plot the training history
