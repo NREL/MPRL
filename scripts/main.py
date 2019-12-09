@@ -170,9 +170,9 @@ if __name__ == "__main__":
         agent.learn()
     elif agent_params["agent"].value == "ppo":
         env = DummyVecEnv([lambda: eng])
-        if agent_params["use_pretrained"].value is not None:
+        if agent_params["pretrained_agent"].value is not None:
             agent = PPO2.load(
-                os.path.join(agent_params["use_pretrained"].value, "agent"),
+                agent_params["pretrained_agent"].value,
                 env=env,
                 reset_num_timesteps=False,
                 n_steps=agent_params["update_nepisodes"].value

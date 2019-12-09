@@ -154,6 +154,6 @@ class ExhaustiveAgent(Agent):
 
     def load(self, name, env):
         self.env = env
-        with open(name + ".pkl", "rb") as f:
+        with open(name, "rb") as f:
             self.best_inj = pickle.load(f)
         return 0

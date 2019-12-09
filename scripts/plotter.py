@@ -108,6 +108,8 @@ if __name__ == "__main__":
             agent = PPO2.load(fname, env=env)
 
         df, total_reward = utilities.evaluate_agent(env, agent)
-        utilities.plot_df(env, df, idx=k, name=agent_params["agent"].value)
+        utilities.plot_df(
+            env, df, idx=k, name=agent_params["agent"].value, plot_exp=False
+        )
 
     utilities.save_plots("compare.pdf")

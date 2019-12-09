@@ -150,7 +150,7 @@ def evaluate_agent(env, agent):
 
 
 # ========================================================================
-def plot_df(env, df, idx=0, name=None):
+def plot_df(env, df, idx=0, name=None, plot_exp=True):
     """Make some plots of the agent performance"""
 
     eng = env.envs[0]
@@ -162,14 +162,14 @@ def plot_df(env, df, idx=0, name=None):
 
     plt.figure("p")
     _, labels = plt.gca().get_legend_handles_labels()
-    if "Exp." not in labels:
+    if "Exp." not in labels and plot_exp:
         plt.plot(eng.exact.ca, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
     p = plt.plot(df.ca, df.p * pa2bar, color=cmap[cidx], lw=2, label=label)
     p[0].set_dashes(dashseq[didx])
 
     plt.figure("p_v")
     _, labels = plt.gca().get_legend_handles_labels()
-    if "Exp." not in labels:
+    if "Exp." not in labels and plot_exp:
         plt.plot(eng.exact.V, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
     p = plt.plot(df.V, df.p * pa2bar, color=cmap[cidx], lw=2, label=label)
     p[0].set_dashes(dashseq[didx])

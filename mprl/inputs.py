@@ -57,11 +57,7 @@ class Input:
                     20, "Number of episodes per agent update", int
                 ),
                 "nranks": Parameter(1, "Number of MPI ranks", int),
-                "use_pretrained": Parameter(
-                    None,
-                    "Directory containing a pretrained network to use as a starting point",
-                    str,
-                ),
+                "pretrained_agent": Parameter(None, "Path to a pretrained agent", str),
             },
             "engine": {
                 "engine": Parameter(
