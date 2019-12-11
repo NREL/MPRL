@@ -137,7 +137,7 @@ class DiscreteActionType(ActionType):
         allowed = {key: True for key in self.actions}
         for key in allowed:
             if (self.success_counter[key] >= self.limits[key]) or (
-                self.success_time[key] <= self.delays[key]
+                self.success_time[key] < self.delays[key]
             ):
                 allowed[key] = False
         return allowed
