@@ -102,12 +102,9 @@ if __name__ == "__main__":
     best_reward = -np.inf
 
     # Initialize the engine
-    T0, p0 = engines.calibrated_engine_ic()
     eng_params = params.inputs["engine"]
     if eng_params["engine"].value == "reactor-engine":
         eng = engines.ReactorEngine(
-            T0=T0,
-            p0=p0,
             agent_steps=eng_params["nsteps"].value,
             mdot=eng_params["mdot"].value,
             max_minj=eng_params["max_minj"].value,
@@ -120,8 +117,6 @@ if __name__ == "__main__":
         )
     elif eng_params["engine"].value == "EQ-engine":
         eng = engines.EquilibrateEngine(
-            T0=T0,
-            p0=p0,
             agent_steps=eng_params["nsteps"].value,
             mdot=eng_params["mdot"].value,
             max_minj=eng_params["max_minj"].value,
@@ -135,8 +130,6 @@ if __name__ == "__main__":
     elif eng_params["engine"].value == "twozone-engine":
         if eng_params["use_continuous"].value:
             eng = engines.ContinuousTwoZoneEngine(
-                T0=T0,
-                p0=p0,
                 agent_steps=eng_params["nsteps"].value,
                 negative_reward=eng_params["negative_reward"].value,
                 fuel=eng_params["fuel"].value,
@@ -145,8 +138,6 @@ if __name__ == "__main__":
             )
         else:
             eng = engines.DiscreteTwoZoneEngine(
-                T0=T0,
-                p0=p0,
                 agent_steps=eng_params["nsteps"].value,
                 mdot=eng_params["mdot"].value,
                 max_minj=eng_params["max_minj"].value,

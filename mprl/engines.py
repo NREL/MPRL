@@ -112,8 +112,6 @@ class Engine(gym.Env):
 
     def __init__(
         self,
-        T0=298.0,
-        p0=103_325.0,
         agent_steps=100,
         ivc=-100.0,
         evo=100.0,
@@ -124,8 +122,7 @@ class Engine(gym.Env):
         super(Engine, self).__init__()
 
         # Engine parameters
-        self.T0 = T0
-        self.p0 = p0
+        self.T0, self.p0 = calibrated_engine_ic()
         self.agent_steps = agent_steps
         self.nsteps = self.agent_steps
         self.ivc = ivc

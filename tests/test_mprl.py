@@ -28,7 +28,6 @@ class MPRLTestCase(unittest.TestCase):
 
     def setUp(self):
 
-        self.T0, self.p0 = engines.calibrated_engine_ic()
         self.agentdir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "trained_agents"
         )
@@ -41,8 +40,6 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         eng = engines.ContinuousTwoZoneEngine(
-            T0=self.T0,
-            p0=self.p0,
             agent_steps=100,
             use_qdot=True,
             fuel="PRF100",
@@ -74,8 +71,6 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         eng = engines.DiscreteTwoZoneEngine(
-            T0=self.T0,
-            p0=self.p0,
             agent_steps=101,
             mdot=0.1,
             max_minj=5e-5,
@@ -112,8 +107,6 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         eng = engines.DiscreteTwoZoneEngine(
-            T0=self.T0,
-            p0=self.p0,
             agent_steps=101,
             fuel="PRF100",
             rxnmech="llnl_gasoline_surrogate_323.xml",
@@ -166,8 +159,6 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         eng = engines.DiscreteTwoZoneEngine(
-            T0=self.T0,
-            p0=self.p0,
             agent_steps=101,
             fuel="PRF100",
             rxnmech="llnl_gasoline_surrogate_323.xml",
@@ -222,8 +213,6 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         eng = engines.ReactorEngine(
-            T0=self.T0,
-            p0=self.p0,
             agent_steps=101,
             Tinj=300.0,
             dt=4e-6,
@@ -277,8 +266,6 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         eng = engines.EquilibrateEngine(
-            T0=self.T0,
-            p0=self.p0,
             agent_steps=101,
             Tinj=300.0,
             rxnmech="dodecane_lu_nox.cti",
