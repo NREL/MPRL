@@ -73,7 +73,7 @@ class MPRLTestCase(unittest.TestCase):
         eng = engines.DiscreteTwoZoneEngine(
             agent_steps=101,
             mdot=0.1,
-            max_minj=5e-5,
+            max_minj=2.5e-5,
             fuel="dodecane",
             rxnmech="dodecane_lu_nox.cti",
             negative_reward=-0.05,
@@ -96,10 +96,10 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 37808279.50349433)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 21061.100819984735)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 153.19968366157858)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
+        npt.assert_allclose(np.linalg.norm(df.p), 25431213.9403193)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 13611.586979159425)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 101.4137388027926)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.1)
         print(f"Wall time for ExhaustiveAgent = {elapsed} seconds")
 
     def test_discrete_twozone_engine(self):
@@ -134,7 +134,7 @@ class MPRLTestCase(unittest.TestCase):
             # Agent tries to inject twice, but is not allowed the second time
             action = (
                 [1]
-                if (eng.current_state.ca == -2) or eng.current_state.ca == 2
+                if (eng.current_state.ca == -10) or eng.current_state.ca == 10
                 else [0]
             )
             obs, reward, done, info = env.step(action)
@@ -188,7 +188,7 @@ class MPRLTestCase(unittest.TestCase):
                 [1]
                 if (eng.current_state.ca == -10)
                 or eng.current_state.ca == 10
-                or eng.current_state.ca == 15
+                or eng.current_state.ca == 16
                 else [0]
             )
             obs, reward, done, info = env.step(action)
@@ -202,10 +202,10 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 29368413.21384358)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 14499.415561284017)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 102.80455421172557)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.1)
+        npt.assert_allclose(np.linalg.norm(df.p), 35142241.61421513)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 20971.066928023)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 175.70689300227)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for DiscreteTwoZoneEngine with delay = {elapsed} seconds")
 
     def test_reactor_engine(self):
