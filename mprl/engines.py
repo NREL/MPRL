@@ -304,13 +304,10 @@ class Engine(gym.Env):
 
         done = False
         reward = get_reward(self.current_state)
-        if (self.current_state.name >= len(self.history) - 1) or (
-            self.current_state.mb > self.max_burned_mass
-        ):
+        if self.current_state.name >= len(self.history) - 1:
             done = True
         elif self.current_state.p > self.max_pressure:
             print(f"Maximum pressure (p = {self.max_pressure}) has been exceeded!")
-            done = True
             reward = self.negative_reward
 
         return reward, done
