@@ -8,6 +8,9 @@ import sys
 import numpy as np
 import pandas as pd
 import itertools
+import multiprocessing as mp
+from multiprocessing import Pool
+import copy
 import pickle
 from abc import ABC, abstractmethod
 from stable_baselines.common.vec_env import DummyVecEnv
@@ -102,6 +105,10 @@ class CalibratedAgent(Agent):
         return numpy_dict
 
 
+def play(a, b):
+    return a, b
+
+
 # ========================================================================
 class ExhaustiveAgent(Agent):
     def __init__(self, env):
@@ -122,18 +129,31 @@ class ExhaustiveAgent(Agent):
             if len(self.eng.history.ca) == self.eng.agent_steps
             else self.eng.history.ca[:: self.eng.substeps - 1]
         )
-        for inj in itertools.combinations(agent_ca, self.max_ninj):
-            done = [False]
-            obs = self.env.reset()
-            total_reward = 0
-            while not done[0]:
-                action = [1] if (self.eng.current_state.ca in inj) else [0]
-                obs, reward, done, info = self.env.step(action)
-                total_reward += reward[0]
 
-            if total_reward > best_reward:
-                best_reward = total_reward
-                self.best_inj = inj
+        agents = 2
+        envlst = [
+            copy.deepcopy(self.env)
+            for _ in itertools.combinations(agent_ca, self.max_ninj)
+        ]
+        with Pool(processes=agents) as pool:
+            result = pool.starmap(
+                play, zip(itertools.combinations(agent_ca, self.max_ninj), envlst)
+            )
+        print(mp.cpu_count())
+        print(result)
+
+        # for inj in itertools.combinations(agent_ca, self.max_ninj):
+        #     done = [False]
+        #     obs = self.env.reset()
+        #     total_reward = 0
+        #     while not done[0]:
+        #         action = [1] if (self.eng.current_state.ca in inj) else [0]
+        #         obs, reward, done, info = self.env.step(action)
+        #         total_reward += reward[0]
+
+        #     if total_reward > best_reward:
+        #         best_reward = total_reward
+        #         self.best_inj = inj
 
     def predict(self, obs, **kwargs):
 

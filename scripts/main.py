@@ -9,6 +9,7 @@ import sys
 import numpy as np
 import pandas as pd
 import time
+import copy
 from datetime import datetime, timedelta
 import warnings
 import pickle
@@ -105,10 +106,11 @@ if __name__ == "__main__":
     eng_params = params.inputs["engine"]
     if eng_params["engine"].value == "reactor-engine":
         eng = engines.ReactorEngine(
+            target_dt=eng_params["target_dt"].value,
+            Tinj=eng_params["Tinj"].value,
             agent_steps=eng_params["nsteps"].value,
             mdot=eng_params["mdot"].value,
             max_minj=eng_params["max_minj"].value,
-            max_injections=eng_params["max_injections"].value,
             injection_delay=eng_params["injection_delay"].value,
             negative_reward=eng_params["negative_reward"].value,
             fuel=eng_params["fuel"].value,
@@ -117,10 +119,10 @@ if __name__ == "__main__":
         )
     elif eng_params["engine"].value == "EQ-engine":
         eng = engines.EquilibrateEngine(
+            Tinj=eng_params["Tinj"].value,
             agent_steps=eng_params["nsteps"].value,
             mdot=eng_params["mdot"].value,
             max_minj=eng_params["max_minj"].value,
-            max_injections=eng_params["max_injections"].value,
             injection_delay=eng_params["injection_delay"].value,
             negative_reward=eng_params["negative_reward"].value,
             fuel=eng_params["fuel"].value,
@@ -141,7 +143,6 @@ if __name__ == "__main__":
                 agent_steps=eng_params["nsteps"].value,
                 mdot=eng_params["mdot"].value,
                 max_minj=eng_params["max_minj"].value,
-                max_injections=eng_params["max_injections"].value,
                 injection_delay=eng_params["injection_delay"].value,
                 negative_reward=eng_params["negative_reward"].value,
                 fuel=eng_params["fuel"].value,
@@ -149,57 +150,62 @@ if __name__ == "__main__":
                 observables=eng_params["observables"].value,
             )
 
-    # Create the agent and train
-    agent_params = params.inputs["agent"]
-    if agent_params["agent"].value == "calibrated":
-        env = DummyVecEnv([lambda: eng])
-        agent = agents.CalibratedAgent(env)
-        agent.learn()
-    elif agent_params["agent"].value == "exhaustive":
-        env = DummyVecEnv([lambda: eng])
-        agent = agents.ExhaustiveAgent(env)
-        agent.learn()
-    elif agent_params["agent"].value == "ppo":
-        env = DummyVecEnv([lambda: eng])
-        if agent_params["pretrained_agent"].value is not None:
-            agent = PPO2.load(
-                agent_params["pretrained_agent"].value,
-                env=env,
-                reset_num_timesteps=False,
-                n_steps=agent_params["update_nepisodes"].value
-                * (eng_params["nsteps"].value - 1),
-                tensorboard_log=logdir,
-            )
-        else:
-            agent = PPO2(
-                MlpPolicy,
-                env,
-                verbose=1,
-                n_steps=agent_params["update_nepisodes"].value
-                * (eng_params["nsteps"].value - 1),
-                tensorboard_log=logdir,
-            )
-        agent.learn(
-            total_timesteps=agent_params["number_episodes"].value
-            * (eng_params["nsteps"].value - 1)
-            * agent_params["nranks"].value,
-            callback=callback,
-        )
+    print("engine:")
+    print(repr(eng))
+    eng2 = copy.deepcopy(eng)
+    print(repr(eng2))
 
-    # Save, evaluate, and plot the agent
-    pfx = os.path.join(logdir, "agent")
-    agent.save(pfx)
-    env = DummyVecEnv([lambda: eng])
-    df, total_reward = utilities.evaluate_agent(env, agent)
+    # # Create the agent and train
+    # agent_params = params.inputs["agent"]
+    # if agent_params["agent"].value == "calibrated":
+    #     env = DummyVecEnv([lambda: eng])
+    #     agent = agents.CalibratedAgent(env)
+    #     agent.learn()
+    # elif agent_params["agent"].value == "exhaustive":
+    #     env = DummyVecEnv([lambda: eng])
+    #     agent = agents.ExhaustiveAgent(env)
+    #     agent.learn()
+    # elif agent_params["agent"].value == "ppo":
+    #     env = DummyVecEnv([lambda: eng])
+    #     if agent_params["pretrained_agent"].value is not None:
+    #         agent = PPO2.load(
+    #             agent_params["pretrained_agent"].value,
+    #             env=env,
+    #             reset_num_timesteps=False,
+    #             n_steps=agent_params["update_nepisodes"].value
+    #             * (eng_params["nsteps"].value - 1),
+    #             tensorboard_log=logdir,
+    #         )
+    #     else:
+    #         agent = PPO2(
+    #             MlpPolicy,
+    #             env,
+    #             verbose=1,
+    #             n_steps=agent_params["update_nepisodes"].value
+    #             * (eng_params["nsteps"].value - 1),
+    #             tensorboard_log=logdir,
+    #         )
+    #     agent.learn(
+    #         total_timesteps=agent_params["number_episodes"].value
+    #         * (eng_params["nsteps"].value - 1)
+    #         * agent_params["nranks"].value,
+    #         callback=callback,
+    #     )
 
-    df.to_csv(pfx + ".csv", index=False)
-    utilities.plot_df(env, df, idx=0, name=agent_params["agent"].value)
-    utilities.save_plots(pfx + ".pdf")
+    # # Save, evaluate, and plot the agent
+    # pfx = os.path.join(logdir, "agent")
+    # agent.save(pfx)
+    # env = DummyVecEnv([lambda: eng])
+    # df, total_reward = utilities.evaluate_agent(env, agent)
 
-    # Plot the training history
-    logs = pd.read_csv(logname)
-    utilities.plot_training(logs, os.path.join(logdir, "logger.pdf"))
+    # df.to_csv(pfx + ".csv", index=False)
+    # utilities.plot_df(env, df, idx=0, name=agent_params["agent"].value)
+    # utilities.save_plots(pfx + ".pdf")
 
-    # output timer
-    end = time.time() - start
-    print(f"Elapsed time {timedelta(seconds=end)} (or {end} seconds)")
+    # # Plot the training history
+    # logs = pd.read_csv(logname)
+    # utilities.plot_training(logs, os.path.join(logdir, "logger.pdf"))
+
+    # # output timer
+    # end = time.time() - start
+    # print(f"Elapsed time {timedelta(seconds=end)} (or {end} seconds)")

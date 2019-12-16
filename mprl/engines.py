@@ -5,6 +5,7 @@
 # ========================================================================
 import os
 import sys
+import copy
 import cantera as ct
 import numpy as np
 import pandas as pd
@@ -140,7 +141,7 @@ class Engine(gym.Env):
         self.small_mass = 1.0e-15
         self.max_burned_mass = 6e-3
         self.max_pressure = 200 * ct.one_atm
-        self.negative_reward = negative_reward * (1 / (self.nsteps - 1))
+        self.negative_reward = negative_reward
         self.nepisode = 0
         self.action = None
         self.state_updater = {}
@@ -174,6 +175,27 @@ class Engine(gym.Env):
             "success_ninj": 1.0,
             "can_inject": 1,
         }
+
+    def __repr__(self):
+        return self.describe()
+
+    def __str__(self):
+        return f"""An instance of {self.describe()}"""
+
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            try:
+                setattr(result, k, copy.deepcopy(v, memo))
+            except:
+                print(k,v,repr(v))
+                pass
+        return result
+
+    def describe(self):
+        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward})"""
 
     def define_observable_space(self):
         """Define the observable space"""
@@ -308,7 +330,7 @@ class Engine(gym.Env):
             done = True
         elif self.current_state.p > self.max_pressure:
             print(f"Maximum pressure (p = {self.max_pressure}) has been exceeded!")
-            reward = self.negative_reward
+            reward = self.negative_reward / (self.nsteps - 1)
 
         return reward, done
 
@@ -325,7 +347,6 @@ class TwoZoneEngine(Engine):
         super(TwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
-        self.negative_reward = -self.agent_steps
         self.ode_state = ["p", "Tu", "Tb", "mb"]
         self.histories = ["V", "dVdt", "dV", "ca", "t"]
         self.integ = ode(lambda t, y: self.dfundt_mdot(t, y, 0, 0, 0))
@@ -353,32 +374,26 @@ class TwoZoneEngine(Engine):
         }
 
         # Engine setup
-        self.setup_fuel()
+        self.setup_gas()
         self.setup_history()
 
-    def setup_fuel(self):
-        """Setup the fuel and save for faster reset"""
+    def setup_gas(self):
+        """Setup the fuel"""
 
         self.injection_gas, self.far = setup_injection_gas(
             self.rxnmech, self.fuel, pure_fuel=False
         )
-
         self.injection_gas.TP = self.T0, self.p0
-        self.injection_xinit = self.injection_gas.X
-
+        self.xinit = self.injection_gas.X
         self.injection_gas.equilibrate("HP", solver="gibbs")
-        self.injection_xburnt = self.injection_gas.X
-        self.injection_Tb_ad = self.injection_gas.T
+        self.xburnt = self.injection_gas.X
+        self.Tb_ad = self.injection_gas.T
 
     def reset(self):
-        """Reset fuel and oxidizer"""
-        self.gas1 = self.injection_gas
-        self.xinit = self.injection_xinit
-        self.xburnt = self.injection_xburnt
-        self.Tb_ad = self.injection_Tb_ad
 
         super(TwoZoneEngine, self).reset_state()
 
+        self.setup_gas()
         self.action.reset()
 
         obs = self.scale_observables(self.current_state)[self.observables]
@@ -414,7 +429,7 @@ class TwoZoneEngine(Engine):
 
         # Add negative reward if the action had to be masked
         if self.action.masked:
-            reward += self.negative_reward
+            reward += self.negative_reward / (self.nsteps - 1)
 
         if done:
             print(f"Finished episode #{self.nepisode}")
@@ -463,19 +478,19 @@ class TwoZoneEngine(Engine):
         p, Tu, Tb, mb = y
 
         # Compute with cantera burnt gas properties
-        self.gas1.TPX = Tb, p, self.xburnt
-        cv_b = self.gas1.cv
-        ub = self.gas1.u  # internal energy
-        Rb = 8314.47215 / self.gas1.mean_molecular_weight
-        Vb = self.gas1.v * mb
+        self.injection_gas.TPX = Tb, p, self.xburnt
+        cv_b = self.injection_gas.cv
+        ub = self.injection_gas.u  # internal energy
+        Rb = 8314.47215 / self.injection_gas.mean_molecular_weight
+        Vb = self.injection_gas.v * mb
 
         # Compute with cantera unburnt gas properties
-        self.gas1.TPX = Tu, p, self.xinit
-        cv_u = self.gas1.cv
-        cp_u = self.gas1.cp
-        uu = self.gas1.u
-        Ru = 8314.47215 / self.gas1.mean_molecular_weight
-        vu = self.gas1.v
+        self.injection_gas.TPX = Tu, p, self.xinit
+        cv_u = self.injection_gas.cv
+        cp_u = self.injection_gas.cp
+        uu = self.injection_gas.u
+        Ru = 8314.47215 / self.injection_gas.mean_molecular_weight
+        vu = self.injection_gas.v
 
         invgamma_u = cv_u / cp_u
         RuovRb = Ru / Rb
@@ -577,6 +592,7 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         super(ContinuousTwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
+        self.use_qdot = use_qdot
         self.observables, self.internals = get_observables_internals(
             ["p", "T", "Tu", "Tb", "mb"], self.histories, ["ca"]
         )
@@ -587,6 +603,9 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         self.action_space = self.action.space
         self.define_observable_space()
         self.reset()
+
+    def describe(self):
+        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, use_qdot={self.use_qdot})"""
 
 
 # ========================================================================
@@ -629,7 +648,6 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         *args,
         mdot=0.1,  # Rate of mass injection (kg/s)
         max_minj=5e-05,  # Maximum mass of injected burned fuel/air mixture (kg) allowed
-        max_injections=None,  # Maximum number of injections allowed
         injection_delay=0,  # Time delay between injections (s)
         observables=["ca", "p", "T", "success_ninj", "can_inject"],
         **kwargs,
@@ -644,13 +662,16 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         )
         self.mdot = mdot
         self.max_minj = max_minj
-        self.max_injections = max_injections
+        self.max_injections = None
         self.injection_delay = injection_delay
 
         # Final setup
         self.setup_discrete_injection_actions()
         self.define_observable_space()
         self.reset()
+
+    def describe(self):
+        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def reset(self):
 
@@ -699,11 +720,10 @@ class ReactorEngine(Engine):
     def __init__(
         self,
         *args,
-        dt=4e-6,  # Time step for integrating the 0D reactor (s)
+        target_dt=4e-6,  # Target time step for integrating the 0D reactor (s)
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
         mdot=0.1,  # Rate of mass injections (kg/s)
         max_minj=5e-5,  # Mass of injected fuel/air mixture (kg)
-        max_injections=None,  # Maximum number of injections allowed
         injection_delay=0,  # Time delay between injections (s)
         observables=["ca", "p", "T", "success_ninj", "can_inject"],
         **kwargs,
@@ -730,7 +750,7 @@ class ReactorEngine(Engine):
         )
         self.mdot = mdot
         self.max_minj = max_minj
-        self.max_injections = max_injections
+        self.max_injections = None
         self.injection_delay = injection_delay
 
         self.state_reseter = {"can_inject": lambda: 1}
@@ -756,8 +776,9 @@ class ReactorEngine(Engine):
         }
 
         # Figure out the subcycling of steps
+        self.target_dt = target_dt
         self.dt_agent = self.total_time / (self.agent_steps - 1)
-        self.substeps = int(np.ceil(self.dt_agent / dt)) + 1
+        self.substeps = int(np.ceil(self.dt_agent / self.target_dt)) + 1
         self.nsteps = (self.agent_steps - 1) * (self.substeps - 1) + 1
 
         # Engine setup
@@ -767,6 +788,9 @@ class ReactorEngine(Engine):
         self.setup_discrete_injection_actions()
         self.define_observable_space()
         self.reset()
+
+    def describe(self):
+        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, target_dt={self.target_dt}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def setup_engine(self):
         """Setup the fuel and reactor"""
@@ -865,7 +889,7 @@ class ReactorEngine(Engine):
 
         # Add negative reward if the action had to be masked
         if self.action.masked:
-            reward += self.negative_reward
+            reward += self.negative_reward / (self.nsteps - 1)
 
         if done:
             print(f"Finished episode #{self.nepisode}")
@@ -887,7 +911,6 @@ class EquilibrateEngine(Engine):
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
         mdot=0.1,  # Rate of mass injections (kg/s)
         max_minj=5e-5,  # Mass of injected fuel (kg)
-        max_injections=None,  # Maximum number of injections allowed
         injection_delay=0,  # Time delay between injections (s)
         observables=["ca", "p", "T", "success_ninj", "can_inject"],
         **kwargs,
@@ -915,7 +938,7 @@ class EquilibrateEngine(Engine):
 
         self.mdot = mdot
         self.max_minj = max_minj
-        self.max_injections = max_injections
+        self.max_injections = None
         self.injection_delay = injection_delay
 
         self.state_reseter = {"can_inject": lambda: 1}
@@ -947,6 +970,9 @@ class EquilibrateEngine(Engine):
         self.setup_discrete_injection_actions()
         self.define_observable_space()
         self.reset()
+
+    def describe(self):
+        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def setup_gas(self):
         self.initial_gas = ct.Solution(self.rxnmech)
@@ -998,7 +1024,7 @@ class EquilibrateEngine(Engine):
 
         # Add negative reward if the action had to be masked
         if self.action.masked:
-            reward += self.negative_reward
+            reward += self.negative_reward / (self.nsteps - 1)
 
         if done:
             print(f"Finished episode #{self.nepisode}")

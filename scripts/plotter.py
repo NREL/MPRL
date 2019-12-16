@@ -43,10 +43,11 @@ if __name__ == "__main__":
         eng_params = params.inputs["engine"]
         if eng_params["engine"].value == "reactor-engine":
             eng = engines.ReactorEngine(
+                target_dt=eng_params["target_dt"].value,
+                Tinj=eng_params["Tinj"].value,
                 agent_steps=eng_params["nsteps"].value,
                 mdot=eng_params["mdot"].value,
                 max_minj=eng_params["max_minj"].value,
-                max_injections=eng_params["max_injections"].value,
                 injection_delay=eng_params["injection_delay"].value,
                 negative_reward=eng_params["negative_reward"].value,
                 fuel=eng_params["fuel"].value,
@@ -55,10 +56,10 @@ if __name__ == "__main__":
             )
         elif eng_params["engine"].value == "EQ-engine":
             eng = engines.EquilibrateEngine(
+                Tinj=eng_params["Tinj"].value,
                 agent_steps=eng_params["nsteps"].value,
                 mdot=eng_params["mdot"].value,
                 max_minj=eng_params["max_minj"].value,
-                max_injections=eng_params["max_injections"].value,
                 injection_delay=eng_params["injection_delay"].value,
                 negative_reward=eng_params["negative_reward"].value,
                 fuel=eng_params["fuel"].value,
@@ -79,7 +80,6 @@ if __name__ == "__main__":
                     agent_steps=eng_params["nsteps"].value,
                     mdot=eng_params["mdot"].value,
                     max_minj=eng_params["max_minj"].value,
-                    max_injections=eng_params["max_injections"].value,
                     injection_delay=eng_params["injection_delay"].value,
                     negative_reward=eng_params["negative_reward"].value,
                     fuel=eng_params["fuel"].value,

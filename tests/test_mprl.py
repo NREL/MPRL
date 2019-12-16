@@ -20,6 +20,17 @@ import mprl.utilities as utilities
 
 # ========================================================================
 #
+# Functions
+#
+# ========================================================================
+def print_norms(df, precision=8):
+    print("Printing the norms of each column in the dataframe")
+    for col in df.columns:
+        print(f"""{col}: {np.linalg.norm(df[col]):.{precision}f}""")
+
+
+# ========================================================================
+#
 # Test definitions
 #
 # ========================================================================
@@ -58,6 +69,7 @@ class MPRLTestCase(unittest.TestCase):
         utilities.plot_df(env, df, idx=0, name="calibrated")
 
         # Test
+        print_norms(df)
         npt.assert_allclose(np.linalg.norm(df.V), 0.0021952121511437405)
         npt.assert_allclose(np.linalg.norm(df.p), 22012100.1714362)
         npt.assert_allclose(np.linalg.norm(df["T"]), 14210.479334973)
@@ -112,7 +124,7 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="llnl_gasoline_surrogate_323.xml",
             mdot=0.1,
             max_minj=5e-5,
-            negative_reward=-0.05,
+            negative_reward=-101,
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -165,6 +177,7 @@ class MPRLTestCase(unittest.TestCase):
             mdot=0.1,
             max_minj=5e-5,
             injection_delay=0.0025,
+            negative_reward=-101,
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -204,7 +217,7 @@ class MPRLTestCase(unittest.TestCase):
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
         npt.assert_allclose(np.linalg.norm(df.p), 35142241.61421513)
         npt.assert_allclose(np.linalg.norm(df["T"]), 20971.066928023)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 175.70689300227)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 153.117363)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for DiscreteTwoZoneEngine with delay = {elapsed} seconds")
 
@@ -215,7 +228,7 @@ class MPRLTestCase(unittest.TestCase):
         eng = engines.ReactorEngine(
             agent_steps=101,
             Tinj=300.0,
-            dt=4e-6,
+            target_dt=4e-6,
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.1,
             max_minj=5e-5,
