@@ -69,13 +69,12 @@ class MPRLTestCase(unittest.TestCase):
         utilities.plot_df(env, df, idx=0, name="calibrated")
 
         # Test
-        print_norms(df)
-        npt.assert_allclose(np.linalg.norm(df.V), 0.0021952121511437405)
-        npt.assert_allclose(np.linalg.norm(df.p), 22012100.1714362)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 14210.479334973)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 104.47361753965)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.04144043816723)
-        npt.assert_allclose(np.linalg.norm(df.qdot), 97686.915742424)
+        npt.assert_allclose(np.linalg.norm(df.V), 0.002195212151)
+        npt.assert_allclose(np.linalg.norm(df.p), 21773583.08233403)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 13977.16741776)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 103.20006525)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.04144044)
+        npt.assert_allclose(np.linalg.norm(df.qdot), 97686.91574242)
         print(f"Wall time for CalibratedAgent = {elapsed} seconds")
 
     def test_exhaustive_agent(self):
@@ -143,7 +142,7 @@ class MPRLTestCase(unittest.TestCase):
 
         while not done:
             cnt += 1
-            # Agent tries to inject twice, but is not allowed the second time
+            # Agent injects twice
             action = (
                 [1]
                 if (eng.current_state.ca == -10) or eng.current_state.ca == 10
@@ -160,10 +159,10 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 37091026.33424249)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 21272.660424423644)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 155.27880219948767)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
+        npt.assert_allclose(np.linalg.norm(df.p), 36686979.19585361)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 20924.35004286)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 153.41477580)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142136)
         print(f"Wall time for DiscreteTwoZoneEngine = {elapsed} seconds")
 
     def test_discrete_twozone_engine_with_delay(self):
@@ -215,9 +214,9 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 35142241.61421513)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 20971.066928023)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 153.117363)
+        npt.assert_allclose(np.linalg.norm(df.p), 34770281.93257003)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 20627.76382495)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 151.28886436)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for DiscreteTwoZoneEngine with delay = {elapsed} seconds")
 
