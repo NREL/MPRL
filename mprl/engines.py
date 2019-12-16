@@ -189,8 +189,11 @@ class Engine(gym.Env):
         for k, v in self.__dict__.items():
             try:
                 setattr(result, k, copy.deepcopy(v, memo))
-            except:
-                print(k,v,repr(v))
+            except NotImplementedError:
+                if "cantera" in v.__class__.__module__:
+                    print("WARNING: Deepcopy of object containing Cantera members. These are not picklable so we are skipping these. We will assume they are instantiating somehow.")
+                else:
+                    sys.exit(f"ERROR: in deepcopy of {self.__class__.__name__}")
                 pass
         return result
 
@@ -803,15 +806,14 @@ class ReactorEngine(Engine):
         self.history.piston_velocity = self.history.dVdt / cylinder_area
 
     def setup_reactor(self):
-        self.initial_gas = ct.Solution(self.rxnmech)
-        self.initial_gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
+        self.gas = ct.Solution(self.rxnmech)
+        self.gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
 
         self.injection_gas, _ = setup_injection_gas(
             self.rxnmech, self.fuel, pure_fuel=True
         )
 
         # Create the reactor object
-        self.gas = self.initial_gas
         self.reactor = ct.Reactor(self.gas)
         self.rempty = ct.Reactor(self.gas)
 
@@ -975,12 +977,11 @@ class EquilibrateEngine(Engine):
         return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def setup_gas(self):
-        self.initial_gas = ct.Solution(self.rxnmech)
-        self.initial_gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
+        self.gas = ct.Solution(self.rxnmech)
+        self.gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
         self.injection_gas, _ = setup_injection_gas(
             self.rxnmech, self.fuel, pure_fuel=True
         )
-        self.gas = self.initial_gas
 
     def reset(self):
         super(EquilibrateEngine, self).reset_state()
