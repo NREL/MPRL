@@ -149,7 +149,6 @@ class Engine(gym.Env):
         self.datadir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "datafiles"
         )
-        ct.add_directory(self.datadir)
 
         self.observable_space_lows = {
             "ca": self.ivc,
@@ -198,6 +197,8 @@ class Engine(gym.Env):
                 else:
                     sys.exit(f"ERROR: in deepcopy of {self.__class__.__name__}")
                 pass
+        result.setup_lambdas()
+        result.setup_cantera()
         return result
 
     def __getstate__(self):
@@ -220,8 +221,21 @@ class Engine(gym.Env):
 
         # Repopulate the unpicklable entries
         self.setup_lambdas()
-        ct.add_directory(self.datadir)
-        self.reset()
+        self.setup_cantera()
+
+    def __eq__(self, other):
+        """Test for Engine equality
+
+        It is not perfect but tests the big stuff.
+        """
+        return (
+            self.__class__ == other.__class__
+            and self.__dict__.keys() == other.__dict__.keys()
+            and np.allclose(np.linalg.norm(self.history), np.linalg.norm(other.history))
+            and np.allclose(
+                np.linalg.norm(self.current_state), np.linalg.norm(other.current_state)
+            )
+        )
 
     def describe(self):
         return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward})"""
@@ -381,7 +395,7 @@ class TwoZoneEngine(Engine):
 
         # Engine setup
         self.setup_lambdas()
-        self.setup_gas()
+        self.setup_cantera()
         self.setup_history()
 
     def setup_lambdas(self):
@@ -418,23 +432,31 @@ class TwoZoneEngine(Engine):
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
         }
 
-    def setup_gas(self):
-        """Setup the fuel"""
+    def setup_cantera(self):
+        """Wrapper function to setup all cantera objects"""
+        ct.add_directory(self.datadir)
+        self.setup_gas()
 
-        self.injection_gas, self.far = setup_injection_gas(
+    def setup_gas(self):
+        """Setup the fuel and save for faster reset"""
+
+        injection_gas, self.far = setup_injection_gas(
             self.rxnmech, self.fuel, pure_fuel=False
         )
-        self.injection_gas.TP = self.T0, self.p0
-        self.xinit = self.injection_gas.X
-        self.injection_gas.equilibrate("HP", solver="gibbs")
-        self.xburnt = self.injection_gas.X
-        self.Tb_ad = self.injection_gas.T
+        self.gas = injection_gas
+        injection_gas.TP = self.T0, self.p0
+        self.xinit = injection_gas.X
+        injection_gas.equilibrate("HP", solver="gibbs")
+        self.xburnt = injection_gas.X
+        self.Tb_ad = injection_gas.T
 
     def reset(self):
 
         super(TwoZoneEngine, self).reset_state()
 
-        self.setup_gas()
+        self.gas.TPX = self.T0, self.p0, self.xinit
+        # ARGH THIS WONT WORK WITH PICKLE or DEEPCOPY I SHOULD ADD A TEST for those
+
         self.action.reset()
 
         obs = self.scale_observables(self.current_state)[self.observables]
@@ -519,19 +541,19 @@ class TwoZoneEngine(Engine):
         p, Tu, Tb, mb = y
 
         # Compute with cantera burnt gas properties
-        self.injection_gas.TPX = Tb, p, self.xburnt
-        cv_b = self.injection_gas.cv
-        ub = self.injection_gas.u  # internal energy
-        Rb = 8314.47215 / self.injection_gas.mean_molecular_weight
-        Vb = self.injection_gas.v * mb
+        self.gas.TPX = Tb, p, self.xburnt
+        cv_b = self.gas.cv
+        ub = self.gas.u  # internal energy
+        Rb = 8314.47215 / self.gas.mean_molecular_weight
+        Vb = self.gas.v * mb
 
         # Compute with cantera unburnt gas properties
-        self.injection_gas.TPX = Tu, p, self.xinit
-        cv_u = self.injection_gas.cv
-        cp_u = self.injection_gas.cp
-        uu = self.injection_gas.u
-        Ru = 8314.47215 / self.injection_gas.mean_molecular_weight
-        vu = self.injection_gas.v
+        self.gas.TPX = Tu, p, self.xinit
+        cv_u = self.gas.cv
+        cp_u = self.gas.cp
+        uu = self.gas.u
+        Ru = 8314.47215 / self.gas.mean_molecular_weight
+        vu = self.gas.v
 
         invgamma_u = cv_u / cp_u
         RuovRb = Ru / Rb
@@ -804,7 +826,8 @@ class ReactorEngine(Engine):
         self.setup_lambdas()
         self.setup_history()
         self.set_initial_state()
-        self.setup_engine()
+        self.setup_piston()
+        self.setup_cantera()
         self.setup_discrete_injection_actions()
         self.define_observable_space()
         self.reset()
@@ -844,9 +867,9 @@ class ReactorEngine(Engine):
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
         }
 
-    def setup_engine(self):
-        """Setup the fuel and reactor"""
-        self.setup_piston()
+    def setup_cantera(self):
+        """Wrapper function to setup all cantera objects"""
+        ct.add_directory(self.datadir)
         self.setup_reactor()
 
     def setup_piston(self):
@@ -996,7 +1019,7 @@ class EquilibrateEngine(Engine):
         self.setup_lambdas()
         self.setup_history()
         self.set_initial_state()
-        self.setup_gas()
+        self.setup_cantera()
         self.setup_discrete_injection_actions()
         self.define_observable_space()
         self.reset()
@@ -1035,6 +1058,11 @@ class EquilibrateEngine(Engine):
             "success_ninj": lambda: self.action.success_counter["mdot"],
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
         }
+
+    def setup_cantera(self):
+        """Wrapper function to setup all cantera objects"""
+        ct.add_directory(self.datadir)
+        self.setup_gas()
 
     def setup_gas(self):
         self.gas = ct.Solution(self.rxnmech)
