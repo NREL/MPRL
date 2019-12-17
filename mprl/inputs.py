@@ -16,15 +16,6 @@ class Parameter:
         self.set_value(self.default)
 
     def __repr__(self):
-        return {
-            "default": self.default,
-            "helper": self.helper,
-            "typer": self.typer,
-            "choices": self.choices,
-            "value": self.value,
-        }
-
-    def __repr__(self):
         return self.describe()
 
     def __str__(self):
