@@ -443,8 +443,8 @@ class TwoZoneEngine(Engine):
         injection_gas, self.far = setup_injection_gas(
             self.rxnmech, self.fuel, pure_fuel=False
         )
-        self.gas = injection_gas
         injection_gas.TP = self.T0, self.p0
+        self.gas = injection_gas
         self.xinit = injection_gas.X
         injection_gas.equilibrate("HP", solver="gibbs")
         self.xburnt = injection_gas.X
@@ -455,7 +455,6 @@ class TwoZoneEngine(Engine):
         super(TwoZoneEngine, self).reset_state()
 
         self.gas.TPX = self.T0, self.p0, self.xinit
-        # ARGH THIS WONT WORK WITH PICKLE or DEEPCOPY I SHOULD ADD A TEST for those
 
         self.action.reset()
 

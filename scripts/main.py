@@ -9,7 +9,7 @@ import sys
 import numpy as np
 import pandas as pd
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 import warnings
 import pickle
 import git
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     elif agent_params["agent"].value == "exhaustive":
         env = DummyVecEnv([lambda: eng])
         agent = agents.ExhaustiveAgent(env)
-        agent.learn()
+        agent.learn(nranks=agent_params["nranks"].value)
     elif agent_params["agent"].value == "ppo":
         env = DummyVecEnv([lambda: eng])
         if agent_params["pretrained_agent"].value is not None:
