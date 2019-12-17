@@ -183,19 +183,45 @@ class Engine(gym.Env):
         return f"""An instance of {self.describe()}"""
 
     def __deepcopy__(self, memo):
+        """Deepcopy implementation"""
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
         for k, v in self.__dict__.items():
             try:
                 setattr(result, k, copy.deepcopy(v, memo))
-            except NotImplementedError:
+            except (NotImplementedError, TypeError):
                 if "cantera" in v.__class__.__module__:
-                    print("WARNING: Deepcopy of object containing Cantera members. These are not picklable so we are skipping these. We will assume they are instantiating somehow.")
+                    print(
+                        f"WARNING: Deepcopy of object containing Cantera members ({k}: {v.__class__}). These are not picklable so we are skipping these. We will assume they are instantiated somehow."
+                    )
                 else:
                     sys.exit(f"ERROR: in deepcopy of {self.__class__.__name__}")
                 pass
         return result
+
+    def __getstate__(self):
+        """Copy the object's state from self.__dict__"""
+        state = self.__dict__.copy()
+
+        # Remove the unpicklable entries.
+        lst = []
+        for k, v in state.items():
+            if "cantera" in v.__class__.__module__:
+                lst.append(k)
+        for v in lst + self.lambda_names:
+            del state[v]
+
+        return state
+
+    def __setstate__(self, state):
+        """Restore instance attributes"""
+        self.__dict__.update(state)
+
+        # Repopulate the unpicklable entries
+        self.setup_lambdas()
+        ct.add_directory(self.datadir)
+        self.reset()
 
     def describe(self):
         return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward})"""
@@ -225,7 +251,7 @@ class Engine(gym.Env):
             self.max_injections = np.int(
                 np.rint(self.max_minj / (self.mdot * self.dt_agent))
             )
-            print("Maximum number of injections is ", self.max_injections)
+            print(f"Maximum number of injections is {self.max_injections}")
         else:
             print("Warning: engine setup is overwriting the default max_injections")
 
@@ -352,6 +378,22 @@ class TwoZoneEngine(Engine):
         # Engine parameters
         self.ode_state = ["p", "Tu", "Tb", "mb"]
         self.histories = ["V", "dVdt", "dV", "ca", "t"]
+
+        # Engine setup
+        self.setup_lambdas()
+        self.setup_gas()
+        self.setup_history()
+
+    def setup_lambdas(self):
+        """Setup lambda functions.
+
+        The reason for doing it like this is to enable object pickling
+        with the standard pickle library. Basically we skip pickling
+        these and then manually add them back in.
+
+        """
+        self.lambda_names = ["integ", "state_reseter", "state_updater"]
+
         self.integ = ode(lambda t, y: self.dfundt_mdot(t, y, 0, 0, 0))
 
         self.state_reseter = {
@@ -375,10 +417,6 @@ class TwoZoneEngine(Engine):
             "success_ninj": lambda: self.action.success_counter["mdot"],
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
         }
-
-        # Engine setup
-        self.setup_gas()
-        self.setup_history()
 
     def setup_gas(self):
         """Setup the fuel"""
@@ -756,6 +794,34 @@ class ReactorEngine(Engine):
         self.max_injections = None
         self.injection_delay = injection_delay
 
+        # Figure out the subcycling of steps
+        self.target_dt = target_dt
+        self.dt_agent = self.total_time / (self.agent_steps - 1)
+        self.substeps = int(np.ceil(self.dt_agent / self.target_dt)) + 1
+        self.nsteps = (self.agent_steps - 1) * (self.substeps - 1) + 1
+
+        # Engine setup
+        self.setup_lambdas()
+        self.setup_history()
+        self.set_initial_state()
+        self.setup_engine()
+        self.setup_discrete_injection_actions()
+        self.define_observable_space()
+        self.reset()
+
+    def describe(self):
+        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, target_dt={self.target_dt}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+
+    def setup_lambdas(self):
+        """Setup lambda functions.
+
+        The reason for doing it like this is to enable object pickling
+        with the standard pickle library. Basically we skip pickling
+        these and then manually add them back in.
+
+        """
+        self.lambda_names = ["state_reseter", "state_updater"]
+
         self.state_reseter = {"can_inject": lambda: 1}
 
         self.state_updater = {
@@ -777,23 +843,6 @@ class ReactorEngine(Engine):
             "success_ninj": lambda: self.action.success_counter["mdot"],
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
         }
-
-        # Figure out the subcycling of steps
-        self.target_dt = target_dt
-        self.dt_agent = self.total_time / (self.agent_steps - 1)
-        self.substeps = int(np.ceil(self.dt_agent / self.target_dt)) + 1
-        self.nsteps = (self.agent_steps - 1) * (self.substeps - 1) + 1
-
-        # Engine setup
-        self.setup_history()
-        self.set_initial_state()
-        self.setup_engine()
-        self.setup_discrete_injection_actions()
-        self.define_observable_space()
-        self.reset()
-
-    def describe(self):
-        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, target_dt={self.target_dt}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def setup_engine(self):
         """Setup the fuel and reactor"""
@@ -943,6 +992,28 @@ class EquilibrateEngine(Engine):
         self.max_injections = None
         self.injection_delay = injection_delay
 
+        # Engine setup
+        self.setup_lambdas()
+        self.setup_history()
+        self.set_initial_state()
+        self.setup_gas()
+        self.setup_discrete_injection_actions()
+        self.define_observable_space()
+        self.reset()
+
+    def describe(self):
+        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+
+    def setup_lambdas(self):
+        """Setup lambda functions.
+
+        The reason for doing it like this is to enable object pickling
+        with the standard pickle library. Basically we skip pickling
+        these and then manually add them back in.
+
+        """
+        self.lambda_names = ["state_reseter", "state_updater"]
+
         self.state_reseter = {"can_inject": lambda: 1}
 
         self.state_updater = {
@@ -964,17 +1035,6 @@ class EquilibrateEngine(Engine):
             "success_ninj": lambda: self.action.success_counter["mdot"],
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
         }
-
-        # Engine setup
-        self.setup_history()
-        self.set_initial_state()
-        self.setup_gas()
-        self.setup_discrete_injection_actions()
-        self.define_observable_space()
-        self.reset()
-
-    def describe(self):
-        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def setup_gas(self):
         self.gas = ct.Solution(self.rxnmech)
