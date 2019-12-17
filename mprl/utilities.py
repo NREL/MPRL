@@ -3,6 +3,7 @@
 # Imports
 #
 # ========================================================================
+import itertools
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -340,3 +341,14 @@ def save_tb_plots(fname):
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
+
+
+# ========================================================================
+def grouper(iterable, n):
+    """Group iterable in chunks of n"""
+    it = iter(iterable)
+    while True:
+        chunk = tuple(itertools.islice(it, n))
+        if not chunk:
+            return
+        yield chunk
