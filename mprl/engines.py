@@ -881,8 +881,8 @@ class ReactorEngine(Engine):
 
     def setup_reactor(self):
         self.gas = ct.Solution(self.rxnmech)
-        self.gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
         self.xinit = {"O2": 0.21, "N2": 0.79}
+        self.gas.TPX = self.T0, self.p0, self.xinit
 
         self.injection_gas, _ = setup_injection_gas(
             self.rxnmech, self.fuel, pure_fuel=True
@@ -953,8 +953,6 @@ class ReactorEngine(Engine):
 
         if action["mdot"] > 0:
             self.injector.set_mass_flow_rate(self.mdot)
-        else:
-            self.injector.set_mass_flow_rate(0)
 
         self.advance_to_time(self.history["t"][step + 1])
 
@@ -1068,8 +1066,8 @@ class EquilibrateEngine(Engine):
 
     def setup_gas(self):
         self.gas = ct.Solution(self.rxnmech)
-        self.gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
         self.xinit = {"O2": 0.21, "N2": 0.79}
+        self.gas.TPX = self.T0, self.p0, self.xinit
         self.injection_gas, _ = setup_injection_gas(
             self.rxnmech, self.fuel, pure_fuel=True
         )

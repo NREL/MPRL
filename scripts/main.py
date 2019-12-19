@@ -105,9 +105,8 @@ if __name__ == "__main__":
     eng_params = params.inputs["engine"]
     if eng_params["engine"].value == "reactor-engine":
         eng = engines.ReactorEngine(
-            target_dt=eng_params["target_dt"].value,
             Tinj=eng_params["Tinj"].value,
-            agent_steps=eng_params["nsteps"].value,
+            nsteps=eng_params["nsteps"].value,
             mdot=eng_params["mdot"].value,
             max_minj=eng_params["max_minj"].value,
             injection_delay=eng_params["injection_delay"].value,
@@ -119,7 +118,7 @@ if __name__ == "__main__":
     elif eng_params["engine"].value == "EQ-engine":
         eng = engines.EquilibrateEngine(
             Tinj=eng_params["Tinj"].value,
-            agent_steps=eng_params["nsteps"].value,
+            nsteps=eng_params["nsteps"].value,
             mdot=eng_params["mdot"].value,
             max_minj=eng_params["max_minj"].value,
             injection_delay=eng_params["injection_delay"].value,
@@ -131,7 +130,7 @@ if __name__ == "__main__":
     elif eng_params["engine"].value == "twozone-engine":
         if eng_params["use_continuous"].value:
             eng = engines.ContinuousTwoZoneEngine(
-                agent_steps=eng_params["nsteps"].value,
+                nsteps=eng_params["nsteps"].value,
                 negative_reward=eng_params["negative_reward"].value,
                 fuel=eng_params["fuel"].value,
                 rxnmech=eng_params["rxnmech"].value,
@@ -139,7 +138,7 @@ if __name__ == "__main__":
             )
         else:
             eng = engines.DiscreteTwoZoneEngine(
-                agent_steps=eng_params["nsteps"].value,
+                nsteps=eng_params["nsteps"].value,
                 mdot=eng_params["mdot"].value,
                 max_minj=eng_params["max_minj"].value,
                 injection_delay=eng_params["injection_delay"].value,
