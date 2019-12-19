@@ -111,7 +111,7 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         eng = engines.ContinuousTwoZoneEngine(
-            agent_steps=100,
+            nsteps=100,
             use_qdot=True,
             fuel="PRF100",
             rxnmech="llnl_gasoline_surrogate_323.xml",
@@ -142,7 +142,7 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         eng = engines.DiscreteTwoZoneEngine(
-            agent_steps=101,
+            nsteps=101,
             mdot=0.1,
             max_minj=2.5e-5,
             fuel="dodecane",
@@ -178,7 +178,7 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         eng = engines.DiscreteTwoZoneEngine(
-            agent_steps=101,
+            nsteps=101,
             fuel="PRF100",
             rxnmech="llnl_gasoline_surrogate_323.xml",
             mdot=0.1,
@@ -230,7 +230,7 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         eng = engines.DiscreteTwoZoneEngine(
-            agent_steps=101,
+            nsteps=101,
             fuel="PRF100",
             rxnmech="llnl_gasoline_surrogate_323.xml",
             mdot=0.1,
@@ -285,9 +285,8 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         eng = engines.ReactorEngine(
-            agent_steps=101,
+            nsteps=101,
             Tinj=300.0,
-            target_dt=4e-6,
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.1,
             max_minj=5e-5,
@@ -327,9 +326,9 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 39472544.14618649, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 13040.23077865307, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 148.66188240588772, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.p), 35918721.97084988, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 18047.51453986081, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 157.92497130612531, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for ReactorEngine = {elapsed} seconds")
 
@@ -338,7 +337,7 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         eng = engines.EquilibrateEngine(
-            agent_steps=101,
+            nsteps=101,
             Tinj=300.0,
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.1,
@@ -389,7 +388,7 @@ class MPRLTestCase(unittest.TestCase):
         """Do deepcopy, pickling and repr of DiscreteTwoZoneEngine work as expected?"""
 
         orig = engines.DiscreteTwoZoneEngine(
-            agent_steps=101, fuel="dodecane", rxnmech="dodecane_lu_nox.cti"
+            nsteps=101, fuel="dodecane", rxnmech="dodecane_lu_nox.cti"
         )
         assert_deepcopy_pickle_repr(orig)
 
@@ -397,7 +396,7 @@ class MPRLTestCase(unittest.TestCase):
         """Do deepcopy, pickling and repr of EquilibrateEngine work as expected?"""
 
         orig = engines.EquilibrateEngine(
-            agent_steps=101,
+            nsteps=101,
             Tinj=300.0,
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.01,
@@ -410,9 +409,8 @@ class MPRLTestCase(unittest.TestCase):
         """Do deepcopy, pickling and repr of ReactorEngine work as expected?"""
 
         orig = engines.ReactorEngine(
-            agent_steps=101,
+            nsteps=101,
             Tinj=300.0,
-            target_dt=4e-6,
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.1,
             max_minj=5e-5,
