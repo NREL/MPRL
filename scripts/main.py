@@ -9,7 +9,7 @@ import sys
 import numpy as np
 import pandas as pd
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 import warnings
 import pickle
 import git
@@ -105,10 +105,11 @@ if __name__ == "__main__":
     eng_params = params.inputs["engine"]
     if eng_params["engine"].value == "reactor-engine":
         eng = engines.ReactorEngine(
+            target_dt=eng_params["target_dt"].value,
+            Tinj=eng_params["Tinj"].value,
             agent_steps=eng_params["nsteps"].value,
             mdot=eng_params["mdot"].value,
             max_minj=eng_params["max_minj"].value,
-            max_injections=eng_params["max_injections"].value,
             injection_delay=eng_params["injection_delay"].value,
             negative_reward=eng_params["negative_reward"].value,
             fuel=eng_params["fuel"].value,
@@ -117,10 +118,10 @@ if __name__ == "__main__":
         )
     elif eng_params["engine"].value == "EQ-engine":
         eng = engines.EquilibrateEngine(
+            Tinj=eng_params["Tinj"].value,
             agent_steps=eng_params["nsteps"].value,
             mdot=eng_params["mdot"].value,
             max_minj=eng_params["max_minj"].value,
-            max_injections=eng_params["max_injections"].value,
             injection_delay=eng_params["injection_delay"].value,
             negative_reward=eng_params["negative_reward"].value,
             fuel=eng_params["fuel"].value,
@@ -141,7 +142,6 @@ if __name__ == "__main__":
                 agent_steps=eng_params["nsteps"].value,
                 mdot=eng_params["mdot"].value,
                 max_minj=eng_params["max_minj"].value,
-                max_injections=eng_params["max_injections"].value,
                 injection_delay=eng_params["injection_delay"].value,
                 negative_reward=eng_params["negative_reward"].value,
                 fuel=eng_params["fuel"].value,
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     elif agent_params["agent"].value == "exhaustive":
         env = DummyVecEnv([lambda: eng])
         agent = agents.ExhaustiveAgent(env)
-        agent.learn()
+        agent.learn(nranks=agent_params["nranks"].value)
     elif agent_params["agent"].value == "ppo":
         env = DummyVecEnv([lambda: eng])
         if agent_params["pretrained_agent"].value is not None:

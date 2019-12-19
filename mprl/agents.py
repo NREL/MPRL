@@ -8,6 +8,8 @@ import sys
 import numpy as np
 import pandas as pd
 import itertools
+import multiprocessing as mp
+from multiprocessing import Pool
 import pickle
 from abc import ABC, abstractmethod
 from stable_baselines.common.vec_env import DummyVecEnv
@@ -112,28 +114,53 @@ class ExhaustiveAgent(Agent):
         self.max_ninj = self.eng.max_injections
         self.best_inj = ()
 
-    def learn(self):
+    def learn(self, nranks=1):
 
+        assert (
+            nranks <= mp.cpu_count()
+        ), f"Number of ranks ({nranks}) are greater than the number of available ranks ({mp.cpu_count()})"
         # Loop over all possible injection CAs
-        best_reward = -np.finfo(np.float32).max
-        self.best_inj = ()
         agent_ca = (
             self.eng.history.ca
             if len(self.eng.history.ca) == self.eng.agent_steps
             else self.eng.history.ca[:: self.eng.substeps - 1]
+        ).values
+
+        envlst = [self.env] * nranks
+        chunk = (
+            sum(1 for _ in itertools.combinations(agent_ca, self.max_ninj)) // nranks
         )
-        for inj in itertools.combinations(agent_ca, self.max_ninj):
+        injections = utilities.grouper(
+            itertools.combinations(agent_ca, self.max_ninj), chunk
+        )
+        with Pool(processes=nranks) as pool:
+            result = pool.starmap(self.evaluate_injections, zip(injections, envlst))
+
+        # reduce the best injection and reward
+        best_reward = -np.finfo(np.float32).max
+        for d in result:
+            if d["reward"] > best_reward:
+                self.best_inj = d["inj"]
+                best_reward = d["reward"]
+
+    @staticmethod
+    def evaluate_injections(injections, env):
+        best_reward = -np.finfo(np.float32).max
+        best_inj = ()
+        eng = env.envs[0]
+        for inj in injections:
             done = [False]
-            obs = self.env.reset()
+            obs = env.reset()
             total_reward = 0
             while not done[0]:
-                action = [1] if (self.eng.current_state.ca in inj) else [0]
-                obs, reward, done, info = self.env.step(action)
+                action = [1] if (eng.current_state.ca in inj) else [0]
+                obs, reward, done, info = env.step(action)
                 total_reward += reward[0]
 
             if total_reward > best_reward:
                 best_reward = total_reward
-                self.best_inj = inj
+                best_inj = inj
+        return {"reward": best_reward, "inj": best_inj}
 
     def predict(self, obs, **kwargs):
 

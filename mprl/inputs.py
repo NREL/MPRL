@@ -1,6 +1,5 @@
 import sys
 import toml
-import copy
 
 
 # ========================================================================
@@ -17,10 +16,13 @@ class Parameter:
         self.set_value(self.default)
 
     def __repr__(self):
-        return "Parameter()"
+        return self.describe()
 
-    def __srt__(self):
-        return "member of Parameter"
+    def __str__(self):
+        return f"""Instance of {self.describe()}"""
+
+    def describe(self):
+        return f"""Parameter({self.default}, {self.helper}, {self.typer}, choices={self.choices})"""
 
     def set_value(self, value):
         if type(value) == self.typer:
@@ -96,6 +98,12 @@ class Input:
                 ),
                 "negative_reward": Parameter(
                     -800.0, "Negative reward for unallowed actions", float
+                ),
+                "Tinj": Parameter(
+                    300.0, "Injection temperature of fuel/air mixture (K)", float
+                ),
+                "target_dt": Parameter(
+                    4e-6, "Target time step for integrating the 0D reactor (s)", float
                 ),
                 "use_qdot": Parameter(False, "Use a Qdot as an action", bool),
                 "use_continuous": Parameter(

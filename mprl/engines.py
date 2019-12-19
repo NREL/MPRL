@@ -5,6 +5,7 @@
 # ========================================================================
 import os
 import sys
+import copy
 import cantera as ct
 import numpy as np
 import pandas as pd
@@ -140,7 +141,7 @@ class Engine(gym.Env):
         self.small_mass = 1.0e-15
         self.max_burned_mass = 6e-3
         self.max_pressure = 200 * ct.one_atm
-        self.negative_reward = negative_reward * (1 / (self.nsteps - 1))
+        self.negative_reward = negative_reward
         self.nepisode = 0
         self.action = None
         self.state_updater = {}
@@ -148,7 +149,6 @@ class Engine(gym.Env):
         self.datadir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "datafiles"
         )
-        ct.add_directory(self.datadir)
 
         self.observable_space_lows = {
             "ca": self.ivc,
@@ -175,6 +175,71 @@ class Engine(gym.Env):
             "can_inject": 1,
         }
 
+    def __repr__(self):
+        return self.describe()
+
+    def __str__(self):
+        return f"""An instance of {self.describe()}"""
+
+    def __deepcopy__(self, memo):
+        """Deepcopy implementation"""
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            try:
+                setattr(result, k, copy.deepcopy(v, memo))
+            except (NotImplementedError, TypeError):
+                if "cantera" in v.__class__.__module__:
+                    print(
+                        f"WARNING: Deepcopy of object containing Cantera members ({k}: {v.__class__}). These are not picklable so we are skipping these. We will assume they are instantiated somehow."
+                    )
+                else:
+                    sys.exit(f"ERROR: in deepcopy of {self.__class__.__name__}")
+                pass
+        result.setup_lambdas()
+        result.setup_cantera()
+        return result
+
+    def __getstate__(self):
+        """Copy the object's state from self.__dict__"""
+        state = self.__dict__.copy()
+
+        # Remove the unpicklable entries.
+        lst = []
+        for k, v in state.items():
+            if "cantera" in v.__class__.__module__:
+                lst.append(k)
+        for v in lst + self.lambda_names:
+            del state[v]
+
+        return state
+
+    def __setstate__(self, state):
+        """Restore instance attributes"""
+        self.__dict__.update(state)
+
+        # Repopulate the unpicklable entries
+        self.setup_lambdas()
+        self.setup_cantera()
+
+    def __eq__(self, other):
+        """Test for Engine equality
+
+        It is not perfect but tests the big stuff.
+        """
+        return (
+            self.__class__ == other.__class__
+            and self.__dict__.keys() == other.__dict__.keys()
+            and np.allclose(np.linalg.norm(self.history), np.linalg.norm(other.history))
+            and np.allclose(
+                np.linalg.norm(self.current_state), np.linalg.norm(other.current_state)
+            )
+        )
+
+    def describe(self):
+        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward})"""
+
     def define_observable_space(self):
         """Define the observable space"""
         obs_low = np.zeros(len(self.observables))
@@ -200,7 +265,7 @@ class Engine(gym.Env):
             self.max_injections = np.int(
                 np.rint(self.max_minj / (self.mdot * self.dt_agent))
             )
-            print("Maximum number of injections is ", self.max_injections)
+            print(f"Maximum number of injections is {self.max_injections}")
         else:
             print("Warning: engine setup is overwriting the default max_injections")
 
@@ -308,7 +373,7 @@ class Engine(gym.Env):
             done = True
         elif self.current_state.p > self.max_pressure:
             print(f"Maximum pressure (p = {self.max_pressure}) has been exceeded!")
-            reward = self.negative_reward
+            reward = self.negative_reward / (self.nsteps - 1)
 
         return reward, done
 
@@ -325,9 +390,24 @@ class TwoZoneEngine(Engine):
         super(TwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
-        self.negative_reward = -self.agent_steps
         self.ode_state = ["p", "Tu", "Tb", "mb"]
         self.histories = ["V", "dVdt", "dV", "ca", "t"]
+
+        # Engine setup
+        self.setup_lambdas()
+        self.setup_cantera()
+        self.setup_history()
+
+    def setup_lambdas(self):
+        """Setup lambda functions.
+
+        The reason for doing it like this is to enable object pickling
+        with the standard pickle library. Basically we skip pickling
+        these and then manually add them back in.
+
+        """
+        self.lambda_names = ["integ", "state_reseter", "state_updater"]
+
         self.integ = ode(lambda t, y: self.dfundt_mdot(t, y, 0, 0, 0))
 
         self.state_reseter = {
@@ -352,32 +432,29 @@ class TwoZoneEngine(Engine):
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
         }
 
-        # Engine setup
-        self.setup_fuel()
-        self.setup_history()
+    def setup_cantera(self):
+        """Wrapper function to setup all cantera objects"""
+        ct.add_directory(self.datadir)
+        self.setup_gas()
 
-    def setup_fuel(self):
+    def setup_gas(self):
         """Setup the fuel and save for faster reset"""
 
-        self.injection_gas, self.far = setup_injection_gas(
+        injection_gas, self.far = setup_injection_gas(
             self.rxnmech, self.fuel, pure_fuel=False
         )
-
-        self.injection_gas.TP = self.T0, self.p0
-        self.injection_xinit = self.injection_gas.X
-
-        self.injection_gas.equilibrate("HP", solver="gibbs")
-        self.injection_xburnt = self.injection_gas.X
-        self.injection_Tb_ad = self.injection_gas.T
+        injection_gas.TP = self.T0, self.p0
+        self.gas = injection_gas
+        self.xinit = injection_gas.X
+        injection_gas.equilibrate("HP", solver="gibbs")
+        self.xburnt = injection_gas.X
+        self.Tb_ad = injection_gas.T
 
     def reset(self):
-        """Reset fuel and oxidizer"""
-        self.gas1 = self.injection_gas
-        self.xinit = self.injection_xinit
-        self.xburnt = self.injection_xburnt
-        self.Tb_ad = self.injection_Tb_ad
 
         super(TwoZoneEngine, self).reset_state()
+
+        self.gas.TPX = self.T0, self.p0, self.xinit
 
         self.action.reset()
 
@@ -414,7 +491,7 @@ class TwoZoneEngine(Engine):
 
         # Add negative reward if the action had to be masked
         if self.action.masked:
-            reward += self.negative_reward
+            reward += self.negative_reward / (self.nsteps - 1)
 
         if done:
             print(f"Finished episode #{self.nepisode}")
@@ -463,19 +540,19 @@ class TwoZoneEngine(Engine):
         p, Tu, Tb, mb = y
 
         # Compute with cantera burnt gas properties
-        self.gas1.TPX = Tb, p, self.xburnt
-        cv_b = self.gas1.cv
-        ub = self.gas1.u  # internal energy
-        Rb = 8314.47215 / self.gas1.mean_molecular_weight
-        Vb = self.gas1.v * mb
+        self.gas.TPX = Tb, p, self.xburnt
+        cv_b = self.gas.cv
+        ub = self.gas.u  # internal energy
+        Rb = 8314.47215 / self.gas.mean_molecular_weight
+        Vb = self.gas.v * mb
 
         # Compute with cantera unburnt gas properties
-        self.gas1.TPX = Tu, p, self.xinit
-        cv_u = self.gas1.cv
-        cp_u = self.gas1.cp
-        uu = self.gas1.u
-        Ru = 8314.47215 / self.gas1.mean_molecular_weight
-        vu = self.gas1.v
+        self.gas.TPX = Tu, p, self.xinit
+        cv_u = self.gas.cv
+        cp_u = self.gas.cp
+        uu = self.gas.u
+        Ru = 8314.47215 / self.gas.mean_molecular_weight
+        vu = self.gas.v
 
         invgamma_u = cv_u / cp_u
         RuovRb = Ru / Rb
@@ -577,6 +654,7 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         super(ContinuousTwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
+        self.use_qdot = use_qdot
         self.observables, self.internals = get_observables_internals(
             ["p", "T", "Tu", "Tb", "mb"], self.histories, ["ca"]
         )
@@ -587,6 +665,9 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         self.action_space = self.action.space
         self.define_observable_space()
         self.reset()
+
+    def describe(self):
+        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, use_qdot={self.use_qdot})"""
 
 
 # ========================================================================
@@ -629,7 +710,6 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         *args,
         mdot=0.1,  # Rate of mass injection (kg/s)
         max_minj=5e-05,  # Maximum mass of injected burned fuel/air mixture (kg) allowed
-        max_injections=None,  # Maximum number of injections allowed
         injection_delay=0,  # Time delay between injections (s)
         observables=["ca", "p", "T", "success_ninj", "can_inject"],
         **kwargs,
@@ -644,13 +724,16 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         )
         self.mdot = mdot
         self.max_minj = max_minj
-        self.max_injections = max_injections
+        self.max_injections = None
         self.injection_delay = injection_delay
 
         # Final setup
         self.setup_discrete_injection_actions()
         self.define_observable_space()
         self.reset()
+
+    def describe(self):
+        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def reset(self):
 
@@ -699,11 +782,10 @@ class ReactorEngine(Engine):
     def __init__(
         self,
         *args,
-        dt=4e-6,  # Time step for integrating the 0D reactor (s)
+        target_dt=4e-6,  # Target time step for integrating the 0D reactor (s)
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
         mdot=0.1,  # Rate of mass injections (kg/s)
         max_minj=5e-5,  # Mass of injected fuel/air mixture (kg)
-        max_injections=None,  # Maximum number of injections allowed
         injection_delay=0,  # Time delay between injections (s)
         observables=["ca", "p", "T", "success_ninj", "can_inject"],
         **kwargs,
@@ -730,8 +812,37 @@ class ReactorEngine(Engine):
         )
         self.mdot = mdot
         self.max_minj = max_minj
-        self.max_injections = max_injections
+        self.max_injections = None
         self.injection_delay = injection_delay
+
+        # Figure out the subcycling of steps
+        self.target_dt = target_dt
+        self.dt_agent = self.total_time / (self.agent_steps - 1)
+        self.substeps = int(np.ceil(self.dt_agent / self.target_dt)) + 1
+        self.nsteps = (self.agent_steps - 1) * (self.substeps - 1) + 1
+
+        # Engine setup
+        self.setup_lambdas()
+        self.setup_history()
+        self.set_initial_state()
+        self.setup_piston()
+        self.setup_cantera()
+        self.setup_discrete_injection_actions()
+        self.define_observable_space()
+        self.reset()
+
+    def describe(self):
+        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, target_dt={self.target_dt}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+
+    def setup_lambdas(self):
+        """Setup lambda functions.
+
+        The reason for doing it like this is to enable object pickling
+        with the standard pickle library. Basically we skip pickling
+        these and then manually add them back in.
+
+        """
+        self.lambda_names = ["state_reseter", "state_updater"]
 
         self.state_reseter = {"can_inject": lambda: 1}
 
@@ -755,22 +866,9 @@ class ReactorEngine(Engine):
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
         }
 
-        # Figure out the subcycling of steps
-        self.dt_agent = self.total_time / (self.agent_steps - 1)
-        self.substeps = int(np.ceil(self.dt_agent / dt)) + 1
-        self.nsteps = (self.agent_steps - 1) * (self.substeps - 1) + 1
-
-        # Engine setup
-        self.setup_history()
-        self.set_initial_state()
-        self.setup_engine()
-        self.setup_discrete_injection_actions()
-        self.define_observable_space()
-        self.reset()
-
-    def setup_engine(self):
-        """Setup the fuel and reactor"""
-        self.setup_piston()
+    def setup_cantera(self):
+        """Wrapper function to setup all cantera objects"""
+        ct.add_directory(self.datadir)
         self.setup_reactor()
 
     def setup_piston(self):
@@ -779,15 +877,14 @@ class ReactorEngine(Engine):
         self.history.piston_velocity = self.history.dVdt / cylinder_area
 
     def setup_reactor(self):
-        self.initial_gas = ct.Solution(self.rxnmech)
-        self.initial_gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
+        self.gas = ct.Solution(self.rxnmech)
+        self.gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
 
         self.injection_gas, _ = setup_injection_gas(
             self.rxnmech, self.fuel, pure_fuel=True
         )
 
         # Create the reactor object
-        self.gas = self.initial_gas
         self.reactor = ct.Reactor(self.gas)
         self.rempty = ct.Reactor(self.gas)
 
@@ -865,7 +962,7 @@ class ReactorEngine(Engine):
 
         # Add negative reward if the action had to be masked
         if self.action.masked:
-            reward += self.negative_reward
+            reward += self.negative_reward / (self.nsteps - 1)
 
         if done:
             print(f"Finished episode #{self.nepisode}")
@@ -887,7 +984,6 @@ class EquilibrateEngine(Engine):
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
         mdot=0.1,  # Rate of mass injections (kg/s)
         max_minj=5e-5,  # Mass of injected fuel (kg)
-        max_injections=None,  # Maximum number of injections allowed
         injection_delay=0,  # Time delay between injections (s)
         observables=["ca", "p", "T", "success_ninj", "can_inject"],
         **kwargs,
@@ -915,8 +1011,30 @@ class EquilibrateEngine(Engine):
 
         self.mdot = mdot
         self.max_minj = max_minj
-        self.max_injections = max_injections
+        self.max_injections = None
         self.injection_delay = injection_delay
+
+        # Engine setup
+        self.setup_lambdas()
+        self.setup_history()
+        self.set_initial_state()
+        self.setup_cantera()
+        self.setup_discrete_injection_actions()
+        self.define_observable_space()
+        self.reset()
+
+    def describe(self):
+        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+
+    def setup_lambdas(self):
+        """Setup lambda functions.
+
+        The reason for doing it like this is to enable object pickling
+        with the standard pickle library. Basically we skip pickling
+        these and then manually add them back in.
+
+        """
+        self.lambda_names = ["state_reseter", "state_updater"]
 
         self.state_reseter = {"can_inject": lambda: 1}
 
@@ -940,21 +1058,17 @@ class EquilibrateEngine(Engine):
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
         }
 
-        # Engine setup
-        self.setup_history()
-        self.set_initial_state()
+    def setup_cantera(self):
+        """Wrapper function to setup all cantera objects"""
+        ct.add_directory(self.datadir)
         self.setup_gas()
-        self.setup_discrete_injection_actions()
-        self.define_observable_space()
-        self.reset()
 
     def setup_gas(self):
-        self.initial_gas = ct.Solution(self.rxnmech)
-        self.initial_gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
+        self.gas = ct.Solution(self.rxnmech)
+        self.gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
         self.injection_gas, _ = setup_injection_gas(
             self.rxnmech, self.fuel, pure_fuel=True
         )
-        self.gas = self.initial_gas
 
     def reset(self):
         super(EquilibrateEngine, self).reset_state()
@@ -998,7 +1112,7 @@ class EquilibrateEngine(Engine):
 
         # Add negative reward if the action had to be masked
         if self.action.masked:
-            reward += self.negative_reward
+            reward += self.negative_reward / (self.nsteps - 1)
 
         if done:
             print(f"Finished episode #{self.nepisode}")
