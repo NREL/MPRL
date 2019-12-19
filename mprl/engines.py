@@ -231,7 +231,15 @@ class Engine(gym.Env):
         return (
             self.__class__ == other.__class__
             and self.__dict__.keys() == other.__dict__.keys()
-            and np.allclose(np.linalg.norm(self.history), np.linalg.norm(other.history))
+            and all(
+                [
+                    np.allclose(
+                        np.linalg.norm(self.history[k]),
+                        np.linalg.norm(other.history[k]),
+                    )
+                    for k in self.history.keys()
+                ]
+            )
             and np.allclose(
                 np.linalg.norm(self.current_state), np.linalg.norm(other.current_state)
             )
@@ -317,22 +325,24 @@ class Engine(gym.Env):
         self.dca_agent = self.dt_agent * self.s2ca
 
         # Initialize the engine history
-        self.history = pd.DataFrame(
+        history_df = pd.DataFrame(
             0.0, index=np.arange(len(cycle.index)), columns=self.histories
         )
         self.starting_cycle_p = cycle.p[0]
-        self.history.V = cycle.V.copy()
-        self.history.dV = np.gradient(self.history.V)
-        self.history.dVdt = self.history.dV / self.dt
-        self.history.ca = cycle.ca.copy()
-        self.history.t = cycle.t.copy()
+        history_df.V = cycle.V.copy()
+        history_df.dV = np.gradient(history_df.V)
+        history_df.dVdt = history_df.dV / self.dt
+        history_df.ca = cycle.ca.copy()
+        history_df.t = cycle.t.copy()
+        self.history = history_df.to_dict(orient="list")
+        self.history["index"] = history_df.index
 
     def set_initial_state(self):
         self.p0 = self.starting_cycle_p
         self.T0 = (
             (self.p0 / ct.one_atm)
             * (
-                self.history.V[0]
+                self.history["V"][0]
                 / (np.pi / 4.0 * self.Bore ** 2 * self.Stroke + self.TDCvol)
             )
             * 300.0
@@ -352,7 +362,9 @@ class Engine(gym.Env):
 
         self.current_state.p = self.p0
         self.current_state["T"] = self.T0
-        self.current_state[self.histories] = self.history.loc[0, self.histories]
+        self.current_state[self.histories] = [
+            self.history[k][0] for k in self.histories
+        ]
 
         for key, reseter in self.state_reseter.items():
             if key in self.current_state.index:
@@ -369,7 +381,7 @@ class Engine(gym.Env):
 
         done = False
         reward = get_reward(self.current_state)
-        if self.current_state.name >= len(self.history) - 1:
+        if self.current_state.name >= len(self.history["V"]) - 1:
             done = True
         elif self.current_state.p > self.max_pressure:
             print(f"Maximum pressure (p = {self.max_pressure}) has been exceeded!")
@@ -422,11 +434,11 @@ class TwoZoneEngine(Engine):
             "Tb": lambda: self.integ.y[2],
             "mb": lambda: self.integ.y[3],
             "T": lambda: self.current_state["T"],
-            "V": lambda: self.history.loc[self.current_state.name + 1].V,
-            "dVdt": lambda: self.history.loc[self.current_state.name + 1].dVdt,
-            "dV": lambda: self.history.loc[self.current_state.name + 1].dV,
-            "ca": lambda: self.history.loc[self.current_state.name + 1].ca,
-            "t": lambda: self.history.loc[self.current_state.name + 1].t,
+            "V": lambda: self.history["V"][self.current_state.name + 1],
+            "dVdt": lambda: self.history["dVdt"][self.current_state.name + 1],
+            "dV": lambda: self.history["dV"][self.current_state.name + 1],
+            "ca": lambda: self.history["ca"][self.current_state.name + 1],
+            "t": lambda: self.history["t"][self.current_state.name + 1],
             "attempt_ninj": lambda: self.action.attempt_counter["mdot"],
             "success_ninj": lambda: self.action.success_counter["mdot"],
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
@@ -473,8 +485,8 @@ class TwoZoneEngine(Engine):
                 t,
                 y,
                 action["mdot"],
-                self.history.V.loc[step + 1],
-                self.history.dVdt.loc[step + 1],
+                self.history["V"][step + 1],
+                self.history["dVdt"][step + 1],
                 Qdot=action["qdot"] if self.action.use_qdot else 0.0,
             )
         )
@@ -482,7 +494,7 @@ class TwoZoneEngine(Engine):
             self.current_state[self.ode_state], self.current_state.t
         )
         self.integ.set_integrator("vode", atol=1.0e-8, rtol=1.0e-4)
-        self.integ.integrate(self.history.t.loc[step + 1])
+        self.integ.integrate(self.history["t"][step + 1])
 
         # Update state
         self.update_state()
@@ -853,14 +865,14 @@ class ReactorEngine(Engine):
             "minj": lambda: self.action.current["mdot"] * self.dt_agent,
             "nox": lambda: get_nox(self.gas),
             "soot": lambda: get_soot(self.gas),
-            "V": lambda: self.history.loc[self.current_state.name + 1].V,
-            "dVdt": lambda: self.history.loc[self.current_state.name + 1].dVdt,
-            "dV": lambda: self.history.loc[self.current_state.name + 1].dV,
-            "ca": lambda: self.history.loc[self.current_state.name + 1].ca,
-            "t": lambda: self.history.loc[self.current_state.name + 1].t,
-            "piston_velocity": lambda: self.history.loc[
+            "V": lambda: self.history["V"][self.current_state.name + 1],
+            "dVdt": lambda: self.history["dVdt"][self.current_state.name + 1],
+            "dV": lambda: self.history["dV"][self.current_state.name + 1],
+            "ca": lambda: self.history["ca"][self.current_state.name + 1],
+            "t": lambda: self.history["t"][self.current_state.name + 1],
+            "piston_velocity": lambda: self.history["piston_velocity"][
                 self.current_state.name + 1
-            ].piston_velocity,
+            ],
             "attempt_ninj": lambda: self.action.attempt_counter["mdot"],
             "success_ninj": lambda: self.action.success_counter["mdot"],
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
@@ -874,7 +886,9 @@ class ReactorEngine(Engine):
     def setup_piston(self):
         """Calculates the piston velocity given engine history"""
         cylinder_area = np.pi / 4.0 * self.Bore ** 2
-        self.history.piston_velocity = self.history.dVdt / cylinder_area
+        self.history["piston_velocity"] = [
+            x / cylinder_area for x in self.history["dVdt"]
+        ]
 
     def setup_reactor(self):
         self.gas = ct.Solution(self.rxnmech)
@@ -890,7 +904,7 @@ class ReactorEngine(Engine):
 
         # Set the initial states of the reactor
         self.reactor.chemistry_enabled = True
-        self.reactor.volume = self.history.V[0]
+        self.reactor.volume = self.history["V"][0]
 
         # Add in a wall that moves according to piston velocity
         self.piston = ct.Wall(
@@ -898,7 +912,7 @@ class ReactorEngine(Engine):
             right=self.rempty,
             A=np.pi / 4.0 * self.Bore ** 2,
             U=0.0,
-            velocity=self.history.piston_velocity[0],
+            velocity=self.history["piston_velocity"][0],
         )
 
         # Create the network object
@@ -951,7 +965,7 @@ class ReactorEngine(Engine):
                 self.sim = ct.ReactorNet([self.reactor])
                 self.sim.set_initial_time(self.current_state.t)
 
-            self.sim.advance(self.history.loc[step + 1, "t"])
+            self.sim.advance(self.history["t"][step + 1])
 
             # Update state
             self.update_state()
@@ -1045,14 +1059,14 @@ class EquilibrateEngine(Engine):
             "minj": lambda: self.action.current["mdot"] * self.dt_agent,
             "nox": lambda: get_nox(self.gas),
             "soot": lambda: get_soot(self.gas),
-            "V": lambda: self.history.loc[self.current_state.name + 1].V,
-            "dVdt": lambda: self.history.loc[self.current_state.name + 1].dVdt,
-            "dV": lambda: self.history.loc[self.current_state.name + 1].dV,
-            "ca": lambda: self.history.loc[self.current_state.name + 1].ca,
-            "t": lambda: self.history.loc[self.current_state.name + 1].t,
-            "piston_velocity": lambda: self.history.loc[
+            "V": lambda: self.history["V"][self.current_state.name + 1],
+            "dVdt": lambda: self.history["dVdt"][self.current_state.name + 1],
+            "dV": lambda: self.history["dV"][self.current_state.name + 1],
+            "ca": lambda: self.history["ca"][self.current_state.name + 1],
+            "t": lambda: self.history["t"][self.current_state.name + 1],
+            "piston_velocity": lambda: self.history["piston_velocity"][
                 self.current_state.name + 1
-            ].piston_velocity,
+            ],
             "attempt_ninj": lambda: self.action.attempt_counter["mdot"],
             "success_ninj": lambda: self.action.success_counter["mdot"],
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
@@ -1089,8 +1103,8 @@ class EquilibrateEngine(Engine):
         gamma = self.gas.cp / self.gas.cv
 
         P1 = self.gas.P
-        V1 = self.history.V[step]
-        V2 = self.history.V[step + 1]
+        V1 = self.history["V"][step]
+        V2 = self.history["V"][step + 1]
         P2 = P1 / ((V2 / V1) ** gamma)
         T2 = P2 * V2 / (self.gas.density_mole * V1 * ct.gas_constant)
         self.gas.TP = T2, P2
