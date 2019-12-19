@@ -135,7 +135,7 @@ def evaluate_agent(env, agent):
     done = False
     cnt = 0
     obs = env.reset()
-    df.loc[cnt, variables] = eng.current_state[variables]
+    df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
     df.loc[cnt, eng.action.actions] = 0
     df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
 
@@ -143,7 +143,7 @@ def evaluate_agent(env, agent):
         cnt += 1
         action, _ = agent.predict(obs, deterministic=True)
         obs, reward, done, info = env.step(action)
-        df.loc[cnt, variables] = info[0]["current_state"][variables]
+        df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
         df.loc[cnt, eng.action.actions] = eng.action.current
         df.loc[cnt, ["rewards"]] = reward
 

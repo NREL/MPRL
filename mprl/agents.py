@@ -57,24 +57,24 @@ class CalibratedAgent(Agent):
 
     def learn(self):
         self.actions = utilities.interpolate_df(
-            self.eng.history.ca,
+            self.eng.history["ca"],
             "ca",
             pd.read_csv(os.path.join(self.datadir, "calibrated_data.csv")),
         )
-        self.actions.index = self.eng.history.index
+        self.actions.index = self.eng.history["index"]
         self.actions.mdot[self.actions.mdot < 0] = 0
         self.actions = self.actions[self.eng.action.actions]
 
     def predict(self, obs, **kwargs):
 
         # Find the action matching the current CA
-        idx = (
+        idx = np.argmin(
             np.abs(
-                self.eng.history.ca
+                self.eng.history["ca"]
                 - obs.flatten()[self.eng.observables.index("ca")]
                 * self.eng.observable_scales["ca"]
             )
-        ).idxmin()
+        )
 
         return [self.actions.loc[idx + 1].values], {}
 
@@ -121,10 +121,10 @@ class ExhaustiveAgent(Agent):
         ), f"Number of ranks ({nranks}) are greater than the number of available ranks ({mp.cpu_count()})"
         # Loop over all possible injection CAs
         agent_ca = (
-            self.eng.history.ca
-            if len(self.eng.history.ca) == self.eng.agent_steps
-            else self.eng.history.ca[:: self.eng.substeps - 1]
-        ).values
+            self.eng.history["ca"]
+            if len(self.eng.history["ca"]) == self.eng.agent_steps
+            else self.eng.history["ca"][:: self.eng.substeps - 1]
+        )
 
         envlst = [self.env] * nranks
         chunk = (
@@ -153,7 +153,7 @@ class ExhaustiveAgent(Agent):
             obs = env.reset()
             total_reward = 0
             while not done[0]:
-                action = [1] if (eng.current_state.ca in inj) else [0]
+                action = [1] if (eng.current_state["ca"] in inj) else [0]
                 obs, reward, done, info = env.step(action)
                 total_reward += reward[0]
 
