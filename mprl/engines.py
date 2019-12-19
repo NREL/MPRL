@@ -22,7 +22,7 @@ import mprl.actiontypes as actiontypes
 #
 # ========================================================================
 def get_reward(state):
-    return state.p * state.dV
+    return state["p"] * state["dV"]
 
 
 # ========================================================================
@@ -240,8 +240,11 @@ class Engine(gym.Env):
                     for k in self.history.keys()
                 ]
             )
-            and np.allclose(
-                np.linalg.norm(self.current_state), np.linalg.norm(other.current_state)
+            and all(
+                [
+                    np.allclose(self.current_state[k], other.current_state[k])
+                    for k in self.current_state.keys()
+                ]
             )
         )
 
@@ -260,11 +263,11 @@ class Engine(gym.Env):
             low=obs_low, high=obs_high, dtype=np.float32
         )
 
-    def scale_observables(self, df):
-        sdf = df.copy()
+    def scale_observables(self, dic):
+        sdic = copy.deepcopy(dic)
         for obs in self.observables:
-            sdf[obs] /= self.observable_scales[obs]
-        return sdf
+            sdic[obs] /= self.observable_scales[obs]
+        return sdic
 
     def setup_discrete_injection_actions(self):
         """Setup the discrete injection actions"""
@@ -352,38 +355,35 @@ class Engine(gym.Env):
         """Reset the starting state"""
         self.set_initial_state()
 
-        self.current_state = pd.Series(
-            0.0,
-            index=list(
-                dict.fromkeys(self.histories + self.observables + self.internals)
-            ),
-            name=0,
-        )
+        self.current_state = {
+            k: 0.0 for k in self.histories + self.observables + self.internals
+        }
+        self.current_state["name"] = 0
 
-        self.current_state.p = self.p0
+        self.current_state["p"] = self.p0
         self.current_state["T"] = self.T0
-        self.current_state[self.histories] = [
-            self.history[k][0] for k in self.histories
-        ]
+        for k in self.histories:
+            self.current_state[k] = self.history[k][0]
 
         for key, reseter in self.state_reseter.items():
-            if key in self.current_state.index:
+            if key in self.current_state.keys():
                 self.current_state[key] = reseter()
 
     def update_state(self):
         """Update the state"""
-        for key in self.current_state.index:
-            self.current_state[key] = self.state_updater[key]()
-        self.current_state.name += 1
+        for key in self.current_state.keys():
+            if key != "name":
+                self.current_state[key] = self.state_updater[key]()
+        self.current_state["name"] += 1
 
     def termination(self):
         """Evaluate termination criteria"""
 
         done = False
         reward = get_reward(self.current_state)
-        if self.current_state.name >= len(self.history["V"]) - 1:
+        if self.current_state["name"] >= len(self.history["V"]) - 1:
             done = True
-        elif self.current_state.p > self.max_pressure:
+        elif self.current_state["p"] > self.max_pressure:
             print(f"Maximum pressure (p = {self.max_pressure}) has been exceeded!")
             reward = self.negative_reward / (self.nsteps - 1)
 
@@ -434,11 +434,11 @@ class TwoZoneEngine(Engine):
             "Tb": lambda: self.integ.y[2],
             "mb": lambda: self.integ.y[3],
             "T": lambda: self.current_state["T"],
-            "V": lambda: self.history["V"][self.current_state.name + 1],
-            "dVdt": lambda: self.history["dVdt"][self.current_state.name + 1],
-            "dV": lambda: self.history["dV"][self.current_state.name + 1],
-            "ca": lambda: self.history["ca"][self.current_state.name + 1],
-            "t": lambda: self.history["t"][self.current_state.name + 1],
+            "V": lambda: self.history["V"][self.current_state["name"] + 1],
+            "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
+            "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
+            "ca": lambda: self.history["ca"][self.current_state["name"] + 1],
+            "t": lambda: self.history["t"][self.current_state["name"] + 1],
             "attempt_ninj": lambda: self.action.attempt_counter["mdot"],
             "success_ninj": lambda: self.action.success_counter["mdot"],
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
@@ -470,8 +470,8 @@ class TwoZoneEngine(Engine):
 
         self.action.reset()
 
-        obs = self.scale_observables(self.current_state)[self.observables]
-        return obs
+        obs = self.scale_observables(self.current_state)
+        return [obs[k] for k in self.observables]
 
     def step(self, action):
         """Advance the engine to the next state using the action"""
@@ -479,7 +479,7 @@ class TwoZoneEngine(Engine):
         action = self.action.preprocess(action)
 
         # Integrate the model using the action
-        step = self.current_state.name
+        step = self.current_state["name"]
         self.integ = ode(
             lambda t, y: self.dfundt_mdot(
                 t,
@@ -491,7 +491,7 @@ class TwoZoneEngine(Engine):
             )
         )
         self.integ.set_initial_value(
-            self.current_state[self.ode_state], self.current_state.t
+            [self.current_state[k] for k in self.ode_state], self.current_state["t"]
         )
         self.integ.set_integrator("vode", atol=1.0e-8, rtol=1.0e-4)
         self.integ.integrate(self.history["t"][step + 1])
@@ -509,8 +509,9 @@ class TwoZoneEngine(Engine):
             print(f"Finished episode #{self.nepisode}")
             self.nepisode += 1
 
+        obs = self.scale_observables(self.current_state)
         return (
-            self.scale_observables(self.current_state)[self.observables],
+            [obs[k] for k in self.observables],
             reward,
             done,
             {"current_state": self.current_state},
@@ -751,8 +752,8 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
 
         super(DiscreteTwoZoneEngine, self).reset()
 
-        obs = self.scale_observables(self.current_state)[self.observables]
-        return obs
+        obs = self.scale_observables(self.current_state)
+        return [obs[k] for k in self.observables]
 
 
 # ========================================================================
@@ -865,13 +866,13 @@ class ReactorEngine(Engine):
             "minj": lambda: self.action.current["mdot"] * self.dt_agent,
             "nox": lambda: get_nox(self.gas),
             "soot": lambda: get_soot(self.gas),
-            "V": lambda: self.history["V"][self.current_state.name + 1],
-            "dVdt": lambda: self.history["dVdt"][self.current_state.name + 1],
-            "dV": lambda: self.history["dV"][self.current_state.name + 1],
-            "ca": lambda: self.history["ca"][self.current_state.name + 1],
-            "t": lambda: self.history["t"][self.current_state.name + 1],
+            "V": lambda: self.history["V"][self.current_state["name"] + 1],
+            "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
+            "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
+            "ca": lambda: self.history["ca"][self.current_state["name"] + 1],
+            "t": lambda: self.history["t"][self.current_state["name"] + 1],
             "piston_velocity": lambda: self.history["piston_velocity"][
-                self.current_state.name + 1
+                self.current_state["name"] + 1
             ],
             "attempt_ninj": lambda: self.action.attempt_counter["mdot"],
             "success_ninj": lambda: self.action.success_counter["mdot"],
@@ -923,12 +924,12 @@ class ReactorEngine(Engine):
         super(ReactorEngine, self).reset_state()
 
         self.setup_reactor()
-        self.sim.set_initial_time(self.current_state.t)
+        self.sim.set_initial_time(self.current_state["t"])
 
         self.action.reset()
 
-        obs = self.scale_observables(self.current_state)[self.observables]
-        return obs
+        obs = self.scale_observables(self.current_state)
+        return [obs[k] for k in self.observables]
 
     def step(self, action):
         "Advance the engine to the next state using the action"
@@ -938,8 +939,8 @@ class ReactorEngine(Engine):
         # Integrate the model using the action
         reward = 0
         for substep in range(self.substeps - 1):
-            step = self.current_state.name
-            self.piston.set_velocity(self.current_state.piston_velocity)
+            step = self.current_state["name"]
+            self.piston.set_velocity(self.current_state["piston_velocity"])
 
             # inject only once per subcyling
             if action["mdot"] > 0 and substep == 0:
@@ -953,17 +954,17 @@ class ReactorEngine(Engine):
                 self.gas.TPX = Tnew, Pnew, Xnew
                 self.reactor = ct.Reactor(self.gas)
                 self.reactor.chemistry_enabled = True
-                self.reactor.volume = self.current_state.V
+                self.reactor.volume = self.current_state["V"]
                 self.piston = ct.Wall(
                     left=self.reactor,
                     right=self.rempty,
                     A=np.pi / 4.0 * self.Bore ** 2,
                     U=0.0,
-                    velocity=self.current_state.piston_velocity,
+                    velocity=self.current_state["piston_velocity"],
                 )
 
                 self.sim = ct.ReactorNet([self.reactor])
-                self.sim.set_initial_time(self.current_state.t)
+                self.sim.set_initial_time(self.current_state["t"])
 
             self.sim.advance(self.history["t"][step + 1])
 
@@ -982,8 +983,9 @@ class ReactorEngine(Engine):
             print(f"Finished episode #{self.nepisode}")
             self.nepisode += 1
 
+        obs = self.scale_observables(self.current_state)
         return (
-            self.scale_observables(self.current_state)[self.observables],
+            [obs[k] for k in self.observables],
             reward,
             done,
             {"current_state": self.current_state},
@@ -1059,13 +1061,13 @@ class EquilibrateEngine(Engine):
             "minj": lambda: self.action.current["mdot"] * self.dt_agent,
             "nox": lambda: get_nox(self.gas),
             "soot": lambda: get_soot(self.gas),
-            "V": lambda: self.history["V"][self.current_state.name + 1],
-            "dVdt": lambda: self.history["dVdt"][self.current_state.name + 1],
-            "dV": lambda: self.history["dV"][self.current_state.name + 1],
-            "ca": lambda: self.history["ca"][self.current_state.name + 1],
-            "t": lambda: self.history["t"][self.current_state.name + 1],
+            "V": lambda: self.history["V"][self.current_state["name"] + 1],
+            "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
+            "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
+            "ca": lambda: self.history["ca"][self.current_state["name"] + 1],
+            "t": lambda: self.history["t"][self.current_state["name"] + 1],
             "piston_velocity": lambda: self.history["piston_velocity"][
-                self.current_state.name + 1
+                self.current_state["name"] + 1
             ],
             "attempt_ninj": lambda: self.action.attempt_counter["mdot"],
             "success_ninj": lambda: self.action.success_counter["mdot"],
@@ -1089,8 +1091,8 @@ class EquilibrateEngine(Engine):
 
         self.setup_gas()
         self.action.reset()
-        obs = self.scale_observables(self.current_state)[self.observables]
-        return obs
+        obs = self.scale_observables(self.current_state)
+        return [obs[k] for k in self.observables]
 
     def step(self, action):
         """Advance the engine to the next state using the action"""
@@ -1098,7 +1100,7 @@ class EquilibrateEngine(Engine):
         action = self.action.preprocess(action)
 
         # Integrate the model using the action
-        step = self.current_state.name
+        step = self.current_state["name"]
 
         gamma = self.gas.cp / self.gas.cv
 
@@ -1111,7 +1113,7 @@ class EquilibrateEngine(Engine):
 
         if action["mdot"] > 0:
             minj = action["mdot"] * self.dt_agent
-            m0 = self.gas.density_mass * self.current_state.V
+            m0 = self.gas.density_mass * self.current_state["V"]
             Tnew = (m0 * self.gas.T + minj * self.Tinj) / (m0 + minj)
             Pnew = self.gas.P
             Xnew = (m0 * self.gas.X + minj * self.injection_gas.X) / (m0 + minj)
@@ -1132,8 +1134,9 @@ class EquilibrateEngine(Engine):
             print(f"Finished episode #{self.nepisode}")
             self.nepisode += 1
 
+        obs = self.scale_observables(self.current_state)
         return (
-            self.scale_observables(self.current_state)[self.observables],
+            [obs[k] for k in self.observables],
             reward,
             done,
             {"current_state": self.current_state},

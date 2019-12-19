@@ -153,7 +153,7 @@ class ExhaustiveAgent(Agent):
             obs = env.reset()
             total_reward = 0
             while not done[0]:
-                action = [1] if (eng.current_state.ca in inj) else [0]
+                action = [1] if (eng.current_state["ca"] in inj) else [0]
                 obs, reward, done, info = env.step(action)
                 total_reward += reward[0]
 

@@ -52,8 +52,8 @@ def assert_similar_step(orig, other):
     npt.assert_allclose(np.linalg.norm(other_obs), np.linalg.norm(obs))
     npt.assert_allclose(other_reward, reward)
     assert other_done == done, "Dones are not equal"
-    npt.assert_allclose(other_info["current_state"].V, info["current_state"].V)
-    npt.assert_allclose(other_info["current_state"].p, info["current_state"].p)
+    npt.assert_allclose(other_info["current_state"]["V"], info["current_state"]["V"])
+    npt.assert_allclose(other_info["current_state"]["p"], info["current_state"]["p"])
     npt.assert_allclose(other_info["current_state"]["T"], info["current_state"]["T"])
 
     orig.reset()
@@ -196,7 +196,7 @@ class MPRLTestCase(unittest.TestCase):
         done = False
         cnt = 0
         obs = env.reset()
-        df.loc[cnt, variables] = eng.current_state[variables]
+        df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
         df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
 
@@ -205,11 +205,11 @@ class MPRLTestCase(unittest.TestCase):
             # Agent injects twice
             action = (
                 [1]
-                if (eng.current_state.ca == -10) or eng.current_state.ca == 10
+                if (eng.current_state["ca"] == -10) or eng.current_state["ca"] == 10
                 else [0]
             )
             obs, reward, done, info = env.step(action)
-            df.loc[cnt, variables] = info[0]["current_state"][variables]
+            df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
 
@@ -249,7 +249,7 @@ class MPRLTestCase(unittest.TestCase):
         done = False
         cnt = 0
         obs = env.reset()
-        df.loc[cnt, variables] = eng.current_state[variables]
+        df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
         df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
 
@@ -258,13 +258,13 @@ class MPRLTestCase(unittest.TestCase):
             # Agent tries to inject thrice, but is not allowed the second time
             action = (
                 [1]
-                if (eng.current_state.ca == -10)
-                or eng.current_state.ca == 10
-                or eng.current_state.ca == 16
+                if (eng.current_state["ca"] == -10)
+                or eng.current_state["ca"] == 10
+                or eng.current_state["ca"] == 16
                 else [0]
             )
             obs, reward, done, info = env.step(action)
-            df.loc[cnt, variables] = info[0]["current_state"][variables]
+            df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
 
@@ -304,7 +304,7 @@ class MPRLTestCase(unittest.TestCase):
         done = False
         cnt = 0
         obs = env.reset()
-        df.loc[cnt, variables] = eng.current_state[variables]
+        df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
         df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
 
@@ -313,11 +313,11 @@ class MPRLTestCase(unittest.TestCase):
             # Agent tries to inject twice, but is not allowed the second time
             action = (
                 [1]
-                if (eng.current_state.ca == -10) or eng.current_state.ca == 10
+                if (eng.current_state["ca"] == -10) or eng.current_state["ca"] == 10
                 else [0]
             )
             obs, reward, done, info = env.step(action)
-            df.loc[cnt, variables] = info[0]["current_state"][variables]
+            df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
 
@@ -356,7 +356,7 @@ class MPRLTestCase(unittest.TestCase):
         done = False
         cnt = 0
         obs = env.reset()
-        df.loc[cnt, variables] = eng.current_state[variables]
+        df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
         df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
 
@@ -365,11 +365,11 @@ class MPRLTestCase(unittest.TestCase):
             # Agent tries to inject twice, but is not allowed the second time
             action = (
                 [1]
-                if (eng.current_state.ca == -10) or eng.current_state.ca == 10
+                if (eng.current_state["ca"] == -10) or eng.current_state["ca"] == 10
                 else [0]
             )
             obs, reward, done, info = env.step(action)
-            df.loc[cnt, variables] = info[0]["current_state"][variables]
+            df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
 
