@@ -951,8 +951,7 @@ class ReactorEngine(Engine):
         step = self.current_state["name"]
         self.piston.set_velocity(self.current_state["piston_velocity"])
 
-        if action["mdot"] > 0:
-            self.injector.set_mass_flow_rate(self.mdot)
+        self.injector.set_mass_flow_rate(action["mdot"])
 
         self.advance_to_time(self.history["t"][step + 1])
 
