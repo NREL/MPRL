@@ -326,9 +326,9 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 35918721.97084988, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 18047.51453986081, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 157.92497130612531, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.p), 36089240.55174869, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 18152.70924544, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 159.07142384, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for ReactorEngine = {elapsed} seconds")
 
