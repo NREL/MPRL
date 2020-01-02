@@ -102,9 +102,6 @@ class Input:
                 "Tinj": Parameter(
                     300.0, "Injection temperature of fuel/air mixture (K)", float
                 ),
-                "target_dt": Parameter(
-                    4e-6, "Target time step for integrating the 0D reactor (s)", float
-                ),
                 "use_qdot": Parameter(False, "Use a Qdot as an action", bool),
                 "use_continuous": Parameter(
                     False, "Use a continuous action space", bool

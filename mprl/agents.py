@@ -120,11 +120,7 @@ class ExhaustiveAgent(Agent):
             nranks <= mp.cpu_count()
         ), f"Number of ranks ({nranks}) are greater than the number of available ranks ({mp.cpu_count()})"
         # Loop over all possible injection CAs
-        agent_ca = (
-            self.eng.history["ca"]
-            if len(self.eng.history["ca"]) == self.eng.agent_steps
-            else self.eng.history["ca"][:: self.eng.substeps - 1]
-        )
+        agent_ca = self.eng.history["ca"]
 
         envlst = [self.env] * nranks
         chunk = (

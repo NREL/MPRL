@@ -113,7 +113,7 @@ class Engine(gym.Env):
 
     def __init__(
         self,
-        agent_steps=100,
+        nsteps=100,
         ivc=-100.0,
         evo=100.0,
         fuel="dodecane",
@@ -124,8 +124,7 @@ class Engine(gym.Env):
 
         # Engine parameters
         self.T0, self.p0 = calibrated_engine_ic()
-        self.agent_steps = agent_steps
-        self.nsteps = self.agent_steps
+        self.nsteps = nsteps
         self.ivc = ivc
         self.evo = evo
         self.fuel = fuel
@@ -249,7 +248,7 @@ class Engine(gym.Env):
         )
 
     def describe(self):
-        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward})"""
 
     def define_observable_space(self):
         """Define the observable space"""
@@ -273,9 +272,7 @@ class Engine(gym.Env):
         """Setup the discrete injection actions"""
 
         if self.max_injections is None:
-            self.max_injections = np.int(
-                np.rint(self.max_minj / (self.mdot * self.dt_agent))
-            )
+            self.max_injections = np.int(np.rint(self.max_minj / (self.mdot * self.dt)))
             print(f"Maximum number of injections is {self.max_injections}")
         else:
             print("Warning: engine setup is overwriting the default max_injections")
@@ -284,7 +281,7 @@ class Engine(gym.Env):
             ["mdot"],
             scales={"mdot": self.mdot},
             limits={"mdot": self.max_injections},
-            delays={"mdot": self.injection_delay / self.dt_agent},
+            delays={"mdot": self.injection_delay / self.dt},
         )
         self.action_space = self.action.space
 
@@ -324,8 +321,6 @@ class Engine(gym.Env):
         interp, self.dca = np.linspace(self.ivc, self.evo, self.nsteps, retstep=True)
         cycle = utilities.interpolate_df(interp, "ca", cycle)
         self.dt = self.dca / self.s2ca
-        self.dt_agent = self.total_time / (self.agent_steps - 1)
-        self.dca_agent = self.dt_agent * self.s2ca
 
         # Initialize the engine history
         history_df = pd.DataFrame(
@@ -680,7 +675,7 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, use_qdot={self.use_qdot})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, use_qdot={self.use_qdot})"""
 
 
 # ========================================================================
@@ -746,7 +741,7 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def reset(self):
 
@@ -795,7 +790,6 @@ class ReactorEngine(Engine):
     def __init__(
         self,
         *args,
-        target_dt=4e-6,  # Target time step for integrating the 0D reactor (s)
         Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
         mdot=0.1,  # Rate of mass injections (kg/s)
         max_minj=5e-5,  # Mass of injected fuel/air mixture (kg)
@@ -828,12 +822,6 @@ class ReactorEngine(Engine):
         self.max_injections = None
         self.injection_delay = injection_delay
 
-        # Figure out the subcycling of steps
-        self.target_dt = target_dt
-        self.dt_agent = self.total_time / (self.agent_steps - 1)
-        self.substeps = int(np.ceil(self.dt_agent / self.target_dt)) + 1
-        self.nsteps = (self.agent_steps - 1) * (self.substeps - 1) + 1
-
         # Engine setup
         self.setup_lambdas()
         self.setup_history()
@@ -845,7 +833,7 @@ class ReactorEngine(Engine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, target_dt={self.target_dt}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def setup_lambdas(self):
         """Setup lambda functions.
@@ -863,7 +851,7 @@ class ReactorEngine(Engine):
             "p": lambda: self.gas.P,
             "T": lambda: self.gas.T,
             "mb": lambda: 0,
-            "minj": lambda: self.action.current["mdot"] * self.dt_agent,
+            "minj": lambda: self.action.current["mdot"] * self.dt,
             "nox": lambda: get_nox(self.gas),
             "soot": lambda: get_soot(self.gas),
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
@@ -893,11 +881,14 @@ class ReactorEngine(Engine):
 
     def setup_reactor(self):
         self.gas = ct.Solution(self.rxnmech)
-        self.gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
+        self.xinit = {"O2": 0.21, "N2": 0.79}
+        self.gas.TPX = self.T0, self.p0, self.xinit
 
         self.injection_gas, _ = setup_injection_gas(
             self.rxnmech, self.fuel, pure_fuel=True
         )
+        self.injection_gas.TP = self.T0, self.p0
+        fuel_res = ct.Reservoir(self.injection_gas)
 
         # Create the reactor object
         self.reactor = ct.Reactor(self.gas)
@@ -906,6 +897,9 @@ class ReactorEngine(Engine):
         # Set the initial states of the reactor
         self.reactor.chemistry_enabled = True
         self.reactor.volume = self.history["V"][0]
+
+        # Add in a fuel injector
+        self.injector = ct.MassFlowController(fuel_res, self.reactor)
 
         # Add in a wall that moves according to piston velocity
         self.piston = ct.Wall(
@@ -919,11 +913,28 @@ class ReactorEngine(Engine):
         # Create the network object
         self.sim = ct.ReactorNet([self.reactor])
 
+    def advance_to_time(self, time):
+
+        max_restarts = 5
+        num_restarts = 0
+
+        try:
+            self.sim.advance(time)
+        except Exception:
+            if num_restarts > max_restarts:
+                sys.exit(f"""Maximum number or restarts ({max_restarts}) exceeded!""")
+            else:
+                num_restarts += 1
+                self.sim.advance(time)
+
     def reset(self):
 
         super(ReactorEngine, self).reset_state()
 
         self.setup_reactor()
+        self.gas.TPX = self.T0, self.p0, self.xinit
+        self.reactor.volume = self.history["V"][0]
+        self.piston.set_velocity(self.history["piston_velocity"][0])
         self.sim.set_initial_time(self.current_state["t"])
 
         self.action.reset()
@@ -937,43 +948,16 @@ class ReactorEngine(Engine):
         action = self.action.preprocess(action)
 
         # Integrate the model using the action
-        reward = 0
-        for substep in range(self.substeps - 1):
-            step = self.current_state["name"]
-            self.piston.set_velocity(self.current_state["piston_velocity"])
+        step = self.current_state["name"]
+        self.piston.set_velocity(self.current_state["piston_velocity"])
 
-            # inject only once per subcyling
-            if action["mdot"] > 0 and substep == 0:
-                minj = action["mdot"] * self.dt_agent
-                m0 = self.gas.density_mass * self.reactor.volume
-                Tnew = (m0 * self.gas.T + minj * self.Tinj) / (m0 + minj)
-                Pnew = self.gas.P
-                Xnew = (m0 * self.gas.X + minj * self.injection_gas.X) / (m0 + minj)
+        self.injector.set_mass_flow_rate(action["mdot"])
 
-                self.gas = ct.Solution(self.rxnmech)
-                self.gas.TPX = Tnew, Pnew, Xnew
-                self.reactor = ct.Reactor(self.gas)
-                self.reactor.chemistry_enabled = True
-                self.reactor.volume = self.current_state["V"]
-                self.piston = ct.Wall(
-                    left=self.reactor,
-                    right=self.rempty,
-                    A=np.pi / 4.0 * self.Bore ** 2,
-                    U=0.0,
-                    velocity=self.current_state["piston_velocity"],
-                )
+        self.advance_to_time(self.history["t"][step + 1])
 
-                self.sim = ct.ReactorNet([self.reactor])
-                self.sim.set_initial_time(self.current_state["t"])
+        self.update_state()
 
-            self.sim.advance(self.history["t"][step + 1])
-
-            # Update state
-            self.update_state()
-
-            sub_reward, done = self.termination()
-
-            reward += sub_reward
+        reward, done = self.termination()
 
         # Add negative reward if the action had to be masked
         if self.action.masked:
@@ -1040,7 +1024,7 @@ class EquilibrateEngine(Engine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(agent_steps={self.agent_steps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def setup_lambdas(self):
         """Setup lambda functions.
@@ -1058,7 +1042,7 @@ class EquilibrateEngine(Engine):
             "p": lambda: self.gas.P,
             "T": lambda: self.gas.T,
             "mb": lambda: 0,
-            "minj": lambda: self.action.current["mdot"] * self.dt_agent,
+            "minj": lambda: self.action.current["mdot"] * self.dt,
             "nox": lambda: get_nox(self.gas),
             "soot": lambda: get_soot(self.gas),
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
@@ -1081,7 +1065,8 @@ class EquilibrateEngine(Engine):
 
     def setup_gas(self):
         self.gas = ct.Solution(self.rxnmech)
-        self.gas.TPX = self.T0, self.p0, {"O2": 0.21, "N2": 0.79}
+        self.xinit = {"O2": 0.21, "N2": 0.79}
+        self.gas.TPX = self.T0, self.p0, self.xinit
         self.injection_gas, _ = setup_injection_gas(
             self.rxnmech, self.fuel, pure_fuel=True
         )
@@ -1089,7 +1074,7 @@ class EquilibrateEngine(Engine):
     def reset(self):
         super(EquilibrateEngine, self).reset_state()
 
-        self.setup_gas()
+        self.gas.TPX = self.T0, self.p0, self.xinit
         self.action.reset()
         obs = self.scale_observables(self.current_state)
         return [obs[k] for k in self.observables]
@@ -1112,13 +1097,12 @@ class EquilibrateEngine(Engine):
         self.gas.TP = T2, P2
 
         if action["mdot"] > 0:
-            minj = action["mdot"] * self.dt_agent
+            minj = action["mdot"] * self.dt
             m0 = self.gas.density_mass * self.current_state["V"]
             Tnew = (m0 * self.gas.T + minj * self.Tinj) / (m0 + minj)
             Pnew = self.gas.P
             Xnew = (m0 * self.gas.X + minj * self.injection_gas.X) / (m0 + minj)
 
-            self.gas = ct.Solution(self.rxnmech)
             self.gas.TPX = Tnew, Pnew, Xnew
             self.gas.equilibrate("UV", solver="auto", rtol=1e-9)
 
