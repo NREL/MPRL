@@ -1,0 +1,18 @@
+[agent]
+agent = "ppo"
+update_nepisodes = 10
+number_episodes = 80000
+
+[engine]
+engine = "twozone-engine"
+fuel = "dodecane"
+rxnmech = "dodecane_lu_nox.cti"
+observables = ['ca', 'p', 'T', 'success_ninj', 'can_inject']
+nsteps = 101
+max_pressure = 70.0
+ename = "Isooctane_MBT_DI_50C_Summ.xlsx"
+max_minj = 2.2e-5
+mdot = 0.05
+
+[reward]
+negative_reward = -1000.0

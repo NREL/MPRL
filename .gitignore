@@ -10,4 +10,5 @@ hash.txt
 logger.csv
 logger.pdf
 args.pkl
+actions.npz
 PPO2_*

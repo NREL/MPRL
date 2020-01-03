@@ -1,0 +1,79 @@
+
+* figure 2
+#+begin_src bash
+python3 plot_tb.py -f runs/ppo-twozone/PPO2_1 runs/ppo-equilibrate/PPO2_1 runs/ppo-reactor/PPO2_1 -l "TZMBM" "EM" "FRKM" --legends "loss"
+mv compare_training.pkl ./runs/fig2.pkl
+#+end_src
+
+* figure 3
+#+begin_src bash
+python3 plotter.py -a runs/ppo-twozone/agent.zip runs/ppo-equilibrate/agent.zip runs/ppo-reactor/agent.zip -l "TZMBM" "EM" "FRKM" --legends "success_ninj"
+mv compare.pkl ./runs/fig3.pkl
+#+end_src
+
+* figure 4
+#+begin_src bash
+python3 plotter.py -a runs/reward-ppo/a/agent.zip runs/reward-ppo/b/agent.zip runs/reward-ppo/c/agent.zip runs/reward-ppo/d/agent.zip runs/reward-ppo/e/agent.zip -l "\$[\omega_w, \omega_{NO_x}] = [1.0, 0.0]\$" "\$[0.75, 0.25]\$" "\$[0.5, 0.5]\$" "\$[0.25, 0.75]\$" "\$[0.0,1.0]\$" --legends "success_ninj"
+mv compare.pkl ./runs/fig4.pkl
+#+end_src
+
+* figure 5
+#+begin_src bash
+python3 plotter.py -a runs/reward-ppo/rr3/agent.zip runs/reward-ppo/rr3/agent.zip runs/reward-ppo/rr3/agent.zip runs/reward-ppo/rr3/agent.zip runs/reward-ppo/rr3/agent.zip runs/reward-ppo/rr3/agent.zip runs/reward-ppo/rr3/agent.zip runs/reward-ppo/rr3/agent.zip runs/reward-ppo/rr3/agent.zip -w 1.0 0.0 -w 0.875 0.125 -w 0.75 0.25 -w 0.625 0.375 -w 0.5 0.5 -w 0.375 0.625 -w 0.25 0.75 -w 0.125 0.875 -w 0.0 1.0
+mv compare.pkl ./runs/fig5.pkl
+#+end_src
+
+* figure 6
+#+begin_src bash
+python3 plot_tb.py -f runs/ppo-equilibrate/PPO2_1 --lines 4000 12000 20000 32000 40000
+mv compare_training.pkl ./runs/fig6.pkl
+#+end_src
+
+* figure 7
+#+begin_src bash
+python3 plot_actions.py -a runs/ppo-equilibrate-to-reactor/a runs/ppo-equilibrate-to-reactor/b runs/ppo-equilibrate-to-reactor/c runs/ppo-equilibrate-to-reactor/d runs/ppo-equilibrate-to-reactor/e -n 4000
+mv compare_actions.pkl ./runs/fig7.pkl
+#+end_src
+
+* table 3
+#+begin_src bash
+python3 plotter.py -a runs/ppo-equilibrate-to-reactor/a/checkpoint_400000.pkl runs/ppo-equilibrate-to-reactor/b/checkpoint_400000.pkl runs/ppo-equilibrate-to-reactor/c/checkpoint_400000.pkl runs/ppo-equilibrate-to-reactor/d/checkpoint_400000.pkl runs/ppo-equilibrate-to-reactor/e/checkpoint_400000.pkl runs/ppo-reactor/agent.zip
+#+end_src
+
+* table 4
+#+begin_src bash
+python3 plotter.py -a runs/ppo-twozone-to-equilibrate/checkpoint_400000.pkl runs/ppo-equilibrate/agent.zip
+python3 plotter.py -a runs/ppo-twozone-to-reactor/checkpoint_400000.pkl runs/ppo-reactor/agent.zip
+python3 plotter.py -a runs/ppo-equilibrate-to-reactor/c/checkpoint_400000.pkl runs/ppo-reactor/agent.zip
+python3 plot_tb.py -f runs/ppo-twozone-to-equilibrate/PPO2_1 runs/ppo-equilibrate/PPO2_1
+python3 plot_tb.py -f runs/ppo-twozone-to-reactor/PPO2_1 runs/ppo-equilibrate-to-reactor/c/PPO2_1 runs/ppo-reactor/PPO2_1
+#+end_src
+
+* table (not in paper)
+#+begin_src bash
+python3 plotter.py -a runs/constrained-ppo-twozone/checkpoint_4000000.pkl runs/constrained-exhaustive-twozone/agent.pkl
+python3 plotter.py -a runs/constrained-ppo-equilibrate/checkpoint_4000000.pkl runs/constrained-exhaustive-equilibrate/agent.pkl
+python3 plotter.py -a runs/constrained-ppo-reactor/checkpoint_4000000.pkl runs/constrained-exhaustive-reactor/agent.pkl
+# not done TZ to EQ
+python3 plotter.py -a runs/constrained-ppo-twozone-to-reactor/agent.zip runs/constrained-ppo-reactor/checkpoint_4000000.pkl
+EQ to reactor
+#+end_src
+
+* table 5 (tl for complex reward)
+#+begin_src bash
+python3 plotter.py -a runs/reward-ppo/tl/b2a/agent.zip runs/reward-ppo/tl/c2a/agent.zip runs/reward-ppo/tl/d2a/agent.zip runs/reward-ppo/tl/e2a/agent.zip runs/reward-ppo/a/agent.zip > runs/reward-ppo/a.out
+python3 plotter.py -a runs/reward-ppo/tl/a2b/agent.zip runs/reward-ppo/tl/c2b/agent.zip runs/reward-ppo/tl/d2b/agent.zip runs/reward-ppo/tl/e2b/agent.zip runs/reward-ppo/b/agent.zip > runs/reward-ppo/b.out
+python3 plotter.py -a runs/reward-ppo/tl/a2c/agent.zip runs/reward-ppo/tl/b2c/agent.zip runs/reward-ppo/tl/d2c/agent.zip runs/reward-ppo/tl/e2c/agent.zip runs/reward-ppo/c/agent.zip > runs/reward-ppo/c.out
+python3 plotter.py -a runs/reward-ppo/tl/a2d/agent.zip runs/reward-ppo/tl/b2d/agent.zip runs/reward-ppo/tl/c2d/agent.zip runs/reward-ppo/tl/e2d/agent.zip runs/reward-ppo/d/agent.zip > runs/reward-ppo/d.out
+python3 plotter.py -a runs/reward-ppo/tl/a2e/agent.zip runs/reward-ppo/tl/b2e/agent.zip runs/reward-ppo/tl/c2e/agent.zip runs/reward-ppo/tl/d2e/agent.zip runs/reward-ppo/e/agent.zip > runs/reward-ppo/e.out
+#+end_src
+
+* Loading pkl figures:
+#+begin_src python
+import pickle
+import matplotlib.pyplot as plt
+with open(‘compare.pkl’, ‘rb’) as f:
+    dct = pickle.load(f)
+plt.rc(“text”, usetex=True)
+dct[‘p’].show()
+#+end_src

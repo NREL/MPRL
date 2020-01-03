@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#SBATCH --job-name=mprl
+#SBATCH --account=optima
+#SBATCH --nodes=1
+#SBATCH --gres=gpu:2
+#SBATCH --time=48:00:00
+#SBATCH -o %x.o%j
+
+# Environment stuff
+source ../../../../set_eagle_environment.sh
+
+# Run jobs
+python3 ../../../../main.py --fname input.toml
