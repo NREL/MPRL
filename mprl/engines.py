@@ -380,7 +380,7 @@ class Engine(gym.Env):
             done = True
         elif self.current_state["p"] > self.max_pressure:
             print(f"Maximum pressure (p = {self.max_pressure}) has been exceeded!")
-            reward = self.negative_reward / (self.nsteps - 1)
+            reward += 1000 * self.negative_reward
 
         return reward, done
 
