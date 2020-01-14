@@ -55,6 +55,7 @@ class Input:
                 "number_episodes": Parameter(
                     100, "Total number of episodes to train over", int
                 ),
+                "learning_rate": Parameter(3e-4, "Learning rate", float),
                 "update_nepisodes": Parameter(
                     20, "Number of episodes per agent update", int
                 ),
