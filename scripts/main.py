@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
     # Setup
     start = time.time()
-    np.random.seed(45473)
+    np.random.seed(454733)
     logdir = os.path.dirname(os.path.abspath(args.fname))
     logname = os.path.join(logdir, "logger.csv")
     logs = pd.DataFrame(
