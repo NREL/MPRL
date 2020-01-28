@@ -100,6 +100,9 @@ class Input:
                 "negative_reward": Parameter(
                     -800.0, "Negative reward for unallowed actions", float
                 ),
+                "max_pressure": Parameter(
+                    200.0, "Maximum pressure allowed in engine (atm)", float
+                ),
                 "Tinj": Parameter(
                     300.0, "Injection temperature of fuel/air mixture (K)", float
                 ),

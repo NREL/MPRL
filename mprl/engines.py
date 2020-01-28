@@ -119,7 +119,29 @@ class Engine(gym.Env):
         fuel="dodecane",
         rxnmech="dodecane_lu_nox.cti",
         negative_reward=-800.0,
+        max_pressure=200.0,
     ):
+        """Initialize Engine
+
+        :param nsteps: number of steps
+        :type nsteps: int
+        :param ivc: crank angle of intake valve closed
+        :type ivc: float
+        :param evo: crank angle of exhaust valve open
+        :type evo: float
+        :param fuel: fuel type
+        :type fuel: str
+        :param rxnmech: mechanism file
+        :type rxnmech: str
+        :param negative_reward: negative reward for illegal actions
+        :type negative_reward: float
+        :param max_pressure: maximum pressure allowed in engine (atm)
+        :type max_pressure: float
+        :returns: Engine
+        :rtype: Engine()
+
+        """
+
         super(Engine, self).__init__()
 
         # Engine parameters
@@ -139,7 +161,7 @@ class Engine(gym.Env):
         ) / self.s2ca  # Time take to complete (evo - ivc) rotation in seconds
         self.small_mass = 1.0e-15
         self.max_burned_mass = 6e-3
-        self.max_pressure = 200 * ct.one_atm
+        self.max_pressure = max_pressure
         self.negative_reward = negative_reward
         self.nepisode = 0
         self.action = None
@@ -248,7 +270,7 @@ class Engine(gym.Env):
         )
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure})"""
 
     def define_observable_space(self):
         """Define the observable space"""
@@ -378,8 +400,8 @@ class Engine(gym.Env):
         reward = get_reward(self.current_state)
         if self.current_state["name"] >= len(self.history["V"]) - 1:
             done = True
-        elif self.current_state["p"] > self.max_pressure:
-            print(f"Maximum pressure (p = {self.max_pressure}) has been exceeded!")
+        elif self.current_state["p"] > self.max_pressure * ct.one_atm:
+            print(f"Maximum pressure (p = {self.max_pressure} atm) has been exceeded!")
             reward += 1000 * self.negative_reward
 
         return reward, done
@@ -394,6 +416,7 @@ class TwoZoneEngine(Engine):
     """A two zone engine environment for OpenAI gym"""
 
     def __init__(self, *args, **kwargs):
+        """Initialize TwoZoneEngine (inherits from Engine)"""
         super(TwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
@@ -659,6 +682,14 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
     """
 
     def __init__(self, *args, use_qdot=False, **kwargs):
+        """Initialize ContinuousTwoZoneEngine (inherits from TwoZoneEngine)
+
+        :param use_qdot: bool to use Qdot as an action
+        :type use_qdot: bool
+        :returns: ContinuousTwoZoneEngine
+        :rtype: ContinuousTwoZoneEngine()
+
+        """
         super(ContinuousTwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
@@ -675,7 +706,7 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, use_qdot={self.use_qdot})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, use_qdot={self.use_qdot})"""
 
 
 # ========================================================================
@@ -716,12 +747,26 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
     def __init__(
         self,
         *args,
-        mdot=0.1,  # Rate of mass injection (kg/s)
-        max_minj=5e-05,  # Maximum mass of injected burned fuel/air mixture (kg) allowed
-        injection_delay=0,  # Time delay between injections (s)
+        mdot=0.1,
+        max_minj=5e-05,
+        injection_delay=0,
         observables=["ca", "p", "T", "success_ninj", "can_inject"],
         **kwargs,
     ):
+        """Initialize DiscreteTwoZoneEngine (inherits from TwoZoneEngine)
+
+        :param mdot: rate of mass injection (kg/s)
+        :type mdot: float
+        :param max_minj: maximum mass of injected burned fuel/air mixture (kg) allowed
+        :type max_minj: float
+        :param injection_delay: time delay between injections (s)
+        :type injection_delay: float
+        :param observables: observables
+        :type observables: list
+        :returns: DiscreteTwoZoneEngine
+        :rtype: DiscreteTwoZoneEngine
+
+        """
         super(DiscreteTwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
@@ -741,7 +786,7 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def reset(self):
 
@@ -790,13 +835,29 @@ class ReactorEngine(Engine):
     def __init__(
         self,
         *args,
-        Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
-        mdot=0.1,  # Rate of mass injections (kg/s)
-        max_minj=5e-5,  # Mass of injected fuel/air mixture (kg)
-        injection_delay=0,  # Time delay between injections (s)
+        Tinj=300.0,
+        mdot=0.1,
+        max_minj=5e-5,
+        injection_delay=0,
         observables=["ca", "p", "T", "success_ninj", "can_inject"],
         **kwargs,
     ):
+        """Initialize ReactorEngine (inherits from Engine)
+
+        :param Tinj: injection temperature (K)
+        :type Tinj: float
+        :param mdot: rate of mass injection (kg/s)
+        :type mdot: float
+        :param max_minj: maximum mass of injected burned fuel/air mixture (kg) allowed
+        :type max_minj: float
+        :param injection_delay: time delay between injections (s)
+        :type injection_delay: float
+        :param observables: observables
+        :type observables: list
+        :returns: ReactorEngine
+        :rtype: ReactorEngine
+
+        """
         super(ReactorEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
@@ -833,7 +894,7 @@ class ReactorEngine(Engine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def setup_lambdas(self):
         """Setup lambda functions.
@@ -981,13 +1042,29 @@ class EquilibrateEngine(Engine):
     def __init__(
         self,
         *args,
-        Tinj=300.0,  # Injection temperature of fuel/air mixture (K)
-        mdot=0.1,  # Rate of mass injections (kg/s)
-        max_minj=5e-5,  # Mass of injected fuel (kg)
-        injection_delay=0,  # Time delay between injections (s)
+        Tinj=300.0,
+        mdot=0.1,
+        max_minj=5e-5,
+        injection_delay=0,
         observables=["ca", "p", "T", "success_ninj", "can_inject"],
         **kwargs,
     ):
+        """Initialize EquilibrateEngine (inherits from Engine)
+
+        :param Tinj: injection temperature (K)
+        :type Tinj: float
+        :param mdot: rate of mass injection (kg/s)
+        :type mdot: float
+        :param max_minj: maximum mass of injected burned fuel/air mixture (kg) allowed
+        :type max_minj: float
+        :param injection_delay: time delay between injections (s)
+        :type injection_delay: float
+        :param observables: observables
+        :type observables: list
+        :returns: EquilibrateEngine
+        :rtype: EquilibrateEngine
+
+        """
         super(EquilibrateEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
@@ -1024,7 +1101,7 @@ class EquilibrateEngine(Engine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def setup_lambdas(self):
         """Setup lambda functions.
