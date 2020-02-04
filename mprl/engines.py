@@ -120,6 +120,7 @@ class Engine(gym.Env):
         rxnmech="dodecane_lu_nox.cti",
         negative_reward=-800.0,
         max_pressure=200.0,
+        ename="Scorpion.xlsx",
     ):
         """Initialize Engine
 
@@ -151,17 +152,10 @@ class Engine(gym.Env):
         self.evo = evo
         self.fuel = fuel
         self.rxnmech = rxnmech
-        self.Bore = 0.0860000029206276  # Bore (m)
-        self.Stroke = 0.0860000029206276  # Stroke length (m)
-        self.RPM = 1500  # RPM of the engine
-        self.TDCvol = 6.09216205775738e-5  # Volume at Top-Dead-Center (m^3)
-        self.s2ca = 1.0 / (60.0 / self.RPM / 360.0)
-        self.total_time = (
-            self.evo - self.ivc
-        ) / self.s2ca  # Time take to complete (evo - ivc) rotation in seconds
         self.small_mass = 1.0e-15
         self.max_burned_mass = 6e-3
         self.max_pressure = max_pressure
+        self.ename = ename
         self.negative_reward = negative_reward
         self.nepisode = 0
         self.action = None
@@ -270,7 +264,7 @@ class Engine(gym.Env):
         )
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, ename="{self.ename}")"""
 
     def define_observable_space(self):
         """Define the observable space"""
@@ -309,13 +303,25 @@ class Engine(gym.Env):
 
     def setup_history(self):
         """Setup the engine history and save for faster reset"""
-        cname = os.path.join(self.datadir, "Isooctane_MBT_DI_50C_Summ.xlsx")
+        ename = os.path.join(self.datadir, self.ename)
+
+        # Engine details
+        details = pd.read_excel(ename, sheet_name=["engine"])
+        self.bore = details["engine"].bore.values[0]
+        self.stroke = details["engine"].stroke.values[0]
+        self.rpm = details["engine"].rpm.values[0]
+        self.s2ca = 1.0 / (60.0 / self.rpm / 360.0)
+        self.total_time = (
+            self.evo - self.ivc
+        ) / self.s2ca  # Time take to complete (evo - ivc) rotation in seconds
+
+        # Engine cycle
         self.full_cycle = pd.concat(
             [
                 pd.read_excel(
-                    cname, sheet_name="Ensemble Average", usecols=["PCYL1 - [kPa]_1"]
+                    ename, sheet_name="Ensemble Average", usecols=["PCYL1 - [kPa]_1"]
                 ),
-                pd.read_excel(cname, sheet_name="Volume"),
+                pd.read_excel(ename, sheet_name="Volume"),
             ],
             axis=1,
         )
@@ -333,6 +339,7 @@ class Engine(gym.Env):
         self.full_cycle.p = self.full_cycle.p * 1e3 + 101_325.0
         self.full_cycle.V = self.full_cycle.V * l2m3
         self.full_cycle["t"] = (self.full_cycle.ca + 360) / self.s2ca
+        self.TDCvol = self.full_cycle.V.min()
 
         cycle = self.full_cycle[
             (self.full_cycle.ca >= self.ivc) & (self.full_cycle.ca <= self.evo)
@@ -363,7 +370,7 @@ class Engine(gym.Env):
             (self.p0 / ct.one_atm)
             * (
                 self.history["V"][0]
-                / (np.pi / 4.0 * self.Bore ** 2 * self.Stroke + self.TDCvol)
+                / (np.pi / 4.0 * self.bore ** 2 * self.stroke + self.TDCvol)
             )
             * 300.0
         )
@@ -706,7 +713,7 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, use_qdot={self.use_qdot})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, ename="{self.ename}", use_qdot={self.use_qdot})"""
 
 
 # ========================================================================
@@ -786,7 +793,7 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, ename="{self.ename}", mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def reset(self):
 
@@ -894,7 +901,7 @@ class ReactorEngine(Engine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, ename="{self.ename}", Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def setup_lambdas(self):
         """Setup lambda functions.
@@ -935,7 +942,7 @@ class ReactorEngine(Engine):
 
     def setup_piston(self):
         """Calculates the piston velocity given engine history"""
-        cylinder_area = np.pi / 4.0 * self.Bore ** 2
+        cylinder_area = np.pi / 4.0 * self.bore ** 2
         self.history["piston_velocity"] = [
             x / cylinder_area for x in self.history["dVdt"]
         ]
@@ -966,7 +973,7 @@ class ReactorEngine(Engine):
         self.piston = ct.Wall(
             left=self.reactor,
             right=self.rempty,
-            A=np.pi / 4.0 * self.Bore ** 2,
+            A=np.pi / 4.0 * self.bore ** 2,
             U=0.0,
             velocity=self.history["piston_velocity"][0],
         )
@@ -1101,7 +1108,7 @@ class EquilibrateEngine(Engine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, ename="{self.ename}", Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def setup_lambdas(self):
         """Setup lambda functions.

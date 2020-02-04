@@ -103,6 +103,12 @@ class Input:
                 "max_pressure": Parameter(
                     200.0, "Maximum pressure allowed in engine (atm)", float
                 ),
+                "ename": Parameter(
+                    "Scorpion.xlsx",
+                    "Engine Excel spreadsheet description",
+                    str,
+                    choices=["Scorpion.xlsx", "Isooctane_MBT_DI_50C_Summ.xlsx"],
+                ),
                 "Tinj": Parameter(
                     300.0, "Injection temperature of fuel/air mixture (K)", float
                 ),

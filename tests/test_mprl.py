@@ -115,6 +115,7 @@ class MPRLTestCase(unittest.TestCase):
             use_qdot=True,
             fuel="PRF100",
             rxnmech="llnl_gasoline_surrogate_323.xml",
+            ename="Isooctane_MBT_DI_50C_Summ.xlsx",
         )
 
         # Initialize the agent
@@ -131,8 +132,8 @@ class MPRLTestCase(unittest.TestCase):
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002195212151)
         npt.assert_allclose(np.linalg.norm(df.p), 22012100.17143623)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 14210.47933497)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 104.47361754)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 14210.47662980)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 104.47362155)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.04144044)
         npt.assert_allclose(np.linalg.norm(df.qdot), 97686.91574242)
         print(f"Wall time for CalibratedAgent = {elapsed} seconds")
@@ -148,6 +149,7 @@ class MPRLTestCase(unittest.TestCase):
             fuel="dodecane",
             rxnmech="dodecane_lu_nox.cti",
             negative_reward=-0.05,
+            ename="Isooctane_MBT_DI_50C_Summ.xlsx",
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -168,8 +170,8 @@ class MPRLTestCase(unittest.TestCase):
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
         npt.assert_allclose(np.linalg.norm(df.p), 25431213.9403193)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 13611.586979159425)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 101.4137388027926)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 13611.58370927)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 101.41373957)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.1)
         print(f"Wall time for ExhaustiveAgent = {elapsed} seconds")
 
@@ -184,6 +186,7 @@ class MPRLTestCase(unittest.TestCase):
             mdot=0.1,
             max_minj=5e-5,
             negative_reward=-101,
+            ename="Isooctane_MBT_DI_50C_Summ.xlsx",
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -220,8 +223,8 @@ class MPRLTestCase(unittest.TestCase):
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
         npt.assert_allclose(np.linalg.norm(df.p), 37091026.33424518)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 21272.66042475)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 155.27880220)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 21272.66658071)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 155.27880381)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142136)
         print(f"Wall time for DiscreteTwoZoneEngine = {elapsed} seconds")
 
@@ -237,6 +240,7 @@ class MPRLTestCase(unittest.TestCase):
             max_minj=5e-5,
             injection_delay=0.0025,
             negative_reward=-101,
+            ename="Isooctane_MBT_DI_50C_Summ.xlsx",
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -275,8 +279,8 @@ class MPRLTestCase(unittest.TestCase):
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
         npt.assert_allclose(np.linalg.norm(df.p), 35142241.61422163)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 20971.06692877)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 153.11736297)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 20971.07323643)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 153.11736491)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142136)
         print(f"Wall time for DiscreteTwoZoneEngine with delay = {elapsed} seconds")
 
@@ -291,6 +295,7 @@ class MPRLTestCase(unittest.TestCase):
             mdot=0.1,
             max_minj=5e-5,
             negative_reward=-0.05,
+            ename="Isooctane_MBT_DI_50C_Summ.xlsx",
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -326,9 +331,9 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 36089240.55174869, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 18152.70924544, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 159.07142384, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.p), 35700367.24068123, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 17904.20025126, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 156.39239786, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for ReactorEngine = {elapsed} seconds")
 
@@ -343,6 +348,7 @@ class MPRLTestCase(unittest.TestCase):
             mdot=0.1,
             max_minj=5e-5,
             negative_reward=-0.05,
+            ename="Isooctane_MBT_DI_50C_Summ.xlsx",
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -378,10 +384,10 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 44024925.44422519)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 12768.241249831073)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 159.80034835184017)
-        npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
+        npt.assert_allclose(np.linalg.norm(df.p), 44024930.86874539)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 12768.24128808)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 159.80036669)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142136)
         print(f"Wall time for EquilibrateEngine = {elapsed} seconds")
 
     def test_discrete_twozone_engine_copies(self):
