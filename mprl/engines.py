@@ -33,6 +33,12 @@ def calibrated_engine_ic():
 
 
 # ========================================================================
+def initial_temp(p, V, bore, stroke, TDCvol):
+    """Get the initial temperature from compression"""
+    return p / ct.one_atm * (V / (np.pi / 4.0 * bore ** 2 * stroke + TDCvol)) * 300.0
+
+
+# ========================================================================
 def setup_injection_gas(rxnmech, fuel, pure_fuel=True, phi=1.0):
     """Setup the injection gas"""
     gas = ct.Solution(rxnmech)
@@ -138,6 +144,8 @@ class Engine(gym.Env):
         :type negative_reward: float
         :param max_pressure: maximum pressure allowed in engine (atm)
         :type max_pressure: float
+        :param ename: file describing the engine
+        :type ename: str
         :returns: Engine
         :rtype: Engine()
 
@@ -367,12 +375,11 @@ class Engine(gym.Env):
     def set_initial_state(self):
         self.p0 = self.starting_cycle_p
         self.T0 = (
-            (self.p0 / ct.one_atm)
-            * (
-                self.history["V"][0]
-                / (np.pi / 4.0 * self.bore ** 2 * self.stroke + self.TDCvol)
+            425.0
+            if (self.ename == "Scorpion.xlsx")
+            else initial_temp(
+                self.p0, self.history["V"][0], self.bore, self.stroke, self.TDCvol
             )
-            * 300.0
         )
 
     def reset_state(self):
