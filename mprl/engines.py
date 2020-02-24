@@ -415,8 +415,8 @@ class Engine(gym.Env):
         if self.current_state["name"] >= len(self.history["V"]) - 1:
             done = True
         elif self.current_state["p"] > self.max_pressure * ct.one_atm:
-            print(f"Maximum pressure (p = {self.max_pressure} atm) has been exceeded!")
-            reward += 1000 * self.negative_reward
+            print(f"""Maximum pressure ({self.max_pressure} atm) has been exceeded (p = {self.current_state["p"]})!""")
+            reward += 1 * self.negative_reward / (self.nsteps - 1)
 
         return reward, done
 
