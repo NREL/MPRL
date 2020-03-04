@@ -29,6 +29,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "-a", "--agents", help="Agents to plot", type=str, required=True, nargs="+"
     )
+    parser.add_argument(
+        "-l", "--labels", help="Labels for plot", type=str, nargs="+", default=None
+    )
     args = parser.parse_args()
 
     for k, fname in enumerate(args.agents):
@@ -106,8 +109,11 @@ if __name__ == "__main__":
             agent = PPO2.load(fname, env=env)
 
         df, total_reward = utilities.evaluate_agent(env, agent)
-        utilities.plot_df(
-            env, df, idx=k, name=agent_params["agent"].value, plot_exp=False
-        )
+        print(f"The total reward for {fname} is {total_reward}.")
+        if args.labels is None:
+            name = agent_params["agent"].value
+        else:
+            name = args.labels[k]
+        utilities.plot_df(env, df, idx=k, name=name, plot_exp=False)
 
     utilities.save_plots("compare.pdf")

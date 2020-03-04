@@ -18,14 +18,18 @@ import tensorflow.python.framework.errors_impl as tfe
 # Functions
 #
 # ========================================================================
-def parse_tb(fname, tag):
-    df = pd.DataFrame(columns=[tag, "time", "write_time"])
+def parse_tb(fname, tags):
+    df = pd.DataFrame(columns=list(tags.keys()) + ["time", "write_time", "step"])
     try:
         for k, event in enumerate(tft.summary_iterator(efile)):
             for v in event.summary.value:
-                if v.tag == tag:
-                    df.loc[k, tag] = v.simple_value
-                    df.loc[k, "write_time"] = datetime.fromtimestamp(event.wall_time)
+                for key, value in tags.items():
+                    if v.tag == value:
+                        df.loc[k, key] = v.simple_value
+                        df.loc[k, "write_time"] = datetime.fromtimestamp(
+                            event.wall_time
+                        )
+                        df.loc[k, "step"] = event.step
 
         # This isn't perfect. Tensorboard writes out events
         # sporadically so several episodes may be recorded at the same
@@ -33,8 +37,10 @@ def parse_tb(fname, tag):
         # to find the total wall time (minus the time it took to reach
         # the first write event), and assume each episode took the
         # same amount of time.
+        df.sort_values(by=["step"], inplace=True)
         wall_time = (df.write_time.max() - df.write_time.min()).total_seconds()
-        df.time = np.linspace(0, wall_time, len(df))
+        dt = wall_time / df.step.max()
+        df.time = (df.step - df.step.min()) * dt
 
     except tfe.DataLossError:
         pass
@@ -57,5 +63,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     efile = glob.glob(os.path.join(args.fdir, "events.out.tfevents.*"))[0]
-    df = parse_tb(efile, "episode_reward")
+    tags = {"episode_reward": "episode_reward", "loss": "loss/loss"}
+    # tags = {"episode_reward": "episode_reward"}
+    df = parse_tb(efile, tags)
     df.to_csv(os.path.join(args.fdir, "data.csv"), index=False)

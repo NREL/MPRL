@@ -28,11 +28,18 @@ if __name__ == "__main__":
         required=True,
         nargs="+",
     )
+    parser.add_argument(
+        "-l", "--labels", help="Labels for plot", type=str, nargs="+", default=None
+    )
     args = parser.parse_args()
 
     # Loop over the folders
     for k, fdir in enumerate(args.fdir):
         fname = os.path.join(fdir, "agent")
-        utilities.plot_tb(os.path.join(fdir, "data.csv"), idx=k)
+        if args.labels is None:
+            name = None
+        else:
+            name = args.labels[k]
+        utilities.plot_tb(os.path.join(fdir, "data.csv"), idx=k, name=name)
 
     utilities.save_tb_plots("compare_training.pdf")
