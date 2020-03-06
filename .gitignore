@@ -1,2 +1,13 @@
 __pycache__
 .DS_Store
+*.o[0-9]*
+agent.zip
+agent.pkl
+agent.pdf
+agent.csv
+checkpoint*.pkl
+hash.txt
+logger.csv
+logger.pdf
+args.pkl
+PPO2_*

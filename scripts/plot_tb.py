@@ -6,6 +6,7 @@
 import os
 import sys
 import argparse
+import numpy as np
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 import mprl.utilities as utilities
@@ -31,15 +32,21 @@ if __name__ == "__main__":
     parser.add_argument(
         "-l", "--labels", help="Labels for plot", type=str, nargs="+", default=None
     )
+    parser.add_argument(
+        "-n",
+        "--nlims",
+        help="Limits on episodes to plot",
+        type=int,
+        nargs="+",
+        default=None,
+    )
     args = parser.parse_args()
 
     # Loop over the folders
     for k, fdir in enumerate(args.fdir):
         fname = os.path.join(fdir, "agent")
-        if args.labels is None:
-            name = None
-        else:
-            name = args.labels[k]
-        utilities.plot_tb(os.path.join(fdir, "data.csv"), idx=k, name=name)
+        name = None if args.labels is None else args.labels[k]
+        limit = np.finfo(float).max if args.nlims is None else args.nlims[k]
+        utilities.plot_tb(os.path.join(fdir, "data.csv"), idx=k, name=name, limit=limit)
 
     utilities.save_tb_plots("compare_training.pdf")

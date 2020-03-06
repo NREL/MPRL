@@ -110,10 +110,7 @@ if __name__ == "__main__":
 
         df, total_reward = utilities.evaluate_agent(env, agent)
         print(f"The total reward for {fname} is {total_reward}.")
-        if args.labels is None:
-            name = agent_params["agent"].value
-        else:
-            name = args.labels[k]
+        name = agent_params["agent"].value if args.labels is None else args.labels[k]
         utilities.plot_df(env, df, idx=k, name=name, plot_exp=False)
 
     utilities.save_plots("compare.pdf")

@@ -146,6 +146,8 @@ def evaluate_agent(env, agent):
         df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
         df.loc[cnt, eng.action.actions] = eng.action.current
         df.loc[cnt, ["rewards"]] = reward
+        if df.loc[cnt, "mdot"] > 0:
+            print(f"""Injecting at ca = {df.loc[cnt, "ca"]}""")
 
     return df, df.rewards.sum()
 
@@ -295,12 +297,14 @@ def plot_training(df, fname):
 
 
 # ========================================================================
-def plot_tb(fname, alpha=0.1, idx=0, name=None):
+def plot_tb(fname, alpha=0.1, idx=0, name=None, limit=np.finfo(float).max):
     """Make some plots of tensorboard quantities"""
 
     label = get_label(name)
     df = pd.read_csv(fname)
     df["episode"] = df.step / 100  # 100 steps per episode
+    df = df[df.episode <= limit]
+    print(f"""Total training time for {fname}: {df.time.max():.2f} s""")
 
     cidx = np.mod(idx, len(cmap))
     didx = np.mod(idx, len(dashseq))
