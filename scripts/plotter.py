@@ -15,6 +15,7 @@ import mprl.engines as engines
 import mprl.agents as agents
 import mprl.utilities as utilities
 import mprl.inputs as inputs
+import mprl.reward as rw
 
 
 # ========================================================================
@@ -42,6 +43,15 @@ if __name__ == "__main__":
         params = inputs.Input()
         params.from_toml(os.path.join(fdir, os.path.basename(run_args.fname)))
 
+        # Initialize the reward
+        rwd_params = params.inputs["reward"]
+        reward = rw.Reward(
+            names=rwd_params["names"].value,
+            norms=rwd_params["norms"].value,
+            weights=rwd_params["weights"].value,
+            negative_reward=rwd_params["negative_reward"].value,
+        )
+
         # Initialize the engine
         eng_params = params.inputs["engine"]
         if eng_params["engine"].value == "reactor-engine":
@@ -51,9 +61,9 @@ if __name__ == "__main__":
                 mdot=eng_params["mdot"].value,
                 max_minj=eng_params["max_minj"].value,
                 injection_delay=eng_params["injection_delay"].value,
-                negative_reward=eng_params["negative_reward"].value,
                 max_pressure=eng_params["max_pressure"].value,
                 ename=eng_params["ename"].value,
+                reward=reward,
                 fuel=eng_params["fuel"].value,
                 rxnmech=eng_params["rxnmech"].value,
                 observables=eng_params["observables"].value,
@@ -65,9 +75,9 @@ if __name__ == "__main__":
                 mdot=eng_params["mdot"].value,
                 max_minj=eng_params["max_minj"].value,
                 injection_delay=eng_params["injection_delay"].value,
-                negative_reward=eng_params["negative_reward"].value,
                 max_pressure=eng_params["max_pressure"].value,
                 ename=eng_params["ename"].value,
+                reward=reward,
                 fuel=eng_params["fuel"].value,
                 rxnmech=eng_params["rxnmech"].value,
                 observables=eng_params["observables"].value,
@@ -76,9 +86,9 @@ if __name__ == "__main__":
             if eng_params["use_continuous"].value:
                 eng = engines.ContinuousTwoZoneEngine(
                     nsteps=eng_params["nsteps"].value,
-                    negative_reward=eng_params["negative_reward"].value,
                     max_pressure=eng_params["max_pressure"].value,
                     ename=eng_params["ename"].value,
+                    reward=reward,
                     fuel=eng_params["fuel"].value,
                     rxnmech=eng_params["rxnmech"].value,
                     use_qdot=eng_params["use_qdot"].value,
@@ -89,9 +99,9 @@ if __name__ == "__main__":
                     mdot=eng_params["mdot"].value,
                     max_minj=eng_params["max_minj"].value,
                     injection_delay=eng_params["injection_delay"].value,
-                    negative_reward=eng_params["negative_reward"].value,
                     max_pressure=eng_params["max_pressure"].value,
                     ename=eng_params["ename"].value,
+                    reward=reward,
                     fuel=eng_params["fuel"].value,
                     rxnmech=eng_params["rxnmech"].value,
                     observables=eng_params["observables"].value,

@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../"
 import mprl.engines as engines
 import mprl.agents as agents
 import mprl.utilities as utilities
+import mprl.reward as rw
 
 
 # ========================================================================
@@ -148,8 +149,8 @@ class MPRLTestCase(unittest.TestCase):
             max_minj=2.5e-5,
             fuel="dodecane",
             rxnmech="dodecane_lu_nox.cti",
-            negative_reward=-0.05,
             ename="Isooctane_MBT_DI_50C_Summ.xlsx",
+            reward=rw.Reward(negative_reward=-0.05),
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -185,8 +186,8 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="llnl_gasoline_surrogate_323.xml",
             mdot=0.1,
             max_minj=5e-5,
-            negative_reward=-101,
             ename="Isooctane_MBT_DI_50C_Summ.xlsx",
+            reward=rw.Reward(negative_reward=-101),
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -201,7 +202,7 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
+        df.loc[cnt, ["rewards"]] = [eng.reward.evaluate(eng.current_state, eng.nsteps)]
 
         while not done:
             cnt += 1
@@ -239,8 +240,8 @@ class MPRLTestCase(unittest.TestCase):
             mdot=0.1,
             max_minj=5e-5,
             injection_delay=0.0025,
-            negative_reward=-101,
             ename="Isooctane_MBT_DI_50C_Summ.xlsx",
+            reward=rw.Reward(negative_reward=-101.0),
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -255,7 +256,7 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
+        df.loc[cnt, ["rewards"]] = [eng.reward.evaluate(eng.current_state, eng.nsteps)]
 
         while not done:
             cnt += 1
@@ -294,8 +295,8 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.1,
             max_minj=5e-5,
-            negative_reward=-0.05,
             ename="Isooctane_MBT_DI_50C_Summ.xlsx",
+            reward=rw.Reward(negative_reward=-0.05),
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -310,7 +311,7 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
+        df.loc[cnt, ["rewards"]] = [eng.reward.evaluate(eng.current_state, eng.nsteps)]
 
         while not done:
             cnt += 1
@@ -347,8 +348,8 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.1,
             max_minj=5e-5,
-            negative_reward=-0.05,
             ename="Isooctane_MBT_DI_50C_Summ.xlsx",
+            reward=rw.Reward(negative_reward=-0.05),
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -363,7 +364,7 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
+        df.loc[cnt, ["rewards"]] = [eng.reward.evaluate(eng.current_state, eng.nsteps)]
 
         while not done:
             cnt += 1
@@ -407,7 +408,7 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.01,
             max_minj=5e-5,
-            negative_reward=-0.05,
+            reward=rw.Reward(negative_reward=-0.05),
         )
         assert_deepcopy_pickle_repr(orig)
 
@@ -420,7 +421,7 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.1,
             max_minj=5e-5,
-            negative_reward=-0.05,
+            reward=rw.Reward(negative_reward=-0.05),
         )
         assert_deepcopy_pickle_repr(orig)
 

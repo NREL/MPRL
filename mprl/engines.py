@@ -14,17 +14,13 @@ import gym
 from gym import spaces
 import mprl.utilities as utilities
 import mprl.actiontypes as actiontypes
+import mprl.reward as rw
 
 
 # ========================================================================
 #
 # Functions
 #
-# ========================================================================
-def get_reward(state):
-    return state["p"] * state["dV"]
-
-
 # ========================================================================
 def calibrated_engine_ic():
     T0 = 273.15 + 120
@@ -124,9 +120,9 @@ class Engine(gym.Env):
         evo=100.0,
         fuel="dodecane",
         rxnmech="dodecane_lu_nox.cti",
-        negative_reward=-800.0,
         max_pressure=200.0,
         ename="Scorpion.xlsx",
+        reward=rw.Reward(),
     ):
         """Initialize Engine
 
@@ -140,12 +136,12 @@ class Engine(gym.Env):
         :type fuel: str
         :param rxnmech: mechanism file
         :type rxnmech: str
-        :param negative_reward: negative reward for illegal actions
-        :type negative_reward: float
         :param max_pressure: maximum pressure allowed in engine (atm)
         :type max_pressure: float
         :param ename: file describing the engine
         :type ename: str
+        :param reward: reward
+        :type reward: Reward()
         :returns: Engine
         :rtype: Engine()
 
@@ -164,7 +160,7 @@ class Engine(gym.Env):
         self.max_burned_mass = 6e-3
         self.max_pressure = max_pressure
         self.ename = ename
-        self.negative_reward = negative_reward
+        self.reward = reward
         self.nepisode = 0
         self.action = None
         self.state_updater = {}
@@ -272,7 +268,7 @@ class Engine(gym.Env):
         )
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, ename="{self.ename}")"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}, reward=rw.{self.reward.describe()}")"""
 
     def define_observable_space(self):
         """Define the observable space"""
@@ -411,12 +407,14 @@ class Engine(gym.Env):
         """Evaluate termination criteria"""
 
         done = False
-        reward = get_reward(self.current_state)
+        reward = self.reward.evaluate(self.current_state, self.nsteps)
         if self.current_state["name"] >= len(self.history["V"]) - 1:
             done = True
         elif self.current_state["p"] > self.max_pressure * ct.one_atm:
-            print(f"""Maximum pressure ({self.max_pressure} atm) has been exceeded (p = {self.current_state["p"]})!""")
-            reward += 1 * self.negative_reward / (self.nsteps - 1)
+            print(
+                f"""Maximum pressure ({self.max_pressure} atm) has been exceeded (p = {self.current_state["p"]})!"""
+            )
+            reward += self.reward.negative_reward / (self.nsteps - 1)
 
         return reward, done
 
@@ -535,7 +533,7 @@ class TwoZoneEngine(Engine):
 
         # Add negative reward if the action had to be masked
         if self.action.masked:
-            reward += self.negative_reward / (self.nsteps - 1)
+            reward += self.reward.negative_reward / (self.nsteps - 1)
 
         if done:
             print(f"Finished episode #{self.nepisode}")
@@ -720,7 +718,7 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, ename="{self.ename}", use_qdot={self.use_qdot})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}", reward=rw.{self.reward.describe()}, use_qdot={self.use_qdot})"""
 
 
 # ========================================================================
@@ -800,7 +798,7 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, ename="{self.ename}", mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}", reward=rw.{self.reward.describe()}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def reset(self):
 
@@ -908,7 +906,7 @@ class ReactorEngine(Engine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, ename="{self.ename}", Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}", reward=rw.{self.reward.describe()}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def setup_lambdas(self):
         """Setup lambda functions.
@@ -1036,7 +1034,7 @@ class ReactorEngine(Engine):
 
         # Add negative reward if the action had to be masked
         if self.action.masked:
-            reward += self.negative_reward / (self.nsteps - 1)
+            reward += self.reward.negative_reward / (self.nsteps - 1)
 
         if done:
             print(f"Finished episode #{self.nepisode}")
@@ -1115,7 +1113,7 @@ class EquilibrateEngine(Engine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", negative_reward={self.negative_reward}, max_pressure={self.max_pressure}, ename="{self.ename}", Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}", reward=rw.{self.reward.describe()}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
 
     def setup_lambdas(self):
         """Setup lambda functions.
@@ -1203,7 +1201,7 @@ class EquilibrateEngine(Engine):
 
         # Add negative reward if the action had to be masked
         if self.action.masked:
-            reward += self.negative_reward / (self.nsteps - 1)
+            reward += self.reward.negative_reward / (self.nsteps - 1)
 
         if done:
             print(f"Finished episode #{self.nepisode}")

@@ -16,10 +16,12 @@ dependencies:
   - pandas
   - pip
   - scipy
-  - tensorflow-gpu
+  - tensorflow
   - tensorboard
+  - toml
   - xlrd
   - pip:
+      - -r requirements.txt
       - atari-py==0.2.0
       - stable-baselines[mpi]
       - gpyopt
