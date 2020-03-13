@@ -137,7 +137,7 @@ def evaluate_agent(env, agent):
     obs = env.reset()
     df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
     df.loc[cnt, eng.action.actions] = 0
-    df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
+    df.loc[cnt, ["rewards"]] = [eng.reward.evaluate(eng.current_state, eng.nsteps)]
 
     while not done:
         cnt += 1
