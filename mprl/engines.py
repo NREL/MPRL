@@ -169,30 +169,23 @@ class Engine(gym.Env):
             os.path.dirname(os.path.realpath(__file__)), "datafiles"
         )
 
-        self.observable_space_lows = {
-            "ca": self.ivc,
-            "p": 0.0,
-            "T": 0.0,
-            "attempt_ninj": 0.0,
-            "success_ninj": 0.0,
-            "can_inject": 0,
+        self.observable_attributes = {
+            "ca": {
+                "low": self.ivc,
+                "high": self.evo,
+                "scale": 0.5 * (self.evo - self.ivc),
+            },
+            "p": {
+                "low": 0.0,
+                "high": np.finfo(np.float32).max,
+                "scale": ct.one_atm * 100,
+            },
+            "T": {"low": 0.0, "high": np.finfo(np.float32).max, "scale": 2000},
+            "attempt_ninj": {"low": 0.0, "high": np.iinfo(np.int32).max, "scale": 1.0},
+            "success_ninj": {"low": 0.0, "high": np.iinfo(np.int32).max, "scale": 1.0},
+            "can_inject": {"low": 0, "high": 1, "scale": 1},
         }
-        self.observable_space_highs = {
-            "ca": self.evo,
-            "p": np.finfo(np.float32).max,
-            "T": np.finfo(np.float32).max,
-            "attempt_ninj": np.iinfo(np.int32).max,
-            "success_ninj": np.iinfo(np.int32).max,
-            "can_inject": 1,
-        }
-        self.observable_scales = {
-            "ca": 0.5 * (self.evo - self.ivc),
-            "p": ct.one_atm * 100,
-            "T": 2000,
-            "attempt_ninj": 1.0,
-            "success_ninj": 1.0,
-            "can_inject": 1,
-        }
+        self.observable_attributes.update(self.reward.get_observable_attributes())
 
     def __repr__(self):
         return self.describe()
@@ -275,8 +268,8 @@ class Engine(gym.Env):
         obs_low = np.zeros(len(self.observables))
         obs_high = np.zeros(len(self.observables))
         for k, observable in enumerate(self.observables):
-            obs_low[k] = self.observable_space_lows[observable]
-            obs_high[k] = self.observable_space_highs[observable]
+            obs_low[k] = self.observable_attributes[observable]["low"]
+            obs_high[k] = self.observable_attributes[observable]["high"]
 
         self.observation_space = spaces.Box(
             low=obs_low, high=obs_high, dtype=np.float32
@@ -285,7 +278,7 @@ class Engine(gym.Env):
     def scale_observables(self, dic):
         sdic = copy.deepcopy(dic)
         for obs in self.observables:
-            sdic[obs] /= self.observable_scales[obs]
+            sdic[obs] /= self.observable_attributes[obs]["scale"]
         return sdic
 
     def setup_discrete_injection_actions(self):
@@ -457,6 +450,7 @@ class TwoZoneEngine(Engine):
             "Tb": lambda: self.Tb_ad,
             "can_inject": lambda: 1,
         }
+        self.state_reseter.update(self.reward.get_state_reseter())
 
         self.state_updater = {
             "p": lambda: self.integ.y[0],
@@ -473,6 +467,7 @@ class TwoZoneEngine(Engine):
             "success_ninj": lambda: self.action.success_counter["mdot"],
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
         }
+        self.state_updater.update(self.reward.get_state_updater())
 
     def setup_cantera(self):
         """Wrapper function to setup all cantera objects"""
@@ -499,6 +494,7 @@ class TwoZoneEngine(Engine):
         self.gas.TPX = self.T0, self.p0, self.xinit
 
         self.action.reset()
+        self.reward.reset()
 
         obs = self.scale_observables(self.current_state)
         return [obs[k] for k in self.observables]
@@ -785,7 +781,7 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         self.observables, self.internals = get_observables_internals(
             ["attempt_ninj", "success_ninj", "can_inject", "p", "T", "Tu", "Tb", "mb"],
             self.histories,
-            observables,
+            observables + self.reward.get_observables(),
         )
         self.mdot = mdot
         self.max_minj = max_minj
@@ -888,7 +884,7 @@ class ReactorEngine(Engine):
                 "soot",
             ],
             self.histories,
-            observables,
+            observables + self.reward.get_observables(),
         )
         self.mdot = mdot
         self.max_minj = max_minj
@@ -919,6 +915,7 @@ class ReactorEngine(Engine):
         self.lambda_names = ["state_reseter", "state_updater"]
 
         self.state_reseter = {"can_inject": lambda: 1}
+        self.state_reseter.update(self.reward.get_state_reseter())
 
         self.state_updater = {
             "p": lambda: self.gas.P,
@@ -939,6 +936,7 @@ class ReactorEngine(Engine):
             "success_ninj": lambda: self.action.success_counter["mdot"],
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
         }
+        self.state_updater.update(self.reward.get_state_updater())
 
     def setup_cantera(self):
         """Wrapper function to setup all cantera objects"""
@@ -1011,6 +1009,7 @@ class ReactorEngine(Engine):
         self.sim.set_initial_time(self.current_state["t"])
 
         self.action.reset()
+        self.reward.reset()
 
         obs = self.scale_observables(self.current_state)
         return [obs[k] for k in self.observables]
@@ -1095,7 +1094,7 @@ class EquilibrateEngine(Engine):
                 "soot",
             ],
             self.histories,
-            observables,
+            observables + self.reward.get_observables(),
         )
 
         self.mdot = mdot
@@ -1126,6 +1125,7 @@ class EquilibrateEngine(Engine):
         self.lambda_names = ["state_reseter", "state_updater"]
 
         self.state_reseter = {"can_inject": lambda: 1}
+        self.state_reseter.update(self.reward.get_state_reseter())
 
         self.state_updater = {
             "p": lambda: self.gas.P,
@@ -1146,6 +1146,7 @@ class EquilibrateEngine(Engine):
             "success_ninj": lambda: self.action.success_counter["mdot"],
             "can_inject": lambda: 1 if self.action.isallowed()["mdot"] else 0,
         }
+        self.state_updater.update(self.reward.get_state_updater())
 
     def setup_cantera(self):
         """Wrapper function to setup all cantera objects"""
@@ -1165,6 +1166,8 @@ class EquilibrateEngine(Engine):
 
         self.gas.TPX = self.T0, self.p0, self.xinit
         self.action.reset()
+        self.reward.reset()
+
         obs = self.scale_observables(self.current_state)
         return [obs[k] for k in self.observables]
 

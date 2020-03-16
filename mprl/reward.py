@@ -87,21 +87,21 @@ class Reward:
         self.available_rewards = {
             "work": {
                 "normalized": lambda state, nsteps: (
-                    state["p"] * state["dV"] - self.norms["work"] / nsteps
+                    state["p"] * state["dV"] - self.norms["work"] / (nsteps - 1)
                 )
                 / self.norms["work"],
                 "unnormalized": lambda state, nsteps: state["p"] * state["dV"],
             },
             "nox": {
                 "normalized": lambda state, nsteps: (
-                    self.norms["nox"] / nsteps - state["nox"]
+                    self.norms["nox"] / (nsteps - 1) - state["nox"]
                 )
                 / self.norms["nox"],
                 "unnormalized": lambda state, nsteps: -state["nox"],
             },
             "soot": {
                 "normalized": lambda state, nsteps: (
-                    self.norms["soot"] / nsteps - state["soot"]
+                    self.norms["soot"] / (nsteps - 1) - state["soot"]
                 )
                 / self.norms["soot"],
                 "unnormalized": lambda state, nsteps: -state["soot"],
@@ -138,6 +138,8 @@ class Reward:
     def set_weights(self, weights):
         if len(weights) != self.n:
             sys.exit(f"""Weights length != names ({len(weights)} != {self.n})""")
+        if np.fabs(sum(weights) - 1.0) > 1e-13:
+            sys.exit(f"""Weights don't sum to 1 ({sum(weights)} != 1))""")
         self.weights = {name: weight for name, weight in zip(self.names, weights)}
 
     def set_random_weigths(self, precision=1000):
@@ -159,3 +161,36 @@ class Reward:
             ).flatten()
             / precision
         )
+
+    def get_observable_attributes(self):
+        """Return the weight observable attributes"""
+        return {
+            f"""w_{k}""": {"low": 0.0, "high": 1.0, "scale": 1.0}
+            for k in self.weights.keys()
+        }
+
+    def get_observables(self):
+        """Return the weight observables"""
+        return [f"""w_{k}""" for k in self.weights.keys()]
+
+    def return_w(self, name):
+        return self.weights[name]
+
+    def get_state_updater(self):
+        # Ideally we would do:
+        # return {f"""w_{k}""": lambda: v for k, v in self.weights.items()}
+        # but for some reason it doesn't evaluate properly
+        return {
+            "w_work": lambda: self.weights["work"],
+            "w_nox": lambda: self.weights["nox"],
+            "w_soot": lambda: self.weights["soot"],
+        }
+
+    def get_state_reseter(self):
+        return self.get_state_updater()
+
+    def reset(self):
+        """Reset the reward weights"""
+        self.randomize = False
+        if self.randomize:
+            self.set_random_weigths()
