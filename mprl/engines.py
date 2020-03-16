@@ -385,6 +385,7 @@ class Engine(gym.Env):
         for k in self.histories:
             self.current_state[k] = self.history[k][0]
 
+        self.reward.reset()
         for key, reseter in self.state_reseter.items():
             if key in self.current_state.keys():
                 self.current_state[key] = reseter()
@@ -494,7 +495,6 @@ class TwoZoneEngine(Engine):
         self.gas.TPX = self.T0, self.p0, self.xinit
 
         self.action.reset()
-        self.reward.reset()
 
         obs = self.scale_observables(self.current_state)
         return [obs[k] for k in self.observables]
@@ -1009,7 +1009,6 @@ class ReactorEngine(Engine):
         self.sim.set_initial_time(self.current_state["t"])
 
         self.action.reset()
-        self.reward.reset()
 
         obs = self.scale_observables(self.current_state)
         return [obs[k] for k in self.observables]
@@ -1166,7 +1165,6 @@ class EquilibrateEngine(Engine):
 
         self.gas.TPX = self.T0, self.p0, self.xinit
         self.action.reset()
-        self.reward.reset()
 
         obs = self.scale_observables(self.current_state)
         return [obs[k] for k in self.observables]
