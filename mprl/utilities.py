@@ -90,6 +90,9 @@ def get_fields():
         "soot": r"$Y_{C_2 H_2}$",
         "attempt_ninj": r"attempted \# injections",
         "success_ninj": r"successful \# injections",
+        "w_work": r"$\omega_{w}$",
+        "w_nox": r"$\omega_{Y_{NO_x}}$",
+        "w_soot": r"$\omega_{Y_{C_2 H_2}}$",
     }
 
 
