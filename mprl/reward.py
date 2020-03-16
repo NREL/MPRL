@@ -15,7 +15,12 @@ import numpy as np
 # ========================================================================
 class Reward:
     def __init__(
-        self, names=["work"], norms=[None], weights=[1.0], negative_reward=-800.0
+        self,
+        names=["work"],
+        norms=[None],
+        weights=[1.0],
+        negative_reward=-800.0,
+        randomize=False,
     ):
         """Initialize Reward
 
@@ -34,6 +39,7 @@ class Reward:
         self.set_norms(norms)
         self.set_weights(weights)
         self.negative_reward = negative_reward
+        self.randomize = randomize
         self.setup_reward()
 
     def __repr__(self):
@@ -73,7 +79,7 @@ class Reward:
         self.setup_reward()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(names={self.names}, norms={list(self.norms.values())}, weights={list(self.weights.values())}, negative_reward={self.negative_reward})"""
+        return f"""{self.__class__.__name__}(names={self.names}, norms={list(self.norms.values())}, weights={list(self.weights.values())}, negative_reward={self.negative_reward}, randomize={self.randomize})"""
 
     def setup_reward(self):
         """Setup reward function
@@ -191,6 +197,5 @@ class Reward:
 
     def reset(self):
         """Reset the reward weights"""
-        self.randomize = False
         if self.randomize:
             self.set_random_weigths()
