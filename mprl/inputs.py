@@ -116,10 +116,15 @@ class Input:
             },
             "reward": {
                 "names": Parameter(["work"], "names", list),
-                "norms": Parameter([1.0], "norms", list),
+                "norms": Parameter([None], "norms", list),
                 "weights": Parameter([1.0], "weights", list),
                 "negative_reward": Parameter(
                     -800.0, "Negative reward for unallowed actions", float
+                ),
+                "randomize": Parameter(
+                    False,
+                    "Randomize the reward weights at each engine initialization",
+                    bool,
                 ),
             },
         }

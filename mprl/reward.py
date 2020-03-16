@@ -129,12 +129,24 @@ class Reward:
 
         :param state: environment state
         :type state: dict
+        :param nsteps: number of steps
+        :type nsteps: int
         :returns: reward
         :rtype: float
         """
-        return sum(
-            [self.weights[n] * self.rewards[n](state, nsteps) for n in self.names]
-        )
+        return sum(self.compute(state, nsteps))
+
+    def compute(self, state, nsteps):
+        """Compute each weighted reward
+
+        :param state: environment state
+        :type state: dict
+        :param nsteps: number of steps
+        :type nsteps: int
+        :returns: reward
+        :rtype: float
+        """
+        return [self.weights[n] * self.rewards[n](state, nsteps) for n in self.names]
 
     def set_norms(self, norms):
         if len(norms) != self.n:
@@ -171,16 +183,22 @@ class Reward:
     def get_observable_attributes(self):
         """Return the weight observable attributes"""
         return {
-            f"""w_{k}""": {"low": 0.0, "high": 1.0, "scale": 1.0}
-            for k in self.weights.keys()
+            f"""w_{k}""": {"low": 0.0, "high": 1.0, "scale": 1.0} for k in self.names
         }
 
     def get_observables(self):
-        """Return the weight observables"""
-        return [f"""w_{k}""" for k in self.weights.keys()]
+        """Return the weight observables (only if more than one)"""
+        if self.n > 1:
+            return [f"""w_{k}""" for k in self.names]
+        else:
+            return []
 
-    def return_w(self, name):
-        return self.weights[name]
+    def get_rewards(self):
+        """Return the formatted reward names (only if more than one)"""
+        if self.n > 1:
+            return [f"""r_{k}""" for k in self.names]
+        else:
+            return []
 
     def get_state_updater(self):
         # Ideally we would do:

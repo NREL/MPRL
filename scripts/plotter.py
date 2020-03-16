@@ -50,6 +50,7 @@ if __name__ == "__main__":
             norms=rwd_params["norms"].value,
             weights=rwd_params["weights"].value,
             negative_reward=rwd_params["negative_reward"].value,
+            randomize=rwd_params["randomize"].value,
         )
 
         # Initialize the engine
