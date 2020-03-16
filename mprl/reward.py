@@ -15,24 +15,19 @@ import numpy as np
 # ========================================================================
 class Reward:
     def __init__(
-        self, names=["work"], norms=[1.0], weights=[1.0], negative_reward=-800.0
+        self, names=["work"], norms=[None], weights=[1.0], negative_reward=-800.0
     ):
         """Initialize Reward
 
         :param names: name of reward types
         :type names: list
         :param norms: values to normalize the reward
-        :type norms: float
+        :type norms: list
         :param weights: reward weights
-        :type weights: float
+        :type weights: list
         :param negative_reward: negative reward for illegal actions
         :type negative_reward: float
         """
-
-        if len(norms) != len(names):
-            sys.exit(f"""Norms length != names ({len(norms)} != {len(names)})""")
-        if len(weights) != len(names):
-            sys.exit(f"""Weights length != names ({len(weights)} != {len(names)})""")
 
         self.names = names
         self.n = len(self.names)
@@ -90,27 +85,38 @@ class Reward:
         """
         self.lambda_names = ["available_rewards", "rewards"]
         self.available_rewards = {
-            "norm_work": lambda state, nsteps: (
-                state["p"] * state["dV"] - self.norms["work"] / nsteps
-            )
-            / self.norms["work"],
-            "norm_nox": lambda state, nsteps: (
-                self.norms["nox"] / nsteps - state["nox"]
-            )
-            / self.norms["nox"],
-            "norm_soot": lambda state, nsteps: (
-                self.norms["soot"] / nsteps - state["soot"]
-            )
-            / self.norms["soot"],
-            "work": lambda state, nsteps: state["p"] * state["dV"],
-            "nox": lambda state, nsteps: -state["nox"],
-            "soot": lambda state, nsteps: -state["soot"],
+            "work": {
+                "normalized": lambda state, nsteps: (
+                    state["p"] * state["dV"] - self.norms["work"] / nsteps
+                )
+                / self.norms["work"],
+                "unnormalized": lambda state, nsteps: state["p"] * state["dV"],
+            },
+            "nox": {
+                "normalized": lambda state, nsteps: (
+                    self.norms["nox"] / nsteps - state["nox"]
+                )
+                / self.norms["nox"],
+                "unnormalized": lambda state, nsteps: -state["nox"],
+            },
+            "soot": {
+                "normalized": lambda state, nsteps: (
+                    self.norms["soot"] / nsteps - state["soot"]
+                )
+                / self.norms["soot"],
+                "unnormalized": lambda state, nsteps: -state["soot"],
+            },
         }
+
+        self.rewards = {}
         for name in self.names:
             if name not in self.available_rewards.keys():
                 sys.exit(f"""Non existing reward type: {name}""")
-
-        self.rewards = {name: self.available_rewards[name] for name in self.names}
+            self.rewards[name] = (
+                self.available_rewards[name]["normalized"]
+                if self.norms[name] is not None
+                else self.available_rewards[name]["unnormalized"]
+            )
 
     def evaluate(self, state, nsteps):
         """Evaluate the reward
@@ -126,12 +132,12 @@ class Reward:
 
     def set_norms(self, norms):
         if len(norms) != self.n:
-            sys.exit(f"""Wrong norms length ({len(norms) != {self.n}})""")
+            sys.exit(f"""Norms length != names ({len(norms)} != {self.n})""")
         self.norms = {name: norm for name, norm in zip(self.names, norms)}
 
     def set_weights(self, weights):
         if len(weights) != self.n:
-            sys.exit(f"""Wrong weights length ({len(weights) != {self.n}})""")
+            sys.exit(f"""Weights length != names ({len(weights)} != {self.n})""")
         self.weights = {name: weight for name, weight in zip(self.names, weights)}
 
     def set_random_weigths(self, precision=1000):
