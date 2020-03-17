@@ -160,25 +160,25 @@ class Reward:
             sys.exit(f"""Weights don't sum to 1 ({sum(weights)} != 1))""")
         self.weights = {name: weight for name, weight in zip(self.names, weights)}
 
-    def set_random_weights(self, precision=1000):
+    def set_random_weights(self):
         """Set random weights
 
-        Make a random vector from a uniform distribution where is sums
-        to 1. This is a tricky problem in general (drawing from a
-        uniform and then normalizing won't lead to a uniform
-        distribution of vectors). This trick might actually do it
-        according to the web. But it works for ints, so I adapted it
-        to draw ints to sum to a number (precision) and then normalize
-        by that number. That should give me a uniformly drawn vector
-        in [0,1] that sums to 1 (with the caveat that it is "binned"
-        by the precision).
+        Uniform sampling of the weights. This problem in general is
+        called simplex sampling. This seems to cause a lot of
+        confusion online. Basically you want to take a uniform sample
+        from the set X = { (x1, x2, ..., xD) | 0 <= xi <= 1, x1 + x2 +
+        ... + xD = 1}
+
+        It comes down to a special case of sampling from a Dirichlet
+        distribution. The concentrations are set to 1 to get a uniform
+        sampling.
+
+        This link has a good visual for what would happen if you
+        didn't do things correctly:
+        https://cs.stackexchange.com/questions/3227/uniform-sampling-from-a-simplex
+
         """
-        self.set_weights(
-            np.random.multinomial(
-                precision, [1 / np.float(self.n)] * self.n, size=1
-            ).flatten()
-            / precision
-        )
+        self.set_weights(np.random.dirichlet(np.ones(self.n)))
 
     def get_observable_attributes(self):
         """Return the weight observable attributes"""
