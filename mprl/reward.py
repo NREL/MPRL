@@ -160,7 +160,7 @@ class Reward:
             sys.exit(f"""Weights don't sum to 1 ({sum(weights)} != 1))""")
         self.weights = {name: weight for name, weight in zip(self.names, weights)}
 
-    def set_random_weigths(self, precision=1000):
+    def set_random_weights(self, precision=1000):
         """Set random weights
 
         Make a random vector from a uniform distribution where is sums
@@ -216,4 +216,4 @@ class Reward:
     def reset(self):
         """Reset the reward weights"""
         if self.randomize:
-            self.set_random_weigths()
+            self.set_random_weights()
