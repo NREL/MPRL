@@ -332,9 +332,86 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 35700367.24068123, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 17904.20025126, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 156.39239786, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.p), 35782042.570654, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 17961.33785320, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 157.051971, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
+        print(f"Wall time for ReactorEngine = {elapsed} seconds")
+
+    def test_reactor_engine_with_complex_reward(self):
+        """Does the ReactorEngine with complex reward work as expected?"""
+
+        # Initialize engine
+        reward = rw.Reward(
+            names=["work", "nox"],
+            norms=[15.0, 0.01],
+            weights=[0.5, 0.5],
+            negative_reward=-0.05,
+            randomize=False,
+        )
+        eng = engines.ReactorEngine(
+            nsteps=101,
+            Tinj=300.0,
+            rxnmech="dodecane_lu_nox.cti",
+            mdot=0.1,
+            max_minj=5e-5,
+            ename="Isooctane_MBT_DI_50C_Summ.xlsx",
+            reward=reward,
+        )
+        env = DummyVecEnv([lambda: eng])
+        variables = eng.observables + eng.internals + eng.histories
+        df = pd.DataFrame(
+            columns=list(
+                dict.fromkeys(
+                    variables
+                    + eng.action.actions
+                    + ["rewards"]
+                    + eng.reward.get_rewards()
+                )
+            )
+        )
+
+        # Evaluate a dummy agent that injects at a fixed time
+        t0 = time.time()
+        done = False
+        cnt = 0
+        obs = env.reset()
+        df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
+        df.loc[cnt, eng.action.actions] = 0
+        df.loc[cnt, ["rewards"]] = [eng.reward.evaluate(eng.current_state, eng.nsteps)]
+        df.loc[cnt, eng.reward.get_rewards()] = eng.reward.compute(
+            eng.current_state, eng.nsteps
+        )
+
+        while not done:
+            cnt += 1
+            # Agent tries to inject twice, but is not allowed the second time
+            action = (
+                [1]
+                if (eng.current_state["ca"] == -10) or eng.current_state["ca"] == 10
+                else [0]
+            )
+            obs, reward, done, info = env.step(action)
+            df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
+            df.loc[cnt, eng.action.actions] = eng.action.current
+            df.loc[cnt, ["rewards"]] = reward
+            df.loc[cnt, eng.reward.get_rewards()] = eng.reward.compute(
+                info[0]["current_state"], eng.nsteps
+            )
+
+        elapsed = time.time() - t0
+
+        utilities.plot_df(env, df, idx=6, name="reactor")
+
+        # Test
+        npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
+        npt.assert_allclose(np.linalg.norm(df.p), 35782042.57065371, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 17961.33785320, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 2.54745905, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.r_work), 5.21289089, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.r_nox), 3.20300001, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.w_work), 5.02493781, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.w_nox), 5.02493781, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for ReactorEngine = {elapsed} seconds")
 
