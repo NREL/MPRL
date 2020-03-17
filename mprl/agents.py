@@ -72,7 +72,7 @@ class CalibratedAgent(Agent):
             np.abs(
                 self.eng.history["ca"]
                 - obs.flatten()[self.eng.observables.index("ca")]
-                * self.eng.observable_scales["ca"]
+                * self.eng.observable_attributes["ca"]["scale"]
             )
         )
 
@@ -160,7 +160,7 @@ class ExhaustiveAgent(Agent):
 
     def predict(self, obs, **kwargs):
 
-        current_ca = obs[0][0] * self.eng.observable_scales["ca"]
+        current_ca = obs[0][0] * self.eng.observable_attributes["ca"]["scale"]
         tol = 1e-4
         action = [0]
         for inj in self.best_inj:
