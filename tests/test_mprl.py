@@ -332,7 +332,7 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 35700367.24068123, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.p), 35782042.570654, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df["T"]), 17904.20025126, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.rewards), 156.39239786, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
@@ -405,11 +405,13 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 35700367.24068123, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 17904.20025126, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 156.39239786, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.r_work), 156.39239786, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.r_nox), 156.39239786, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.p), 35782042.57065371, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 17961.33785320, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 2.54745905, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.r_work), 5.21289089, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.r_nox), 3.20300001, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.w_work), 5.02493781, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.w_nox), 5.02493781, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for ReactorEngine = {elapsed} seconds")
 
