@@ -202,7 +202,7 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [eng.reward.evaluate(eng.current_state, eng.nsteps)]
+        df.loc[cnt, ["rewards"]] = [eng.reward.summer(eng.current_state, eng.nsteps)]
 
         while not done:
             cnt += 1
@@ -256,7 +256,7 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [eng.reward.evaluate(eng.current_state, eng.nsteps)]
+        df.loc[cnt, ["rewards"]] = [eng.reward.summer(eng.current_state, eng.nsteps)]
 
         while not done:
             cnt += 1
@@ -311,7 +311,7 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [eng.reward.evaluate(eng.current_state, eng.nsteps)]
+        df.loc[cnt, ["rewards"]] = [eng.reward.summer(eng.current_state, eng.nsteps)]
 
         while not done:
             cnt += 1
@@ -378,10 +378,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [eng.reward.evaluate(eng.current_state, eng.nsteps)]
-        df.loc[cnt, eng.reward.get_rewards()] = eng.reward.compute(
-            eng.current_state, eng.nsteps
-        )
+        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps).values())
+        df.loc[cnt, eng.reward.get_rewards()] = rwd
+        df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
         while not done:
             cnt += 1
@@ -439,7 +438,7 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [eng.reward.evaluate(eng.current_state, eng.nsteps)]
+        df.loc[cnt, ["rewards"]] = [eng.reward.summer(eng.current_state, eng.nsteps)]
 
         while not done:
             cnt += 1

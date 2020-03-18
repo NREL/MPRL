@@ -124,8 +124,8 @@ class Reward:
                 else self.available_rewards[name]["unnormalized"]
             )
 
-    def evaluate(self, state, nsteps):
-        """Evaluate the reward
+    def summer(self, state, nsteps):
+        """Summation of the rewards
 
         :param state: environment state
         :type state: dict
