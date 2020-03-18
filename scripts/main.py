@@ -13,6 +13,7 @@ from datetime import timedelta
 import warnings
 import pickle
 import git
+import tensorflow as tf
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines import PPO2
@@ -53,6 +54,21 @@ def callback(_locals, _globals):
                     f"""checkpoint_{_locals["self"].num_timesteps}.pkl""",
                 )
             )
+
+        # Write some custom stuff to tensorboard
+        writer = _locals["writer"]
+        eng = _locals["self"].env.envs[0]
+        summ = tf.Summary(
+            value=[
+                tf.Summary.Value(tag=f"rewards/w_{k}", simple_value=v)
+                for k, v in eng.info["reward_weights"].items()
+            ]
+            + [
+                tf.Summary.Value(tag=f"rewards/r_{k}", simple_value=v)
+                for k, v in eng.info["returns"].items()
+            ]
+        )
+        writer.add_summary(summ, _locals["self"].num_timesteps)
 
     else:
         warnings.warn("Callback not implemented for this agent")

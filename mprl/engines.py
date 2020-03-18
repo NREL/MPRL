@@ -161,6 +161,8 @@ class Engine(gym.Env):
         self.max_pressure = max_pressure
         self.ename = ename
         self.reward = reward
+        self.returns = {k: 0.0 for k in self.reward.names}
+        self.rewards = {k: 0.0 for k in self.reward.names}
         self.nepisode = 0
         self.action = None
         self.state_updater = {}
@@ -386,6 +388,8 @@ class Engine(gym.Env):
             self.current_state[k] = self.history[k][0]
 
         self.reward.reset()
+        self.returns = {k: 0.0 for k in self.reward.names}
+        self.rewards = {k: 0.0 for k in self.reward.names}
         for key, reseter in self.state_reseter.items():
             if key in self.current_state.keys():
                 self.current_state[key] = reseter()
@@ -401,7 +405,9 @@ class Engine(gym.Env):
         """Evaluate termination criteria"""
 
         done = False
-        reward = self.reward.evaluate(self.current_state, self.nsteps)
+        self.rewards = self.reward.compute(self.current_state, self.nsteps)
+        reward = sum(self.rewards.values())
+        self.returns = {k: v + self.rewards[k] for k, v in self.returns.items()}
         if self.current_state["name"] >= len(self.history["V"]) - 1:
             done = True
         elif self.current_state["p"] > self.max_pressure * ct.one_atm:
@@ -415,6 +421,14 @@ class Engine(gym.Env):
     def render(self, mode="human", close=False):
         """Render the environment to the screen"""
         print("Nothing to render")
+
+    def get_info(self):
+        """Define an information dict for capturing state before reset"""
+        self.info = {"current_state": self.current_state,
+                     "returns": self.returns,
+                     "rewards": self.rewards,
+                     "reward_weights": self.reward.weights}
+        return self.info
 
 
 # ========================================================================
@@ -540,7 +554,7 @@ class TwoZoneEngine(Engine):
             [obs[k] for k in self.observables],
             reward,
             done,
-            {"current_state": self.current_state},
+            self.get_info(),
         )
 
     def dfundt_mdot(self, t, y, mxdot, V, dVdt, Qdot=0.0):
@@ -1043,7 +1057,7 @@ class ReactorEngine(Engine):
             [obs[k] for k in self.observables],
             reward,
             done,
-            {"current_state": self.current_state},
+            self.get_info(),
         )
 
 
@@ -1213,5 +1227,5 @@ class EquilibrateEngine(Engine):
             [obs[k] for k in self.observables],
             reward,
             done,
-            {"current_state": self.current_state},
+            self.get_info(),
         )

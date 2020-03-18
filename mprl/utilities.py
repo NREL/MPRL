@@ -148,8 +148,8 @@ def evaluate_agent(env, agent):
     df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
     df.loc[cnt, eng.action.actions] = 0
     df.loc[cnt, ["rewards"]] = [eng.reward.evaluate(eng.current_state, eng.nsteps)]
-    df.loc[cnt, eng.reward.get_rewards()] = eng.reward.compute(
-        eng.current_state, eng.nsteps
+    df.loc[cnt, eng.reward.get_rewards()] = list(
+        eng.reward.compute(eng.current_state, eng.nsteps).values()
     )
 
     while not done:
@@ -159,9 +159,7 @@ def evaluate_agent(env, agent):
         df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
         df.loc[cnt, eng.action.actions] = eng.action.current
         df.loc[cnt, ["rewards"]] = reward
-        df.loc[cnt, eng.reward.get_rewards()] = eng.reward.compute(
-            info[0]["current_state"], eng.nsteps
-        )
+        df.loc[cnt, eng.reward.get_rewards()] = list(info[0]["rewards"].values())
         if df.loc[cnt, "mdot"] > 0:
             print(f"""Injecting at ca = {df.loc[cnt, "ca"]}""")
 

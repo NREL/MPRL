@@ -134,7 +134,7 @@ class Reward:
         :returns: reward
         :rtype: float
         """
-        return sum(self.compute(state, nsteps))
+        return sum(self.compute(state, nsteps).values())
 
     def compute(self, state, nsteps):
         """Compute each weighted reward
@@ -146,7 +146,7 @@ class Reward:
         :returns: reward
         :rtype: float
         """
-        return [self.weights[n] * self.rewards[n](state, nsteps) for n in self.names]
+        return {n: self.weights[n] * self.rewards[n](state, nsteps) for n in self.names}
 
     def set_norms(self, norms):
         if len(norms) != self.n:
