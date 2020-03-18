@@ -192,7 +192,14 @@ class MPRLTestCase(unittest.TestCase):
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
         df = pd.DataFrame(
-            columns=list(dict.fromkeys(variables + eng.action.actions + ["rewards"]))
+            columns=list(
+                dict.fromkeys(
+                    variables
+                    + eng.action.actions
+                    + ["rewards"]
+                    + eng.reward.get_rewards()
+                )
+            )
         )
 
         # Evaluate a dummy agent that injects at a fixed time
@@ -202,7 +209,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [eng.reward.summer(eng.current_state, eng.nsteps)]
+        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+        df.loc[cnt, eng.reward.get_rewards()] = rwd
+        df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
         while not done:
             cnt += 1
@@ -216,6 +225,7 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
+            df.loc[cnt, eng.reward.get_rewards()] = list(info[0]["rewards"].values())
 
         elapsed = time.time() - t0
 
@@ -246,7 +256,14 @@ class MPRLTestCase(unittest.TestCase):
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
         df = pd.DataFrame(
-            columns=list(dict.fromkeys(variables + eng.action.actions + ["rewards"]))
+            columns=list(
+                dict.fromkeys(
+                    variables
+                    + eng.action.actions
+                    + ["rewards"]
+                    + eng.reward.get_rewards()
+                )
+            )
         )
 
         # Evaluate a dummy agent that injects at a fixed time
@@ -256,7 +273,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [eng.reward.summer(eng.current_state, eng.nsteps)]
+        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+        df.loc[cnt, eng.reward.get_rewards()] = rwd
+        df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
         while not done:
             cnt += 1
@@ -272,6 +291,7 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
+            df.loc[cnt, eng.reward.get_rewards()] = list(info[0]["rewards"].values())
 
         elapsed = time.time() - t0
 
@@ -311,7 +331,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [eng.reward.summer(eng.current_state, eng.nsteps)]
+        df.loc[cnt, ["rewards"]] = [
+            eng.reward.summer(eng.current_state, eng.nsteps, False)
+        ]
 
         while not done:
             cnt += 1
@@ -438,7 +460,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [eng.reward.summer(eng.current_state, eng.nsteps)]
+        df.loc[cnt, ["rewards"]] = [
+            eng.reward.summer(eng.current_state, eng.nsteps, False)
+        ]
 
         while not done:
             cnt += 1

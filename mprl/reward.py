@@ -36,7 +36,10 @@ class Reward:
 
         # Do not let user modify the form of the penalty reward
         if "penalty" in names:
-            sys.exit("User may not explicitly set the penalty reward.")
+            print("Warning: user may not explicitly set the penalty reward. Stripping")
+            names = [n for n in names if n != "penalty"]
+            weights = [w for n, w in zip(names, weights) if n != "penalty"]
+            norms = [m for n, m in zip(names, norms) if n != "penalty"]
 
         # Sanity check the weights
         if np.fabs(sum(weights) - 1.0) > 1e-13:
@@ -101,29 +104,29 @@ class Reward:
         self.lambda_names = ["available_rewards", "rewards"]
         self.available_rewards = {
             "work": {
-                "normalized": lambda state, nsteps, _: (
+                "normalized": lambda state, nsteps, *unused: (
                     state["p"] * state["dV"] - self.norms["work"] / (nsteps - 1)
                 )
                 / self.norms["work"],
-                "unnormalized": lambda state, _: state["p"] * state["dV"],
+                "unnormalized": lambda state, *unused: state["p"] * state["dV"],
             },
             "nox": {
-                "normalized": lambda state, nsteps, _: (
+                "normalized": lambda state, nsteps, *unused: (
                     self.norms["nox"] / (nsteps - 1) - state["nox"]
                 )
                 / self.norms["nox"],
-                "unnormalized": lambda state, _: -state["nox"],
+                "unnormalized": lambda state, *unused: -state["nox"],
             },
             "soot": {
-                "normalized": lambda state, nsteps, _: (
+                "normalized": lambda state, nsteps, *unused: (
                     self.norms["soot"] / (nsteps - 1) - state["soot"]
                 )
                 / self.norms["soot"],
-                "unnormalized": lambda state, _: -state["soot"],
+                "unnormalized": lambda state, *unused: -state["soot"],
             },
             "penalty": {
-                "unnormalized": lambda state, _, penalty: (
-                    self.negative_reward / (self.nsteps - 1) if penalty else 0.0
+                "unnormalized": lambda state, nsteps, penalty: (
+                    self.negative_reward / (nsteps - 1) if penalty else 0.0
                 )
             },
         }
