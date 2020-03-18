@@ -378,7 +378,7 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps).values())
+        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
         df.loc[cnt, eng.reward.get_rewards()] = rwd
         df.loc[cnt, ["rewards"]] = [sum(rwd)]
 

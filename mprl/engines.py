@@ -405,16 +405,23 @@ class Engine(gym.Env):
         """Evaluate termination criteria"""
 
         done = False
-        self.rewards = self.reward.compute(self.current_state, self.nsteps)
-        reward = sum(self.rewards.values())
-        self.returns = {k: v + self.rewards[k] for k, v in self.returns.items()}
         if self.current_state["name"] >= len(self.history["V"]) - 1:
             done = True
-        elif self.current_state["p"] > self.max_pressure * ct.one_atm:
+
+        # Penalties
+        penalty = False
+        if self.current_state["p"] > self.max_pressure * ct.one_atm:
+            penalty = True
             print(
                 f"""Maximum pressure ({self.max_pressure} atm) has been exceeded (p = {self.current_state["p"]})!"""
             )
-            reward += self.reward.negative_reward / (self.nsteps - 1)
+        if self.action.masked:
+            penalty = True
+
+        # Compute rewards
+        self.rewards = self.reward.compute(self.current_state, self.nsteps, penalty)
+        reward = sum(self.rewards.values())
+        self.returns = {k: v + self.rewards[k] for k, v in self.returns.items()}
 
         return reward, done
 
@@ -540,10 +547,6 @@ class TwoZoneEngine(Engine):
         self.update_state()
 
         reward, done = self.termination()
-
-        # Add negative reward if the action had to be masked
-        if self.action.masked:
-            reward += self.reward.negative_reward / (self.nsteps - 1)
 
         if done:
             print(f"Finished episode #{self.nepisode}")
@@ -1044,10 +1047,6 @@ class ReactorEngine(Engine):
 
         reward, done = self.termination()
 
-        # Add negative reward if the action had to be masked
-        if self.action.masked:
-            reward += self.reward.negative_reward / (self.nsteps - 1)
-
         if done:
             print(f"Finished episode #{self.nepisode}")
             self.nepisode += 1
@@ -1213,10 +1212,6 @@ class EquilibrateEngine(Engine):
         self.update_state()
 
         reward, done = self.termination()
-
-        # Add negative reward if the action had to be masked
-        if self.action.masked:
-            reward += self.reward.negative_reward / (self.nsteps - 1)
 
         if done:
             print(f"Finished episode #{self.nepisode}")

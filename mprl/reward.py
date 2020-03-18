@@ -34,10 +34,19 @@ class Reward:
         :type negative_reward: float
         """
 
-        self.names = names
+        # Do not let user modify the form of the penalty reward
+        if "penalty" in names:
+            sys.exit("User may not explicitly set the penalty reward.")
+
+        # Sanity check the weights
+        if np.fabs(sum(weights) - 1.0) > 1e-13:
+            sys.exit(f"""Weights don't sum to 1 ({sum(weights)} != 1))""")
+
+        self.names = names + ["penalty"]
         self.n = len(self.names)
-        self.set_norms(norms)
-        self.set_weights(weights)
+        self.set_norms(norms + [None])
+        self.set_weights(weights + [1.0])
+        self.set_weight_observables()
         self.negative_reward = negative_reward
         self.randomize = randomize
         self.setup_reward()
@@ -92,25 +101,30 @@ class Reward:
         self.lambda_names = ["available_rewards", "rewards"]
         self.available_rewards = {
             "work": {
-                "normalized": lambda state, nsteps: (
+                "normalized": lambda state, nsteps, _: (
                     state["p"] * state["dV"] - self.norms["work"] / (nsteps - 1)
                 )
                 / self.norms["work"],
-                "unnormalized": lambda state, nsteps: state["p"] * state["dV"],
+                "unnormalized": lambda state, _: state["p"] * state["dV"],
             },
             "nox": {
-                "normalized": lambda state, nsteps: (
+                "normalized": lambda state, nsteps, _: (
                     self.norms["nox"] / (nsteps - 1) - state["nox"]
                 )
                 / self.norms["nox"],
-                "unnormalized": lambda state, nsteps: -state["nox"],
+                "unnormalized": lambda state, _: -state["nox"],
             },
             "soot": {
-                "normalized": lambda state, nsteps: (
+                "normalized": lambda state, nsteps, _: (
                     self.norms["soot"] / (nsteps - 1) - state["soot"]
                 )
                 / self.norms["soot"],
-                "unnormalized": lambda state, nsteps: -state["soot"],
+                "unnormalized": lambda state, _: -state["soot"],
+            },
+            "penalty": {
+                "unnormalized": lambda state, _, penalty: (
+                    self.negative_reward / (self.nsteps - 1) if penalty else 0.0
+                )
             },
         }
 
@@ -124,7 +138,7 @@ class Reward:
                 else self.available_rewards[name]["unnormalized"]
             )
 
-    def summer(self, state, nsteps):
+    def summer(self, state, nsteps, penalty):
         """Summation of the rewards
 
         :param state: environment state
@@ -134,19 +148,24 @@ class Reward:
         :returns: reward
         :rtype: float
         """
-        return sum(self.compute(state, nsteps).values())
+        return sum(self.compute(state, nsteps, penalty).values())
 
-    def compute(self, state, nsteps):
+    def compute(self, state, nsteps, penalty):
         """Compute each weighted reward
 
         :param state: environment state
         :type state: dict
         :param nsteps: number of steps
         :type nsteps: int
+        :param penalty: whether to penalize the reward
+        :type penalty: bool
         :returns: reward
         :rtype: float
         """
-        return {n: self.weights[n] * self.rewards[n](state, nsteps) for n in self.names}
+        return {
+            n: self.weights[n] * self.rewards[n](state, nsteps, penalty)
+            for n in self.names
+        }
 
     def set_norms(self, norms):
         if len(norms) != self.n:
@@ -156,9 +175,18 @@ class Reward:
     def set_weights(self, weights):
         if len(weights) != self.n:
             sys.exit(f"""Weights length != names ({len(weights)} != {self.n})""")
-        if np.fabs(sum(weights) - 1.0) > 1e-13:
-            sys.exit(f"""Weights don't sum to 1 ({sum(weights)} != 1))""")
         self.weights = {name: weight for name, weight in zip(self.names, weights)}
+
+    def set_weight_observables(self):
+        """Define which weights should be observables for the engine"""
+
+        # If there is the penalty reward and another reward, don't
+        # bother adding observables for the engine
+        if self.n <= 2:
+            self.is_observable = {k: False for k in self.weights.keys()}
+        else:
+            self.is_observable = {k: True for k in self.weights.keys()}
+            self.is_observable["penalty"] = False
 
     def set_random_weights(self):
         """Set random weights
@@ -177,28 +205,27 @@ class Reward:
         didn't do things correctly:
         https://cs.stackexchange.com/questions/3227/uniform-sampling-from-a-simplex
 
+        Randomize all the weights except the one for the negative
+        reward (explicitly set to 1)
+
         """
-        self.set_weights(np.random.dirichlet(np.ones(self.n)))
+        self.set_weights(np.hstack((np.random.dirichlet(np.ones(self.n - 1)), [1.0])))
 
     def get_observable_attributes(self):
         """Return the weight observable attributes"""
         return {
-            f"""w_{k}""": {"low": 0.0, "high": 1.0, "scale": 1.0} for k in self.names
+            f"""w_{k}""": {"low": 0.0, "high": 1.0, "scale": 1.0}
+            for k in self.weights.keys()
+            if self.is_observable[k]
         }
 
     def get_observables(self):
-        """Return the weight observables (only if more than one)"""
-        if self.n > 1:
-            return [f"""w_{k}""" for k in self.names]
-        else:
-            return []
+        """Return the weight observables"""
+        return [f"""w_{k}""" for k in self.weights.keys() if self.is_observable[k]]
 
     def get_rewards(self):
-        """Return the formatted reward names (only if more than one)"""
-        if self.n > 1:
-            return [f"""r_{k}""" for k in self.names]
-        else:
-            return []
+        """Return the formatted reward names"""
+        return [f"""r_{k}""" for k in self.rewards.keys()]
 
     def get_state_updater(self):
         # Ideally we would do:
@@ -208,6 +235,7 @@ class Reward:
             "w_work": lambda: self.weights["work"],
             "w_nox": lambda: self.weights["nox"],
             "w_soot": lambda: self.weights["soot"],
+            "w_penalty": lambda: self.weights["penalty"],
         }
 
     def get_state_reseter(self):

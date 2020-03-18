@@ -93,9 +93,11 @@ def get_fields():
         "w_work": r"$\omega_{w}$",
         "w_nox": r"$\omega_{Y_{NO_x}}$",
         "w_soot": r"$\omega_{Y_{C_2 H_2}}$",
+        "w_penalty": r"$\omega_p$",
         "r_work": r"$r_{w}$",
         "r_nox": r"$r_{Y_{NO_x}}$",
         "r_soot": r"$r_{Y_{C_2 H_2}}$",
+        "r_penalty": r"$r_p$",
     }
 
 
@@ -147,7 +149,7 @@ def evaluate_agent(env, agent):
     obs = env.reset()
     df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
     df.loc[cnt, eng.action.actions] = 0
-    rwd = list(eng.reward.compute(eng.current_state, eng.nsteps).values())
+    rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
     df.loc[cnt, eng.reward.get_rewards()] = rwd
     df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
