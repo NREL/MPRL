@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../"
 import mprl.engines as engines
 import mprl.agents as agents
 import mprl.utilities as utilities
+import mprl.reward as rw
 
 
 # ========================================================================
@@ -148,8 +149,8 @@ class MPRLTestCase(unittest.TestCase):
             max_minj=2.5e-5,
             fuel="dodecane",
             rxnmech="dodecane_lu_nox.cti",
-            negative_reward=-0.05,
             ename="Isooctane_MBT_DI_50C_Summ.xlsx",
+            reward=rw.Reward(negative_reward=-0.05),
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -185,13 +186,20 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="llnl_gasoline_surrogate_323.xml",
             mdot=0.1,
             max_minj=5e-5,
-            negative_reward=-101,
             ename="Isooctane_MBT_DI_50C_Summ.xlsx",
+            reward=rw.Reward(negative_reward=-101),
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
         df = pd.DataFrame(
-            columns=list(dict.fromkeys(variables + eng.action.actions + ["rewards"]))
+            columns=list(
+                dict.fromkeys(
+                    variables
+                    + eng.action.actions
+                    + ["rewards"]
+                    + eng.reward.get_rewards()
+                )
+            )
         )
 
         # Evaluate a dummy agent that injects at a fixed time
@@ -201,7 +209,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
+        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+        df.loc[cnt, eng.reward.get_rewards()] = rwd
+        df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
         while not done:
             cnt += 1
@@ -215,6 +225,7 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
+            df.loc[cnt, eng.reward.get_rewards()] = list(info[0]["rewards"].values())
 
         elapsed = time.time() - t0
 
@@ -239,13 +250,20 @@ class MPRLTestCase(unittest.TestCase):
             mdot=0.1,
             max_minj=5e-5,
             injection_delay=0.0025,
-            negative_reward=-101,
             ename="Isooctane_MBT_DI_50C_Summ.xlsx",
+            reward=rw.Reward(negative_reward=-101.0),
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
         df = pd.DataFrame(
-            columns=list(dict.fromkeys(variables + eng.action.actions + ["rewards"]))
+            columns=list(
+                dict.fromkeys(
+                    variables
+                    + eng.action.actions
+                    + ["rewards"]
+                    + eng.reward.get_rewards()
+                )
+            )
         )
 
         # Evaluate a dummy agent that injects at a fixed time
@@ -255,7 +273,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
+        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+        df.loc[cnt, eng.reward.get_rewards()] = rwd
+        df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
         while not done:
             cnt += 1
@@ -271,6 +291,7 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
+            df.loc[cnt, eng.reward.get_rewards()] = list(info[0]["rewards"].values())
 
         elapsed = time.time() - t0
 
@@ -294,8 +315,8 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.1,
             max_minj=5e-5,
-            negative_reward=-0.05,
             ename="Isooctane_MBT_DI_50C_Summ.xlsx",
+            reward=rw.Reward(negative_reward=-0.05),
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -310,7 +331,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
+        df.loc[cnt, ["rewards"]] = [
+            eng.reward.summer(eng.current_state, eng.nsteps, False)
+        ]
 
         while not done:
             cnt += 1
@@ -331,9 +354,83 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 35700367.24068123, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 17904.20025126, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 156.39239786, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.p), 35782042.570654, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 17961.33785320, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 157.051971, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
+        print(f"Wall time for ReactorEngine = {elapsed} seconds")
+
+    def test_reactor_engine_with_complex_reward(self):
+        """Does the ReactorEngine with complex reward work as expected?"""
+
+        # Initialize engine
+        reward = rw.Reward(
+            names=["work", "nox"],
+            norms=[15.0, 0.01],
+            weights=[0.5, 0.5],
+            negative_reward=-0.05,
+            randomize=False,
+        )
+        eng = engines.ReactorEngine(
+            nsteps=101,
+            Tinj=300.0,
+            rxnmech="dodecane_lu_nox.cti",
+            mdot=0.1,
+            max_minj=5e-5,
+            ename="Isooctane_MBT_DI_50C_Summ.xlsx",
+            reward=reward,
+        )
+        env = DummyVecEnv([lambda: eng])
+        variables = eng.observables + eng.internals + eng.histories
+        df = pd.DataFrame(
+            columns=list(
+                dict.fromkeys(
+                    variables
+                    + eng.action.actions
+                    + ["rewards"]
+                    + eng.reward.get_rewards()
+                )
+            )
+        )
+
+        # Evaluate a dummy agent that injects at a fixed time
+        t0 = time.time()
+        done = False
+        cnt = 0
+        obs = env.reset()
+        df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
+        df.loc[cnt, eng.action.actions] = 0
+        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+        df.loc[cnt, eng.reward.get_rewards()] = rwd
+        df.loc[cnt, ["rewards"]] = [sum(rwd)]
+
+        while not done:
+            cnt += 1
+            # Agent tries to inject twice, but is not allowed the second time
+            action = (
+                [1]
+                if (eng.current_state["ca"] == -10) or eng.current_state["ca"] == 10
+                else [0]
+            )
+            obs, reward, done, info = env.step(action)
+            df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
+            df.loc[cnt, eng.action.actions] = eng.action.current
+            df.loc[cnt, ["rewards"]] = reward
+            df.loc[cnt, eng.reward.get_rewards()] = list(info[0]["rewards"].values())
+
+        elapsed = time.time() - t0
+
+        utilities.plot_df(env, df, idx=6, name="reactor")
+
+        # Test
+        npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
+        npt.assert_allclose(np.linalg.norm(df.p), 35782042.57065371, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 17961.33785320, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 2.54745905, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.r_work), 5.21289089, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.r_nox), 3.20300001, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.w_work), 5.02493781, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.w_nox), 5.02493781, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for ReactorEngine = {elapsed} seconds")
 
@@ -347,8 +444,8 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.1,
             max_minj=5e-5,
-            negative_reward=-0.05,
             ename="Isooctane_MBT_DI_50C_Summ.xlsx",
+            reward=rw.Reward(negative_reward=-0.05),
         )
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
@@ -363,7 +460,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
+        df.loc[cnt, ["rewards"]] = [
+            eng.reward.summer(eng.current_state, eng.nsteps, False)
+        ]
 
         while not done:
             cnt += 1
@@ -407,7 +506,7 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.01,
             max_minj=5e-5,
-            negative_reward=-0.05,
+            reward=rw.Reward(negative_reward=-0.05),
         )
         assert_deepcopy_pickle_repr(orig)
 
@@ -420,7 +519,7 @@ class MPRLTestCase(unittest.TestCase):
             rxnmech="dodecane_lu_nox.cti",
             mdot=0.1,
             max_minj=5e-5,
-            negative_reward=-0.05,
+            reward=rw.Reward(negative_reward=-0.05),
         )
         assert_deepcopy_pickle_repr(orig)
 

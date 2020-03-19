@@ -90,6 +90,14 @@ def get_fields():
         "soot": r"$Y_{C_2 H_2}$",
         "attempt_ninj": r"attempted \# injections",
         "success_ninj": r"successful \# injections",
+        "w_work": r"$\omega_{w}$",
+        "w_nox": r"$\omega_{Y_{NO_x}}$",
+        "w_soot": r"$\omega_{Y_{C_2 H_2}}$",
+        "w_penalty": r"$\omega_p$",
+        "r_work": r"$r_{w}$",
+        "r_nox": r"$r_{Y_{NO_x}}$",
+        "r_soot": r"$r_{Y_{C_2 H_2}}$",
+        "r_penalty": r"$r_p$",
     }
 
 
@@ -128,7 +136,11 @@ def evaluate_agent(env, agent):
     eng = env.envs[0]
     variables = eng.observables + eng.internals + eng.histories
     df = pd.DataFrame(
-        columns=list(dict.fromkeys(variables + eng.action.actions + ["rewards"]))
+        columns=list(
+            dict.fromkeys(
+                variables + eng.action.actions + ["rewards"] + eng.reward.get_rewards()
+            )
+        )
     )
 
     # Evaluate actions from the agent in the environment
@@ -137,7 +149,9 @@ def evaluate_agent(env, agent):
     obs = env.reset()
     df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
     df.loc[cnt, eng.action.actions] = 0
-    df.loc[cnt, ["rewards"]] = [engines.get_reward(eng.current_state)]
+    rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+    df.loc[cnt, eng.reward.get_rewards()] = rwd
+    df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
     while not done:
         cnt += 1
@@ -146,6 +160,7 @@ def evaluate_agent(env, agent):
         df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
         df.loc[cnt, eng.action.actions] = eng.action.current
         df.loc[cnt, ["rewards"]] = reward
+        df.loc[cnt, eng.reward.get_rewards()] = list(info[0]["rewards"].values())
         if df.loc[cnt, "mdot"] > 0:
             print(f"""Injecting at ca = {df.loc[cnt, "ca"]}""")
 

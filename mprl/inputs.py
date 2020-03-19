@@ -97,9 +97,6 @@ class Input:
                 "injection_delay": Parameter(
                     0.0, "Time delay between injections", float
                 ),
-                "negative_reward": Parameter(
-                    -800.0, "Negative reward for unallowed actions", float
-                ),
                 "max_pressure": Parameter(
                     200.0, "Maximum pressure allowed in engine (atm)", float
                 ),
@@ -115,6 +112,19 @@ class Input:
                 "use_qdot": Parameter(False, "Use a Qdot as an action", bool),
                 "use_continuous": Parameter(
                     False, "Use a continuous action space", bool
+                ),
+            },
+            "reward": {
+                "names": Parameter(["work"], "names", list),
+                "norms": Parameter([None], "norms", list),
+                "weights": Parameter([1.0], "weights", list),
+                "negative_reward": Parameter(
+                    -800.0, "Negative reward for unallowed actions", float
+                ),
+                "randomize": Parameter(
+                    False,
+                    "Randomize the reward weights at each engine initialization",
+                    bool,
                 ),
             },
         }

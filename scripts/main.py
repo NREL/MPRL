@@ -13,6 +13,7 @@ from datetime import timedelta
 import warnings
 import pickle
 import git
+import tensorflow as tf
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines import PPO2
@@ -22,6 +23,7 @@ import mprl.engines as engines
 import mprl.agents as agents
 import mprl.utilities as utilities
 import mprl.inputs as inputs
+import mprl.reward as rw
 
 
 # ========================================================================
@@ -52,6 +54,21 @@ def callback(_locals, _globals):
                     f"""checkpoint_{_locals["self"].num_timesteps}.pkl""",
                 )
             )
+
+        # Write some custom stuff to tensorboard
+        writer = _locals["writer"]
+        eng = _locals["self"].env.envs[0]
+        summ = tf.Summary(
+            value=[
+                tf.Summary.Value(tag=f"rewards/w_{k}", simple_value=v)
+                for k, v in eng.info["reward_weights"].items()
+            ]
+            + [
+                tf.Summary.Value(tag=f"rewards/r_{k}", simple_value=v)
+                for k, v in eng.info["returns"].items()
+            ]
+        )
+        writer.add_summary(summ, _locals["self"].num_timesteps)
 
     else:
         warnings.warn("Callback not implemented for this agent")
@@ -101,6 +118,16 @@ if __name__ == "__main__":
     pickle.dump(args, open(os.path.join(logdir, "args.pkl"), "wb"))
     best_reward = -np.inf
 
+    # Initialize the reward
+    rwd_params = params.inputs["reward"]
+    reward = rw.Reward(
+        names=rwd_params["names"].value,
+        norms=rwd_params["norms"].value,
+        weights=rwd_params["weights"].value,
+        negative_reward=rwd_params["negative_reward"].value,
+        randomize=rwd_params["randomize"].value,
+    )
+
     # Initialize the engine
     eng_params = params.inputs["engine"]
     if eng_params["engine"].value == "reactor-engine":
@@ -110,9 +137,9 @@ if __name__ == "__main__":
             mdot=eng_params["mdot"].value,
             max_minj=eng_params["max_minj"].value,
             injection_delay=eng_params["injection_delay"].value,
-            negative_reward=eng_params["negative_reward"].value,
             max_pressure=eng_params["max_pressure"].value,
             ename=eng_params["ename"].value,
+            reward=reward,
             fuel=eng_params["fuel"].value,
             rxnmech=eng_params["rxnmech"].value,
             observables=eng_params["observables"].value,
@@ -124,9 +151,9 @@ if __name__ == "__main__":
             mdot=eng_params["mdot"].value,
             max_minj=eng_params["max_minj"].value,
             injection_delay=eng_params["injection_delay"].value,
-            negative_reward=eng_params["negative_reward"].value,
             max_pressure=eng_params["max_pressure"].value,
             ename=eng_params["ename"].value,
+            reward=reward,
             fuel=eng_params["fuel"].value,
             rxnmech=eng_params["rxnmech"].value,
             observables=eng_params["observables"].value,
@@ -135,9 +162,9 @@ if __name__ == "__main__":
         if eng_params["use_continuous"].value:
             eng = engines.ContinuousTwoZoneEngine(
                 nsteps=eng_params["nsteps"].value,
-                negative_reward=eng_params["negative_reward"].value,
                 max_pressure=eng_params["max_pressure"].value,
                 ename=eng_params["ename"].value,
+                reward=reward,
                 fuel=eng_params["fuel"].value,
                 rxnmech=eng_params["rxnmech"].value,
                 use_qdot=eng_params["use_qdot"].value,
@@ -148,9 +175,9 @@ if __name__ == "__main__":
                 mdot=eng_params["mdot"].value,
                 max_minj=eng_params["max_minj"].value,
                 injection_delay=eng_params["injection_delay"].value,
-                negative_reward=eng_params["negative_reward"].value,
                 max_pressure=eng_params["max_pressure"].value,
                 ename=eng_params["ename"].value,
+                reward=reward,
                 fuel=eng_params["fuel"].value,
                 rxnmech=eng_params["rxnmech"].value,
                 observables=eng_params["observables"].value,
