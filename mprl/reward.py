@@ -104,23 +104,17 @@ class Reward:
         self.lambda_names = ["available_rewards", "rewards"]
         self.available_rewards = {
             "work": {
-                "normalized": lambda state, nsteps, *unused: (
-                    state["p"] * state["dV"] - self.norms["work"] / (nsteps - 1)
-                )
+                "normalized": lambda state, *unused: state["p"]
+                * state["dV"]
                 / self.norms["work"],
                 "unnormalized": lambda state, *unused: state["p"] * state["dV"],
             },
             "nox": {
-                "normalized": lambda state, nsteps, *unused: (
-                    self.norms["nox"] / (nsteps - 1) - state["nox"]
-                )
-                / self.norms["nox"],
+                "normalized": lambda state, *unused: -state["nox"] / self.norms["nox"],
                 "unnormalized": lambda state, *unused: -state["nox"],
             },
             "soot": {
-                "normalized": lambda state, nsteps, *unused: (
-                    self.norms["soot"] / (nsteps - 1) - state["soot"]
-                )
+                "normalized": lambda state, *unused: -state["soot"]
                 / self.norms["soot"],
                 "unnormalized": lambda state, *unused: -state["soot"],
             },
