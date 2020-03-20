@@ -34,7 +34,12 @@ if __name__ == "__main__":
         "-l", "--labels", help="Labels for plot", type=str, nargs="+", default=None
     )
     parser.add_argument(
-        "-w", "--weights", help="Weights for rewards", type=str, nargs="+", default=None
+        "-w",
+        "--weights",
+        help="Weights for rewards",
+        type=float,
+        nargs="+",
+        default=None,
     )
     args = parser.parse_args()
 
@@ -52,7 +57,7 @@ if __name__ == "__main__":
             weights = rwd_params["weights"].value
             randomize = rwd_params["randomize"].value
         else:
-            if len(weights) != len(rwd_params["weights"].value):
+            if len(args.weights) != len(rwd_params["weights"].value):
                 sys.exit("Wrong weights input length")
             weights = args.weights
             randomize = False
