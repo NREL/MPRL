@@ -39,9 +39,11 @@ if __name__ == "__main__":
         help="Weights for rewards",
         type=float,
         nargs="+",
+        action="append",
         default=None,
     )
     args = parser.parse_args()
+    print(args.weights)
 
     for k, fname in enumerate(args.agents):
         fdir = os.path.dirname(os.path.abspath(fname))
@@ -57,10 +59,10 @@ if __name__ == "__main__":
             weights = rwd_params["weights"].value
             randomize = rwd_params["randomize"].value
         else:
-            if len(args.weights) != len(rwd_params["weights"].value):
-                sys.exit("Wrong weights input length")
-            weights = args.weights
+            weights = args.weights[k]
             randomize = False
+            if len(weights) != len(rwd_params["weights"].value):
+                sys.exit("Wrong weights input length")
         reward = rw.Reward(
             names=rwd_params["names"].value,
             norms=rwd_params["norms"].value,
