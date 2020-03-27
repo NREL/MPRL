@@ -43,7 +43,6 @@ if __name__ == "__main__":
         default=None,
     )
     args = parser.parse_args()
-    print(args.weights)
 
     for k, fname in enumerate(args.agents):
         fdir = os.path.dirname(os.path.abspath(fname))
