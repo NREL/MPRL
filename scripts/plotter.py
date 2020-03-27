@@ -33,6 +33,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "-l", "--labels", help="Labels for plot", type=str, nargs="+", default=None
     )
+    parser.add_argument(
+        "-w",
+        "--weights",
+        help="Weights for rewards",
+        type=float,
+        nargs="+",
+        action="append",
+        default=None,
+    )
     args = parser.parse_args()
 
     for k, fname in enumerate(args.agents):
@@ -45,12 +54,20 @@ if __name__ == "__main__":
 
         # Initialize the reward
         rwd_params = params.inputs["reward"]
+        if args.weights is None:
+            weights = rwd_params["weights"].value
+            randomize = rwd_params["randomize"].value
+        else:
+            weights = args.weights[k]
+            randomize = False
+            if len(weights) != len(rwd_params["weights"].value):
+                sys.exit("Wrong weights input length")
         reward = rw.Reward(
             names=rwd_params["names"].value,
             norms=rwd_params["norms"].value,
-            weights=rwd_params["weights"].value,
+            weights=weights,
             negative_reward=rwd_params["negative_reward"].value,
-            randomize=rwd_params["randomize"].value,
+            randomize=randomize,
         )
 
         # Initialize the engine
