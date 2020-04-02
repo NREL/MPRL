@@ -13,6 +13,9 @@ from datetime import timedelta
 import warnings
 import pickle
 import git
+from io import BytesIO
+from PIL import Image
+from matplotlib import cm
 import tensorflow as tf
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
@@ -55,6 +58,22 @@ def callback(_locals, _globals):
                 )
             )
 
+        # Get the actions of the last episode
+        idx = np.argwhere(_locals["masks"])[-1][0]
+        actions = np.array(_locals["actions"][idx:]).reshape(-1, 1)
+
+        if not os.path.exists(aname):
+            np.savez(aname, actions=actions)
+        else:
+            npzf = np.load(aname)
+            actions = np.hstack((npzf["actions"], actions))
+            np.savez(aname, actions=actions)
+
+        img = Image.fromarray(np.uint8(cm.viridis(actions * 1.0) * 255))
+        with BytesIO() as output:
+            img.save(output, "PNG")
+            imgb = output.getvalue()
+
         # Write some custom stuff to tensorboard
         writer = _locals["writer"]
         eng = _locals["self"].env.envs[0]
@@ -66,6 +85,17 @@ def callback(_locals, _globals):
             + [
                 tf.Summary.Value(tag=f"rewards/r_{k}", simple_value=v)
                 for k, v in eng.info["returns"].items()
+            ]
+            + [
+                tf.Summary.Value(
+                    tag=f"actions",
+                    image=tf.Summary.Image(
+                        height=actions.shape[0],
+                        width=actions.shape[1],
+                        colorspace=4,
+                        encoded_image_string=imgb,
+                    ),
+                )
             ]
         )
         writer.add_summary(summ, _locals["self"].num_timesteps)
@@ -112,6 +142,9 @@ if __name__ == "__main__":
         columns=["episode", "episode_step", "total_steps", "episode_reward"]
     )
     logs.to_csv(logname, index=False)
+    aname = os.path.join(logdir, "actions.npz")
+    if os.path.exists(aname):
+        os.remove(aname)
     repo = git.Repo(os.path.abspath(__file__), search_parent_directories=True)
     with open(os.path.join(logdir, "hash.txt"), "w") as f:
         f.write(f"hash: {repo.head.object.hexsha}\n")
