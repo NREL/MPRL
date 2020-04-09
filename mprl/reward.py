@@ -110,13 +110,16 @@ class Reward:
                 "unnormalized": lambda state, *unused: state["p"] * state["dV"],
             },
             "nox": {
-                "normalized": lambda state, *unused: -state["nox"] / self.norms["nox"],
-                "unnormalized": lambda state, *unused: -state["nox"],
+                "normalized": lambda state, *unused: -state["nox"]
+                * state["dca"]
+                / self.norms["nox"],
+                "unnormalized": lambda state, *unused: -state["nox"] * state["dca"],
             },
             "soot": {
                 "normalized": lambda state, *unused: -state["soot"]
+                * state["dca"]
                 / self.norms["soot"],
-                "unnormalized": lambda state, *unused: -state["soot"],
+                "unnormalized": lambda state, *unused: -state["soot"] * state["dca"],
             },
             "penalty": {
                 "unnormalized": lambda state, nsteps, penalty: (

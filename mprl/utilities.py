@@ -49,7 +49,7 @@ dashseq = [
     [3, 3],
 ]
 markertype = ["s", "d", "o", "p", "h"]
-rcParams.update({"figure.autolayout": True})
+rcParams.update({"figure.autolayout": True, "figure.max_open_warning": 0})
 
 
 # ========================================================================
@@ -98,6 +98,11 @@ def get_fields():
         "r_nox": r"$r_{Y_{NO_x}}$",
         "r_soot": r"$r_{Y_{C_2 H_2}}$",
         "r_penalty": r"$r_p$",
+        "cumulative_rewards": r"$\Sigma_{t=0}^{N} r_t$",
+        "cumulative_r_work": r"$\Sigma_{t=0}^{N} r_{w,t}$",
+        "cumulative_r_nox": r"$\Sigma_{t=0}^{N} r_{Y_{NO_x,t}}$",
+        "cumulative_r_soot": r"$\Sigma_{t=0}^{N} r_{Y_{C_2 H_2,t}}$",
+        "cumulative_r_penalty": r"$\Sigma_{t=0}^{N} r_{p,t}$",
     }
 
 
@@ -164,6 +169,9 @@ def evaluate_agent(env, agent):
         if df.loc[cnt, "mdot"] > 0:
             print(f"""Injecting at ca = {df.loc[cnt, "ca"]}""")
 
+    for rwd in eng.reward.get_rewards() + ["rewards"]:
+        df[f"cumulative_{rwd}"] = np.cumsum(df[rwd])
+
     return df, df.rewards.sum()
 
 
@@ -197,16 +205,6 @@ def plot_df(env, df, idx=0, name=None, plot_exp=True):
             plt.figure(field)
             p = plt.plot(df.ca, df[field], color=cmap[cidx], lw=2, label=label)
             p[0].set_dashes(dashseq[didx])
-
-    plt.figure("cumulative_reward")
-    p = plt.plot(
-        df.ca.values.flatten(),
-        np.cumsum(df.rewards),
-        color=cmap[cidx],
-        lw=2,
-        label=label,
-    )
-    p[0].set_dashes(dashseq[didx])
 
 
 # ========================================================================
@@ -243,15 +241,6 @@ def save_plots(fname):
                 plt.setp(ax.get_ymajorticklabels(), fontsize=16)
                 # legend = ax.legend(loc="best")
                 pdf.savefig(dpi=300)
-
-        plt.figure("cumulative_reward")
-        ax = plt.gca()
-        plt.xlabel(r"$\theta$", fontsize=22, fontweight="bold")
-        plt.ylabel(r"$\Sigma_{t=0}^{N} r_t$", fontsize=22, fontweight="bold")
-        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
-        plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        # legend = ax.legend(loc="best")
-        pdf.savefig(dpi=300)
 
 
 # ========================================================================

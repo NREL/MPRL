@@ -72,13 +72,13 @@ def setup_injection_gas(rxnmech, fuel, pure_fuel=True, phi=1.0):
 
 
 # ========================================================================
-def get_nox(gas):
+def get_nox(gas, reactor):
     try:
-        no = gas.mass_fraction_dict()["NO"]
+        no = gas.mass_fraction_dict()["NO"] * reactor.mass
     except KeyError:
         no = 0.0
     try:
-        no2 = gas.mass_fraction_dict()["NO2"]
+        no2 = gas.mass_fraction_dict()["NO2"] * reactor.mass
     except KeyError:
         no2 = 0.0
 
@@ -86,9 +86,9 @@ def get_nox(gas):
 
 
 # ========================================================================
-def get_soot(gas):
+def get_soot(gas, reactor):
     try:
-        return gas.mass_fraction_dict()["C2H2"]
+        return gas.mass_fraction_dict()["C2H2"] * reactor.mass
     except KeyError:
         return 0.0
 
@@ -186,6 +186,8 @@ class Engine(gym.Env):
             "attempt_ninj": {"low": 0.0, "high": np.iinfo(np.int32).max, "scale": 1.0},
             "success_ninj": {"low": 0.0, "high": np.iinfo(np.int32).max, "scale": 1.0},
             "can_inject": {"low": 0, "high": 1, "scale": 1},
+            "nox": {"low": 0.0, "high": np.finfo(np.float32).max, "scale": 1.0},
+            "soot": {"low": 0.0, "high": np.finfo(np.float32).max, "scale": 1.0},
         }
         self.observable_attributes.update(self.reward.get_observable_attributes())
 
@@ -359,6 +361,7 @@ class Engine(gym.Env):
         history_df.dV = np.gradient(history_df.V)
         history_df.dVdt = history_df.dV / self.dt
         history_df.ca = cycle.ca.copy()
+        history_df.dca = self.dca
         history_df.t = cycle.t.copy()
         self.history = history_df.to_dict(orient="list")
         self.history["index"] = history_df.index
@@ -448,7 +451,7 @@ class TwoZoneEngine(Engine):
 
         # Engine parameters
         self.ode_state = ["p", "Tu", "Tb", "mb"]
-        self.histories = ["V", "dVdt", "dV", "ca", "t"]
+        self.histories = ["V", "dVdt", "dV", "ca", "dca", "t"]
 
         # Engine setup
         self.setup_lambdas()
@@ -887,7 +890,7 @@ class ReactorEngine(Engine):
 
         # Engine parameters
         self.Tinj = Tinj
-        self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
+        self.histories = ["V", "dVdt", "dV", "ca", "dca", "t", "piston_velocity"]
         self.observables, self.internals = get_observables_internals(
             [
                 "attempt_ninj",
@@ -939,8 +942,8 @@ class ReactorEngine(Engine):
             "T": lambda: self.gas.T,
             "mb": lambda: 0,
             "minj": lambda: self.action.current["mdot"] * self.dt,
-            "nox": lambda: get_nox(self.gas),
-            "soot": lambda: get_soot(self.gas),
+            "nox": lambda: get_nox(self.gas, self.reactor),
+            "soot": lambda: get_soot(self.gas, self.reactor),
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
             "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
@@ -1092,7 +1095,7 @@ class EquilibrateEngine(Engine):
 
         # Engine parameters
         self.Tinj = Tinj
-        self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
+        self.histories = ["V", "dVdt", "dV", "ca", "dca", "t", "piston_velocity"]
         self.observables, self.internals = get_observables_internals(
             [
                 "attempt_ninj",
@@ -1144,8 +1147,8 @@ class EquilibrateEngine(Engine):
             "T": lambda: self.gas.T,
             "mb": lambda: 0,
             "minj": lambda: self.action.current["mdot"] * self.dt,
-            "nox": lambda: get_nox(self.gas),
-            "soot": lambda: get_soot(self.gas),
+            "nox": lambda: get_nox(self.gas, self.reactor),
+            "soot": lambda: get_soot(self.gas, self.reactor),
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
             "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
