@@ -72,13 +72,13 @@ def setup_injection_gas(rxnmech, fuel, pure_fuel=True, phi=1.0):
 
 
 # ========================================================================
-def get_nox(gas, reactor):
+def get_nox(gas, mass):
     try:
-        no = gas.mass_fraction_dict()["NO"] * reactor.mass
+        no = gas.mass_fraction_dict()["NO"] * mass
     except KeyError:
         no = 0.0
     try:
-        no2 = gas.mass_fraction_dict()["NO2"] * reactor.mass
+        no2 = gas.mass_fraction_dict()["NO2"] * mass
     except KeyError:
         no2 = 0.0
 
@@ -86,9 +86,9 @@ def get_nox(gas, reactor):
 
 
 # ========================================================================
-def get_soot(gas, reactor):
+def get_soot(gas, mass):
     try:
-        return gas.mass_fraction_dict()["C2H2"] * reactor.mass
+        return gas.mass_fraction_dict()["C2H2"] * mass
     except KeyError:
         return 0.0
 
@@ -487,6 +487,7 @@ class TwoZoneEngine(Engine):
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
             "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
             "ca": lambda: self.history["ca"][self.current_state["name"] + 1],
+            "dca": lambda: self.history["dca"][self.current_state["name"] + 1],
             "t": lambda: self.history["t"][self.current_state["name"] + 1],
             "attempt_ninj": lambda: self.action.attempt_counter["mdot"],
             "success_ninj": lambda: self.action.success_counter["mdot"],
@@ -942,12 +943,13 @@ class ReactorEngine(Engine):
             "T": lambda: self.gas.T,
             "mb": lambda: 0,
             "minj": lambda: self.action.current["mdot"] * self.dt,
-            "nox": lambda: get_nox(self.gas, self.reactor),
-            "soot": lambda: get_soot(self.gas, self.reactor),
+            "nox": lambda: get_nox(self.gas, self.gas.density_mass * self.history["V"][self.current_state["name"] + 1]),
+            "soot": lambda: get_soot(self.gas, self.gas.density_mass * self.history["V"][self.current_state["name"] + 1]),
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
             "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
             "ca": lambda: self.history["ca"][self.current_state["name"] + 1],
+            "dca": lambda: self.history["dca"][self.current_state["name"] + 1],
             "t": lambda: self.history["t"][self.current_state["name"] + 1],
             "piston_velocity": lambda: self.history["piston_velocity"][
                 self.current_state["name"] + 1
@@ -1147,12 +1149,13 @@ class EquilibrateEngine(Engine):
             "T": lambda: self.gas.T,
             "mb": lambda: 0,
             "minj": lambda: self.action.current["mdot"] * self.dt,
-            "nox": lambda: get_nox(self.gas, self.reactor),
-            "soot": lambda: get_soot(self.gas, self.reactor),
+            "nox": lambda: get_nox(self.gas, self.gas.density_mass * self.history["V"][self.current_state["name"] + 1]),
+            "soot": lambda: get_soot(self.gas, self.gas.density_mass * self.history["V"][self.current_state["name"] + 1]),
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
             "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
             "ca": lambda: self.history["ca"][self.current_state["name"] + 1],
+            "dca": lambda: self.history["dca"][self.current_state["name"] + 1],
             "t": lambda: self.history["t"][self.current_state["name"] + 1],
             "piston_velocity": lambda: self.history["piston_velocity"][
                 self.current_state["name"] + 1
