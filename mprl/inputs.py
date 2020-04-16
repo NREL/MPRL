@@ -121,6 +121,7 @@ class Input:
                 "negative_reward": Parameter(
                     -800.0, "Negative reward for unallowed actions", float
                 ),
+                "EOC_reward": Parameter(False, "Use EOC reward for work", bool,),
                 "randomize": Parameter(
                     False,
                     "Randomize the reward weights at each engine initialization",

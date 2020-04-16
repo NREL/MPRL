@@ -422,7 +422,9 @@ class Engine(gym.Env):
             penalty = True
 
         # Compute rewards
-        self.rewards = self.reward.compute(self.current_state, self.nsteps, penalty)
+        self.rewards = self.reward.compute(
+            self.current_state, self.nsteps, penalty, done
+        )
         reward = sum(self.rewards.values())
         self.returns = {k: v + self.rewards[k] for k, v in self.returns.items()}
 
@@ -434,10 +436,12 @@ class Engine(gym.Env):
 
     def get_info(self):
         """Define an information dict for capturing state before reset"""
-        self.info = {"current_state": self.current_state,
-                     "returns": self.returns,
-                     "rewards": self.rewards,
-                     "reward_weights": self.reward.weights}
+        self.info = {
+            "current_state": self.current_state,
+            "returns": self.returns,
+            "rewards": self.rewards,
+            "reward_weights": self.reward.weights,
+        }
         return self.info
 
 
@@ -943,8 +947,16 @@ class ReactorEngine(Engine):
             "T": lambda: self.gas.T,
             "mb": lambda: 0,
             "minj": lambda: self.action.current["mdot"] * self.dt,
-            "nox": lambda: get_nox(self.gas, self.gas.density_mass * self.history["V"][self.current_state["name"] + 1]),
-            "soot": lambda: get_soot(self.gas, self.gas.density_mass * self.history["V"][self.current_state["name"] + 1]),
+            "nox": lambda: get_nox(
+                self.gas,
+                self.gas.density_mass
+                * self.history["V"][self.current_state["name"] + 1],
+            ),
+            "soot": lambda: get_soot(
+                self.gas,
+                self.gas.density_mass
+                * self.history["V"][self.current_state["name"] + 1],
+            ),
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
             "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
@@ -1149,8 +1161,16 @@ class EquilibrateEngine(Engine):
             "T": lambda: self.gas.T,
             "mb": lambda: 0,
             "minj": lambda: self.action.current["mdot"] * self.dt,
-            "nox": lambda: get_nox(self.gas, self.gas.density_mass * self.history["V"][self.current_state["name"] + 1]),
-            "soot": lambda: get_soot(self.gas, self.gas.density_mass * self.history["V"][self.current_state["name"] + 1]),
+            "nox": lambda: get_nox(
+                self.gas,
+                self.gas.density_mass
+                * self.history["V"][self.current_state["name"] + 1],
+            ),
+            "soot": lambda: get_soot(
+                self.gas,
+                self.gas.density_mass
+                * self.history["V"][self.current_state["name"] + 1],
+            ),
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
             "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
