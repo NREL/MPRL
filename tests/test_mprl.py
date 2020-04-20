@@ -389,7 +389,7 @@ class MPRLTestCase(unittest.TestCase):
         # Initialize engine
         reward = rw.Reward(
             names=["work", "nox", "soot"],
-            norms=[1.0, 1e-5, 1e-9],
+            norms=[1.0, 5e-8, 1e-9],
             weights=[0.34, 0.33, 0.33],
             negative_reward=-100.0,
             randomize=False,
@@ -454,10 +454,10 @@ class MPRLTestCase(unittest.TestCase):
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
         npt.assert_allclose(np.linalg.norm(df.p), 36211433.63320296, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df["T"]), 18288.66222153, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 65.00346588, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 60.58716933, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.r_work), 55.21606574, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.r_nox), 18.66016465, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.r_soot), 18.89658211, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.r_nox), 28.24694444, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.r_soot), 0.0, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.w_work), 3.41695771, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.w_nox), 3.31645895, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.w_soot), 3.31645895, rtol=1e-5)
