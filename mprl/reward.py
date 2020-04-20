@@ -113,16 +113,13 @@ class Reward:
                 "unnormalized": lambda state, *unused: state["p"] * state["dV"],
             },
             "nox": {
-                "normalized": lambda state, *unused: -state["nox"]
-                * state["dca"]
-                / self.norms["nox"],
-                "unnormalized": lambda state, *unused: -state["nox"] * state["dca"],
+                "normalized": lambda state, *unused: -state["nox"] / self.norms["nox"],
+                "unnormalized": lambda state, *unused: -state["nox"],
             },
             "soot": {
                 "normalized": lambda state, *unused: -state["soot"]
-                * state["dca"]
                 / self.norms["soot"],
-                "unnormalized": lambda state, *unused: -state["soot"] * state["dca"],
+                "unnormalized": lambda state, *unused: -state["soot"],
             },
             "penalty": {
                 "unnormalized": lambda state, nsteps, penalty: (
@@ -167,13 +164,21 @@ class Reward:
         """
 
         self.total_reward = {
-            n: self.total_reward[n]
-            + self.weights[n] * self.rewards[n](state, nsteps, penalty)
+            n: self.total_reward[n] + self.rewards[n](state, nsteps, penalty)
             for n in self.names
         }
 
         if self.EOC_reward:
-            return {n: self.total_reward[n] if done else 0.0 for n in self.names}
+            return {
+                n: (
+                    self.weights[n] * self.total_reward[n]
+                    if n in ["work", "penalty"]
+                    else self.weights[n] * self.rewards[n](state, nsteps, penalty)
+                )
+                if done
+                else 0.0
+                for n in self.names
+            }
         else:
             return {
                 n: self.weights[n] * self.rewards[n](state, nsteps, penalty)
