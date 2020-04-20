@@ -163,31 +163,22 @@ class Reward:
         :rtype: float
         """
 
-        self.total_reward = {
-            n: self.total_reward[n] + self.rewards[n](state, nsteps, penalty)
+        rwd = {
+            n: self.weights[n] * self.rewards[n](state, nsteps, penalty)
             for n in self.names
         }
 
         if self.EOC_reward:
+            self.total_reward = {n: self.total_reward[n] + rwd[n] for n in self.names}
             return {
-                n: (
-                    self.weights[n] * self.total_reward[n]
-                    if n in ["work", "penalty"]
-                    else self.weights[n] * self.rewards[n](state, nsteps, penalty)
-                )
+                n: (self.total_reward[n] if n in ["work", "penalty"] else rwd[n])
                 if done
                 else 0.0
                 for n in self.names
             }
         else:
             return {
-                n: self.weights[n] * self.rewards[n](state, nsteps, penalty)
-                if n in ["work", "penalty"]
-                else (
-                    self.weights[n] * self.rewards[n](state, nsteps, penalty)
-                    if done
-                    else 0.0
-                )
+                n: rwd[n] if n in ["work", "penalty"] else (rwd[n] if done else 0.0)
                 for n in self.names
             }
 

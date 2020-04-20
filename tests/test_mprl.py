@@ -457,7 +457,6 @@ class MPRLTestCase(unittest.TestCase):
         npt.assert_allclose(np.linalg.norm(df.rewards), 60.58716933, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.r_work), 55.21606574, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.r_nox), 28.24694444, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.r_soot), 0.0, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.w_work), 3.41695771, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.w_nox), 3.31645895, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.w_soot), 3.31645895, rtol=1e-5)
