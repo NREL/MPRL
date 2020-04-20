@@ -183,7 +183,11 @@ class Reward:
             return {
                 n: self.weights[n] * self.rewards[n](state, nsteps, penalty)
                 if n in ["work", "penalty"]
-                else (self.total_reward[n] if done else 0.0)
+                else (
+                    self.weights[n] * self.rewards[n](state, nsteps, penalty)
+                    if done
+                    else 0.0
+                )
                 for n in self.names
             }
 
