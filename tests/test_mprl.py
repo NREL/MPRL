@@ -209,7 +209,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+        rwd = list(
+            eng.reward.compute(eng.current_state, eng.nsteps, False, False).values()
+        )
         df.loc[cnt, eng.reward.get_rewards()] = rwd
         df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
@@ -276,7 +278,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+        rwd = list(
+            eng.reward.compute(eng.current_state, eng.nsteps, False, False).values()
+        )
         df.loc[cnt, eng.reward.get_rewards()] = rwd
         df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
@@ -344,7 +348,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+        rwd = list(
+            eng.reward.compute(eng.current_state, eng.nsteps, False, False).values()
+        )
         df.loc[cnt, eng.reward.get_rewards()] = rwd
         df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
@@ -417,7 +423,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+        rwd = list(
+            eng.reward.compute(eng.current_state, eng.nsteps, False, False).values()
+        )
         df.loc[cnt, eng.reward.get_rewards()] = rwd
         df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
@@ -446,15 +454,15 @@ class MPRLTestCase(unittest.TestCase):
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
         npt.assert_allclose(np.linalg.norm(df.p), 36211433.63320296, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df["T"]), 18288.66222153, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 54.78233628, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 65.00346588, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.r_work), 55.21606574, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.r_nox), 2.87177356, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.r_nox), 18.66016465, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.r_soot), 18.89658211, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.w_work), 3.41695771, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.w_nox), 3.31645895, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.w_soot), 3.31645895, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for ReactorEngine (complex reward) = {elapsed} seconds")
-
 
     def test_equilibrate_engine(self):
         """Does the EquilibrateEngine work as expected?"""
@@ -489,7 +497,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+        rwd = list(
+            eng.reward.compute(eng.current_state, eng.nsteps, False, False).values()
+        )
         df.loc[cnt, eng.reward.get_rewards()] = rwd
         df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
