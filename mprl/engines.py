@@ -487,7 +487,8 @@ class TwoZoneEngine(Engine):
             "Tb": lambda: self.integ.y[2],
             "mb": lambda: self.integ.y[3],
             "T": lambda: self.current_state["T"],
-            "m": lambda: self.current_state["m"] * self.history["V"][self.current_state["name"] + 1],
+            "m": lambda: self.current_state["m"]
+            * self.history["V"][self.current_state["name"] + 1],
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
             "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
@@ -806,7 +807,17 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
 
         # Engine parameters
         self.observables, self.internals = get_observables_internals(
-            ["attempt_ninj", "success_ninj", "can_inject", "p", "T", "Tu", "Tb", "mb", "m"],
+            [
+                "attempt_ninj",
+                "success_ninj",
+                "can_inject",
+                "p",
+                "T",
+                "Tu",
+                "Tb",
+                "mb",
+                "m",
+            ],
             self.histories,
             observables + self.reward.get_observables(),
         )
@@ -952,12 +963,10 @@ class ReactorEngine(Engine):
             "mb": lambda: 0,
             "minj": lambda: self.action.current["mdot"] * self.dt,
             "nox": lambda: get_nox(
-                self.gas,
-                self.gas.density_mass * self.reactor.volume,
+                self.gas, self.gas.density_mass * self.reactor.volume,
             ),
             "soot": lambda: get_soot(
-                self.gas,
-                self.gas.density_mass * self.reactor.volume,
+                self.gas, self.gas.density_mass * self.reactor.volume,
             ),
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
@@ -1162,7 +1171,8 @@ class EquilibrateEngine(Engine):
         self.state_updater = {
             "p": lambda: self.gas.P,
             "T": lambda: self.gas.T,
-            "m": lambda: self.gas.density_mass * self.history["V"][self.current_state["name"] + 1],
+            "m": lambda: self.gas.density_mass
+            * self.history["V"][self.current_state["name"] + 1],
             "mb": lambda: 0,
             "minj": lambda: self.action.current["mdot"] * self.dt,
             "nox": lambda: get_nox(
@@ -1231,12 +1241,12 @@ class EquilibrateEngine(Engine):
 
         if action["mdot"] > 0:
             minj = action["mdot"] * self.dt
-            m0 = self.gas.density_mass * self.current_state["V"]
+            m0 = self.gas.density_mass * V1
             Tnew = (m0 * self.gas.T + minj * self.Tinj) / (m0 + minj)
             Pnew = self.gas.P
             Xnew = (m0 * self.gas.X + minj * self.injection_gas.X) / (m0 + minj)
 
-            self.gas.TPX = Tnew, Pnew, Xnew
+            self.gas.DPX = (m0 + minj) / V2, Pnew, Xnew
             self.gas.equilibrate("UV", solver="auto", rtol=1e-9)
 
         self.update_state()
