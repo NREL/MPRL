@@ -83,6 +83,7 @@ def get_fields():
         "T": r"$T~[\mathrm{K}]$",
         "Tu": r"$T_u~[\mathrm{K}]$",
         "Tb": r"$T_b~[\mathrm{K}]$",
+        "m": r"$m~[\mathrm{kg}]$",
         "mb": r"$m_b~[\mathrm{kg}]$",
         "minj": r"$m_i~[\mathrm{kg}]$",
         "qdot": r"$\dot{Q}~[\mathrm{J/s}]$",
