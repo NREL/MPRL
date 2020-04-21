@@ -1241,12 +1241,11 @@ class EquilibrateEngine(Engine):
 
         if action["mdot"] > 0:
             minj = action["mdot"] * self.dt
-            m0 = self.gas.density_mass * V1
+            m0 = self.gas.density_mass * V2
             Tnew = (m0 * self.gas.T + minj * self.Tinj) / (m0 + minj)
-            Pnew = self.gas.P
             Xnew = (m0 * self.gas.X + minj * self.injection_gas.X) / (m0 + minj)
 
-            self.gas.DPX = (m0 + minj) / V2, Pnew, Xnew
+            self.gas.TDX = Tnew, (m0 + minj) / V2, Xnew
             self.gas.equilibrate("UV", solver="auto", rtol=1e-9)
 
         self.update_state()
