@@ -992,8 +992,8 @@ class ReactorEngine(Engine):
         """Calculates the piston velocity given engine history"""
         cylinder_area = np.pi / 4.0 * self.bore ** 2
         self.history["piston_velocity"] = [
-            x / cylinder_area for x in self.history["dVdt"]
-        ]
+            x / (cylinder_area * self.dt) for x in np.diff(self.history["V"])
+        ] + [0]
 
     def setup_reactor(self):
         self.gas = ct.Solution(self.rxnmech)
@@ -1031,17 +1031,8 @@ class ReactorEngine(Engine):
 
     def advance_to_time(self, time):
 
-        max_restarts = 5
-        num_restarts = 0
-
-        try:
-            self.sim.advance(time)
-        except Exception:
-            if num_restarts > max_restarts:
-                sys.exit(f"""Maximum number or restarts ({max_restarts}) exceeded!""")
-            else:
-                num_restarts += 1
-                self.sim.advance(time)
+        self.sim.set_max_time_step(1e-3)
+        self.sim.advance(time)
 
     def reset(self):
 
