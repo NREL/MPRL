@@ -1052,6 +1052,7 @@ class ReactorEngine(Engine):
         self.reactor.volume = self.history["V"][0]
         self.piston.set_velocity(self.history["piston_velocity"][0])
         self.sim.set_initial_time(self.current_state["t"])
+        self.current_state["m"] = self.gas.density_mass * self.history["V"][0]
 
         self.action.reset()
 
@@ -1217,6 +1218,7 @@ class EquilibrateEngine(Engine):
         super(EquilibrateEngine, self).reset_state()
 
         self.gas.TPX = self.T0, self.p0, self.xinit
+        self.current_state["m"] = self.gas.density_mass * self.history["V"][0]
         self.action.reset()
 
         obs = self.scale_observables(self.current_state)
