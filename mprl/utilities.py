@@ -81,6 +81,7 @@ def get_fields():
         "mdot": r"$\dot{m}~[\mathrm{kg/s}]$",
         "rewards": r"$r$",
         "T": r"$T~[\mathrm{K}]$",
+        "phi": r"$\phi$",
         "Tu": r"$T_u~[\mathrm{K}]$",
         "Tb": r"$T_b~[\mathrm{K}]$",
         "m": r"$m~[\mathrm{kg}]$",

@@ -93,6 +93,13 @@ def get_soot(gas, mass):
         return 0.0
 
 
+def get_species(gas, mass, name):
+    try:
+        return gas.mass_fraction_dict()[name] * mass
+    except KeyError:
+        return 0.0
+
+
 # ========================================================================
 def get_observables_internals(other, histories, observables):
     valid_observables = other + histories
@@ -916,6 +923,7 @@ class ReactorEngine(Engine):
                 "can_inject",
                 "p",
                 "T",
+                "phi",
                 "m",
                 "mb",
                 "minj",
@@ -959,15 +967,12 @@ class ReactorEngine(Engine):
         self.state_updater = {
             "p": lambda: self.gas.P,
             "T": lambda: self.gas.T,
-            "m": lambda: self.gas.density_mass * self.reactor.volume,
+            "phi": lambda: self.gas.get_equivalence_ratio(),
+            "m": lambda: self.reactor.mass,
             "mb": lambda: 0,
             "minj": lambda: self.action.current["mdot"] * self.dt,
-            "nox": lambda: get_nox(
-                self.gas, self.gas.density_mass * self.reactor.volume,
-            ),
-            "soot": lambda: get_soot(
-                self.gas, self.gas.density_mass * self.reactor.volume,
-            ),
+            "nox": lambda: get_nox(self.gas, self.reactor.mass),
+            "soot": lambda: get_soot(self.gas, self.reactor.mass),
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
             "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
