@@ -72,13 +72,13 @@ def setup_injection_gas(rxnmech, fuel, pure_fuel=True, phi=1.0):
 
 
 # ========================================================================
-def get_nox(gas):
+def get_nox(gas, mass):
     try:
-        no = gas.mass_fraction_dict()["NO"]
+        no = gas.mass_fraction_dict()["NO"] * mass
     except KeyError:
         no = 0.0
     try:
-        no2 = gas.mass_fraction_dict()["NO2"]
+        no2 = gas.mass_fraction_dict()["NO2"] * mass
     except KeyError:
         no2 = 0.0
 
@@ -86,9 +86,16 @@ def get_nox(gas):
 
 
 # ========================================================================
-def get_soot(gas):
+def get_soot(gas, mass):
     try:
-        return gas.mass_fraction_dict()["C2H2"]
+        return gas.mass_fraction_dict()["C2H2"] * mass
+    except KeyError:
+        return 0.0
+
+
+def get_species(gas, mass, name):
+    try:
+        return gas.mass_fraction_dict()[name] * mass
     except KeyError:
         return 0.0
 
@@ -186,6 +193,8 @@ class Engine(gym.Env):
             "attempt_ninj": {"low": 0.0, "high": np.iinfo(np.int32).max, "scale": 1.0},
             "success_ninj": {"low": 0.0, "high": np.iinfo(np.int32).max, "scale": 1.0},
             "can_inject": {"low": 0, "high": 1, "scale": 1},
+            "nox": {"low": 0.0, "high": np.finfo(np.float32).max, "scale": 1.0},
+            "soot": {"low": 0.0, "high": np.finfo(np.float32).max, "scale": 1.0},
         }
         self.observable_attributes.update(self.reward.get_observable_attributes())
 
@@ -359,6 +368,7 @@ class Engine(gym.Env):
         history_df.dV = np.gradient(history_df.V)
         history_df.dVdt = history_df.dV / self.dt
         history_df.ca = cycle.ca.copy()
+        history_df.dca = self.dca
         history_df.t = cycle.t.copy()
         self.history = history_df.to_dict(orient="list")
         self.history["index"] = history_df.index
@@ -419,7 +429,9 @@ class Engine(gym.Env):
             penalty = True
 
         # Compute rewards
-        self.rewards = self.reward.compute(self.current_state, self.nsteps, penalty)
+        self.rewards = self.reward.compute(
+            self.current_state, self.nsteps, penalty, done
+        )
         reward = sum(self.rewards.values())
         self.returns = {k: v + self.rewards[k] for k, v in self.returns.items()}
 
@@ -431,10 +443,12 @@ class Engine(gym.Env):
 
     def get_info(self):
         """Define an information dict for capturing state before reset"""
-        self.info = {"current_state": self.current_state,
-                     "returns": self.returns,
-                     "rewards": self.rewards,
-                     "reward_weights": self.reward.weights}
+        self.info = {
+            "current_state": self.current_state,
+            "returns": self.returns,
+            "rewards": self.rewards,
+            "reward_weights": self.reward.weights,
+        }
         return self.info
 
 
@@ -448,7 +462,7 @@ class TwoZoneEngine(Engine):
 
         # Engine parameters
         self.ode_state = ["p", "Tu", "Tb", "mb"]
-        self.histories = ["V", "dVdt", "dV", "ca", "t"]
+        self.histories = ["V", "dVdt", "dV", "ca", "dca", "t"]
 
         # Engine setup
         self.setup_lambdas()
@@ -480,10 +494,13 @@ class TwoZoneEngine(Engine):
             "Tb": lambda: self.integ.y[2],
             "mb": lambda: self.integ.y[3],
             "T": lambda: self.current_state["T"],
+            "m": lambda: self.current_state["m"]
+            * self.history["V"][self.current_state["name"] + 1],
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
             "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
             "ca": lambda: self.history["ca"][self.current_state["name"] + 1],
+            "dca": lambda: self.history["dca"][self.current_state["name"] + 1],
             "t": lambda: self.history["t"][self.current_state["name"] + 1],
             "attempt_ninj": lambda: self.action.attempt_counter["mdot"],
             "success_ninj": lambda: self.action.success_counter["mdot"],
@@ -668,6 +685,7 @@ class TwoZoneEngine(Engine):
             )
 
         self.current_state["T"] = (m_u * Tu + mb * Tb) / (m_u + mb)
+        self.current_state["m"] = m_u + mb
 
         return np.array((dpdt, dTudt, dTbdt, dmbdt))
 
@@ -720,7 +738,7 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         # Engine parameters
         self.use_qdot = use_qdot
         self.observables, self.internals = get_observables_internals(
-            ["p", "T", "Tu", "Tb", "mb"], self.histories, ["ca"]
+            ["p", "T", "Tu", "Tb", "mb", "m"], self.histories, ["ca"]
         )
 
         # Final setup
@@ -796,7 +814,17 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
 
         # Engine parameters
         self.observables, self.internals = get_observables_internals(
-            ["attempt_ninj", "success_ninj", "can_inject", "p", "T", "Tu", "Tb", "mb"],
+            [
+                "attempt_ninj",
+                "success_ninj",
+                "can_inject",
+                "p",
+                "T",
+                "Tu",
+                "Tb",
+                "mb",
+                "m",
+            ],
             self.histories,
             observables + self.reward.get_observables(),
         )
@@ -887,7 +915,7 @@ class ReactorEngine(Engine):
 
         # Engine parameters
         self.Tinj = Tinj
-        self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
+        self.histories = ["V", "dVdt", "dV", "ca", "dca", "t", "piston_velocity"]
         self.observables, self.internals = get_observables_internals(
             [
                 "attempt_ninj",
@@ -895,6 +923,8 @@ class ReactorEngine(Engine):
                 "can_inject",
                 "p",
                 "T",
+                "phi",
+                "m",
                 "mb",
                 "minj",
                 "nox",
@@ -937,14 +967,17 @@ class ReactorEngine(Engine):
         self.state_updater = {
             "p": lambda: self.gas.P,
             "T": lambda: self.gas.T,
+            "phi": lambda: self.gas.get_equivalence_ratio(),
+            "m": lambda: self.reactor.mass,
             "mb": lambda: 0,
             "minj": lambda: self.action.current["mdot"] * self.dt,
-            "nox": lambda: get_nox(self.gas),
-            "soot": lambda: get_soot(self.gas),
+            "nox": lambda: get_nox(self.gas, self.reactor.mass),
+            "soot": lambda: get_soot(self.gas, self.reactor.mass),
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
             "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
             "ca": lambda: self.history["ca"][self.current_state["name"] + 1],
+            "dca": lambda: self.history["dca"][self.current_state["name"] + 1],
             "t": lambda: self.history["t"][self.current_state["name"] + 1],
             "piston_velocity": lambda: self.history["piston_velocity"][
                 self.current_state["name"] + 1
@@ -964,8 +997,8 @@ class ReactorEngine(Engine):
         """Calculates the piston velocity given engine history"""
         cylinder_area = np.pi / 4.0 * self.bore ** 2
         self.history["piston_velocity"] = [
-            x / cylinder_area for x in self.history["dVdt"]
-        ]
+            x / (cylinder_area * self.dt) for x in np.diff(self.history["V"])
+        ] + [0]
 
     def setup_reactor(self):
         self.gas = ct.Solution(self.rxnmech)
@@ -1003,17 +1036,8 @@ class ReactorEngine(Engine):
 
     def advance_to_time(self, time):
 
-        max_restarts = 5
-        num_restarts = 0
-
-        try:
-            self.sim.advance(time)
-        except Exception:
-            if num_restarts > max_restarts:
-                sys.exit(f"""Maximum number or restarts ({max_restarts}) exceeded!""")
-            else:
-                num_restarts += 1
-                self.sim.advance(time)
+        self.sim.set_max_time_step(1e-3)
+        self.sim.advance(time)
 
     def reset(self):
 
@@ -1024,6 +1048,7 @@ class ReactorEngine(Engine):
         self.reactor.volume = self.history["V"][0]
         self.piston.set_velocity(self.history["piston_velocity"][0])
         self.sim.set_initial_time(self.current_state["t"])
+        self.current_state["m"] = self.gas.density_mass * self.history["V"][0]
 
         self.action.reset()
 
@@ -1092,7 +1117,7 @@ class EquilibrateEngine(Engine):
 
         # Engine parameters
         self.Tinj = Tinj
-        self.histories = ["V", "dVdt", "dV", "ca", "t", "piston_velocity"]
+        self.histories = ["V", "dVdt", "dV", "ca", "dca", "t", "piston_velocity"]
         self.observables, self.internals = get_observables_internals(
             [
                 "attempt_ninj",
@@ -1100,6 +1125,7 @@ class EquilibrateEngine(Engine):
                 "can_inject",
                 "p",
                 "T",
+                "m",
                 "mb",
                 "minj",
                 "nox",
@@ -1142,14 +1168,25 @@ class EquilibrateEngine(Engine):
         self.state_updater = {
             "p": lambda: self.gas.P,
             "T": lambda: self.gas.T,
+            "m": lambda: self.gas.density_mass
+            * self.history["V"][self.current_state["name"] + 1],
             "mb": lambda: 0,
             "minj": lambda: self.action.current["mdot"] * self.dt,
-            "nox": lambda: get_nox(self.gas),
-            "soot": lambda: get_soot(self.gas),
+            "nox": lambda: get_nox(
+                self.gas,
+                self.gas.density_mass
+                * self.history["V"][self.current_state["name"] + 1],
+            ),
+            "soot": lambda: get_soot(
+                self.gas,
+                self.gas.density_mass
+                * self.history["V"][self.current_state["name"] + 1],
+            ),
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
             "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
             "ca": lambda: self.history["ca"][self.current_state["name"] + 1],
+            "dca": lambda: self.history["dca"][self.current_state["name"] + 1],
             "t": lambda: self.history["t"][self.current_state["name"] + 1],
             "piston_velocity": lambda: self.history["piston_velocity"][
                 self.current_state["name"] + 1
@@ -1177,6 +1214,7 @@ class EquilibrateEngine(Engine):
         super(EquilibrateEngine, self).reset_state()
 
         self.gas.TPX = self.T0, self.p0, self.xinit
+        self.current_state["m"] = self.gas.density_mass * self.history["V"][0]
         self.action.reset()
 
         obs = self.scale_observables(self.current_state)
@@ -1201,12 +1239,11 @@ class EquilibrateEngine(Engine):
 
         if action["mdot"] > 0:
             minj = action["mdot"] * self.dt
-            m0 = self.gas.density_mass * self.current_state["V"]
+            m0 = self.gas.density_mass * V2
             Tnew = (m0 * self.gas.T + minj * self.Tinj) / (m0 + minj)
-            Pnew = self.gas.P
             Xnew = (m0 * self.gas.X + minj * self.injection_gas.X) / (m0 + minj)
 
-            self.gas.TPX = Tnew, Pnew, Xnew
+            self.gas.TDX = Tnew, (m0 + minj) / V2, Xnew
             self.gas.equilibrate("UV", solver="auto", rtol=1e-9)
 
         self.update_state()

@@ -20,6 +20,7 @@ class Reward:
         norms=[None],
         weights=[1.0],
         negative_reward=-800.0,
+        EOC_reward=False,
         randomize=False,
     ):
         """Initialize Reward
@@ -51,7 +52,9 @@ class Reward:
         self.set_weights(weights + [1.0])
         self.set_weight_observables()
         self.negative_reward = negative_reward
+        self.EOC_reward = EOC_reward
         self.randomize = randomize
+        self.total_reward = {name: 0.0 for name in self.names}
         self.setup_reward()
 
     def __repr__(self):
@@ -147,7 +150,7 @@ class Reward:
         """
         return sum(self.compute(state, nsteps, penalty).values())
 
-    def compute(self, state, nsteps, penalty):
+    def compute(self, state, nsteps, penalty, done):
         """Compute each weighted reward
 
         :param state: environment state
@@ -159,10 +162,25 @@ class Reward:
         :returns: reward
         :rtype: float
         """
-        return {
+
+        rwd = {
             n: self.weights[n] * self.rewards[n](state, nsteps, penalty)
             for n in self.names
         }
+
+        if self.EOC_reward:
+            self.total_reward = {n: self.total_reward[n] + rwd[n] for n in self.names}
+            return {
+                n: (self.total_reward[n] if n in ["work", "penalty"] else rwd[n])
+                if done
+                else 0.0
+                for n in self.names
+            }
+        else:
+            return {
+                n: rwd[n] if n in ["work", "penalty"] else (rwd[n] if done else 0.0)
+                for n in self.names
+            }
 
     def set_norms(self, norms):
         if len(norms) != self.n:
@@ -242,3 +260,4 @@ class Reward:
         """Reset the reward weights"""
         if self.randomize:
             self.set_random_weights()
+        self.total_reward = {name: 0.0 for name in self.names}

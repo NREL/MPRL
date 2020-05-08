@@ -209,7 +209,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+        rwd = list(
+            eng.reward.compute(eng.current_state, eng.nsteps, False, False).values()
+        )
         df.loc[cnt, eng.reward.get_rewards()] = rwd
         df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
@@ -226,6 +228,9 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
             df.loc[cnt, eng.reward.get_rewards()] = list(info[0]["rewards"].values())
+
+        for rwd in eng.reward.get_rewards() + ["rewards"]:
+            df[f"cumulative_{rwd}"] = np.cumsum(df[rwd])
 
         elapsed = time.time() - t0
 
@@ -273,7 +278,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+        rwd = list(
+            eng.reward.compute(eng.current_state, eng.nsteps, False, False).values()
+        )
         df.loc[cnt, eng.reward.get_rewards()] = rwd
         df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
@@ -292,6 +299,9 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
             df.loc[cnt, eng.reward.get_rewards()] = list(info[0]["rewards"].values())
+
+        for rwd in eng.reward.get_rewards() + ["rewards"]:
+            df[f"cumulative_{rwd}"] = np.cumsum(df[rwd])
 
         elapsed = time.time() - t0
 
@@ -321,7 +331,14 @@ class MPRLTestCase(unittest.TestCase):
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
         df = pd.DataFrame(
-            columns=list(dict.fromkeys(variables + eng.action.actions + ["rewards"]))
+            columns=list(
+                dict.fromkeys(
+                    variables
+                    + eng.action.actions
+                    + ["rewards"]
+                    + eng.reward.get_rewards()
+                )
+            )
         )
 
         # Evaluate a dummy agent that injects at a fixed time
@@ -331,9 +348,11 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [
-            eng.reward.summer(eng.current_state, eng.nsteps, False)
-        ]
+        rwd = list(
+            eng.reward.compute(eng.current_state, eng.nsteps, False, False).values()
+        )
+        df.loc[cnt, eng.reward.get_rewards()] = rwd
+        df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
         while not done:
             cnt += 1
@@ -347,6 +366,10 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
+            df.loc[cnt, eng.reward.get_rewards()] = list(info[0]["rewards"].values())
+
+        for rwd in eng.reward.get_rewards() + ["rewards"]:
+            df[f"cumulative_{rwd}"] = np.cumsum(df[rwd])
 
         elapsed = time.time() - t0
 
@@ -354,9 +377,9 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 35782042.570654, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 17961.33785320, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 157.051971, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.p), 35131769.27712808, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 18843.86576749, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 156.55524985, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
         print(f"Wall time for ReactorEngine = {elapsed} seconds")
 
@@ -365,10 +388,10 @@ class MPRLTestCase(unittest.TestCase):
 
         # Initialize engine
         reward = rw.Reward(
-            names=["work", "nox"],
-            norms=[15.0, 0.01],
-            weights=[0.5, 0.5],
-            negative_reward=-0.05,
+            names=["work", "nox", "soot"],
+            norms=[1.0, 5e-8, 1e-9],
+            weights=[0.34, 0.33, 0.33],
+            negative_reward=-100.0,
             randomize=False,
         )
         eng = engines.ReactorEngine(
@@ -400,7 +423,9 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        rwd = list(eng.reward.compute(eng.current_state, eng.nsteps, False).values())
+        rwd = list(
+            eng.reward.compute(eng.current_state, eng.nsteps, False, False).values()
+        )
         df.loc[cnt, eng.reward.get_rewards()] = rwd
         df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
@@ -409,7 +434,7 @@ class MPRLTestCase(unittest.TestCase):
             # Agent tries to inject twice, but is not allowed the second time
             action = (
                 [1]
-                if (eng.current_state["ca"] == -10) or eng.current_state["ca"] == 10
+                if (eng.current_state["ca"] == 0) or eng.current_state["ca"] == 2
                 else [0]
             )
             obs, reward, done, info = env.step(action)
@@ -418,21 +443,25 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, ["rewards"]] = reward
             df.loc[cnt, eng.reward.get_rewards()] = list(info[0]["rewards"].values())
 
+        for rwd in eng.reward.get_rewards() + ["rewards"]:
+            df[f"cumulative_{rwd}"] = np.cumsum(df[rwd])
+
         elapsed = time.time() - t0
 
         utilities.plot_df(env, df, idx=6, name="reactor")
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 35782042.57065371, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 17961.33785320, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 2.54745905, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.r_work), 5.21289089, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.r_nox), 3.20300001, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.w_work), 5.02493781, rtol=1e-5)
-        npt.assert_allclose(np.linalg.norm(df.w_nox), 5.02493781, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.p), 34254670.52877185, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 18668.46491609, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 54.47632708, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.r_work), 53.47224436, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.r_nox), 14.10312665, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.w_work), 3.41695771, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.w_nox), 3.31645895, rtol=1e-5)
+        npt.assert_allclose(np.linalg.norm(df.w_soot), 3.31645895, rtol=1e-5)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142135623730953)
-        print(f"Wall time for ReactorEngine = {elapsed} seconds")
+        print(f"Wall time for ReactorEngine (complex reward) = {elapsed} seconds")
 
     def test_equilibrate_engine(self):
         """Does the EquilibrateEngine work as expected?"""
@@ -450,7 +479,14 @@ class MPRLTestCase(unittest.TestCase):
         env = DummyVecEnv([lambda: eng])
         variables = eng.observables + eng.internals + eng.histories
         df = pd.DataFrame(
-            columns=list(dict.fromkeys(variables + eng.action.actions + ["rewards"]))
+            columns=list(
+                dict.fromkeys(
+                    variables
+                    + eng.action.actions
+                    + ["rewards"]
+                    + eng.reward.get_rewards()
+                )
+            )
         )
 
         # Evaluate a dummy agent that injects at a fixed time
@@ -460,9 +496,11 @@ class MPRLTestCase(unittest.TestCase):
         obs = env.reset()
         df.loc[cnt, variables] = [eng.current_state[k] for k in variables]
         df.loc[cnt, eng.action.actions] = 0
-        df.loc[cnt, ["rewards"]] = [
-            eng.reward.summer(eng.current_state, eng.nsteps, False)
-        ]
+        rwd = list(
+            eng.reward.compute(eng.current_state, eng.nsteps, False, False).values()
+        )
+        df.loc[cnt, eng.reward.get_rewards()] = rwd
+        df.loc[cnt, ["rewards"]] = [sum(rwd)]
 
         while not done:
             cnt += 1
@@ -476,6 +514,10 @@ class MPRLTestCase(unittest.TestCase):
             df.loc[cnt, variables] = [info[0]["current_state"][k] for k in variables]
             df.loc[cnt, eng.action.actions] = eng.action.current
             df.loc[cnt, ["rewards"]] = reward
+            df.loc[cnt, eng.reward.get_rewards()] = list(info[0]["rewards"].values())
+
+        for rwd in eng.reward.get_rewards() + ["rewards"]:
+            df[f"cumulative_{rwd}"] = np.cumsum(df[rwd])
 
         elapsed = time.time() - t0
 
@@ -483,9 +525,9 @@ class MPRLTestCase(unittest.TestCase):
 
         # Test
         npt.assert_allclose(np.linalg.norm(df.V), 0.002205916821815495)
-        npt.assert_allclose(np.linalg.norm(df.p), 44024930.86874539)
-        npt.assert_allclose(np.linalg.norm(df["T"]), 12768.24128808)
-        npt.assert_allclose(np.linalg.norm(df.rewards), 159.80036669)
+        npt.assert_allclose(np.linalg.norm(df.p), 35436062.48197973)
+        npt.assert_allclose(np.linalg.norm(df["T"]), 12491.93935531)
+        npt.assert_allclose(np.linalg.norm(df.rewards), 118.62610333)
         npt.assert_allclose(np.linalg.norm(df.mdot), 0.14142136)
         print(f"Wall time for EquilibrateEngine = {elapsed} seconds")
 
