@@ -33,6 +33,10 @@ class Reward:
         :type weights: list
         :param negative_reward: negative reward for illegal actions
         :type negative_reward: float
+        :param EOC_reward: end of cycle reward for all
+        :type EOC_reward: bool
+        :param randomize: randomize the weights
+        :type randomize: bool
         """
 
         # Do not let user modify the form of the penalty reward
@@ -94,7 +98,7 @@ class Reward:
         self.setup_reward()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(names={self.names}, norms={list(self.norms.values())}, weights={list(self.weights.values())}, negative_reward={self.negative_reward}, randomize={self.randomize})"""
+        return f"""{self.__class__.__name__}(names={self.names}, norms={list(self.norms.values())}, weights={list(self.weights.values())}, negative_reward={self.negative_reward}, EOC_reward={self.EOC_reward}, randomize={self.randomize})"""
 
     def setup_reward(self):
         """Setup reward function

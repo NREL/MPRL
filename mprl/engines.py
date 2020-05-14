@@ -272,7 +272,7 @@ class Engine(gym.Env):
         )
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}, reward=rw.{self.reward.describe()}")"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}", reward=rw.{self.reward.describe()})"""
 
     def define_observable_space(self):
         """Define the observable space"""
