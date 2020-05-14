@@ -21,7 +21,7 @@ class Reward:
         weights=[1.0],
         negative_reward=-800.0,
         EOC_reward=False,
-        randomize=False,
+        randomize=None,
     ):
         """Initialize Reward
 
@@ -35,8 +35,8 @@ class Reward:
         :type negative_reward: float
         :param EOC_reward: end of cycle reward for all
         :type EOC_reward: bool
-        :param randomize: randomize the weights
-        :type randomize: bool
+        :param randomize: type of weight randomization [collection, dirichlet]
+        :type randomize: str
         """
 
         # Do not let user modify the form of the penalty reward
@@ -60,6 +60,15 @@ class Reward:
         self.randomize = randomize
         self.total_reward = {name: 0.0 for name in self.names}
         self.setup_reward()
+
+        if self.randomize == "collection":
+            ns = 5
+            nw = self.n - 1
+            wspan = np.linspace(0, 1, ns)
+            self.w_col = np.zeros((nw, ns * nw))
+            self.w_col[0, :] = np.hstack((wspan, np.tile(0.5 * (1 - wspan), nw - 1)))
+            for i in range(1, nw):
+                self.w_col[i, :] = np.roll(self.w_col[i - 1, :], ns)
 
     def __repr__(self):
         return self.describe()
@@ -207,8 +216,8 @@ class Reward:
             self.is_observable = {k: True for k in self.weights.keys()}
             self.is_observable["penalty"] = False
 
-    def set_random_weights(self):
-        """Set random weights
+    def set_random_weights_from_dirichlet(self):
+        """Set random weights from Dirichlet distribution
 
         Uniform sampling of the weights. This problem in general is
         called simplex sampling. This seems to cause a lot of
@@ -229,6 +238,11 @@ class Reward:
 
         """
         self.set_weights(np.hstack((np.random.dirichlet(np.ones(self.n - 1)), [1.0])))
+
+    def set_random_weights_from_collection(self):
+        """Set random weights from predefined collection"""
+        idx = np.random.randint(0, self.w_col.shape[1])
+        self.set_weights(np.hstack((self.w_col[:, idx], [1.0])))
 
     def get_observable_attributes(self):
         """Return the weight observable attributes"""
@@ -262,6 +276,9 @@ class Reward:
 
     def reset(self):
         """Reset the reward weights"""
-        if self.randomize:
-            self.set_random_weights()
+        if self.randomize == "dirichlet":
+            self.set_random_weights_from_dirichlet()
+        elif self.randomize == "collection":
+            self.set_random_weights_from_collection()
+
         self.total_reward = {name: 0.0 for name in self.names}

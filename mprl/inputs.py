@@ -125,9 +125,10 @@ class Input:
                     False, "Use EOC reward for work and penalty", bool
                 ),
                 "randomize": Parameter(
-                    False,
-                    "Randomize the reward weights at each engine initialization",
-                    bool,
+                    None,
+                    "Type of reward weight randomization for each engine initialization",
+                    str,
+                    choices=[None, "collection", "dirichlet"],
                 ),
             },
         }
