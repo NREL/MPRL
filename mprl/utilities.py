@@ -102,6 +102,7 @@ def get_fields():
         "r_nox": r"$r_{Y_{NO_x}}$",
         "r_soot": r"$r_{Y_{C_2 H_2}}$",
         "r_penalty": r"$r_p$",
+        "work": r"$\Sigma_{t=0}^{N} p_t \Delta V_t$",
         "cumulative_rewards": r"$\Sigma_{t=0}^{N} r_t$",
         "cumulative_r_work": r"$\Sigma_{t=0}^{N} r_{w,t}$",
         "cumulative_r_nox": r"$\Sigma_{t=0}^{N} r_{Y_{NO_x,t}}$",
@@ -175,6 +176,9 @@ def evaluate_agent(env, agent):
 
     for rwd in eng.reward.get_rewards() + ["rewards"]:
         df[f"cumulative_{rwd}"] = np.cumsum(df[rwd])
+
+    if "cumulative_r_work" in df.columns:
+        df["work"] = df["cumulative_r_work"] / eng.reward.weights["work"]
 
     if "phi" in df.columns:
         df.phi.clip(lower=0.0, inplace=True)
