@@ -22,6 +22,7 @@ class Reward:
         negative_reward=-800.0,
         EOC_reward=False,
         randomize=None,
+        random_updates=1,
     ):
         """Initialize Reward
 
@@ -37,6 +38,8 @@ class Reward:
         :type EOC_reward: bool
         :param randomize: type of weight randomization [collection, dirichlet]
         :type randomize: str
+        :param random_updates: step interval for updating random weights
+        :type random_updates: int
         """
 
         # Do not let user modify the form of the penalty reward
@@ -60,6 +63,10 @@ class Reward:
         self.randomize = randomize
         self.total_reward = {name: 0.0 for name in self.names}
         self.setup_reward()
+
+        if self.randomize is not None:
+            self.random_updates = random_updates
+            self.random_counter = 0
 
         if self.randomize == "collection":
             ns = 5
@@ -276,9 +283,12 @@ class Reward:
 
     def reset(self):
         """Reset the reward weights"""
-        if self.randomize == "dirichlet":
-            self.set_random_weights_from_dirichlet()
-        elif self.randomize == "collection":
-            self.set_random_weights_from_collection()
+        if self.randomize is not None:
+            if (self.random_counter - 1) % (self.random_updates) == 0:
+                if self.randomize == "dirichlet":
+                    self.set_random_weights_from_dirichlet()
+                elif self.randomize == "collection":
+                    self.set_random_weights_from_collection()
+            self.random_counter += 1
 
         self.total_reward = {name: 0.0 for name in self.names}

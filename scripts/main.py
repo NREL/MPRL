@@ -160,6 +160,7 @@ if __name__ == "__main__":
         negative_reward=rwd_params["negative_reward"].value,
         EOC_reward=rwd_params["EOC_reward"].value,
         randomize=rwd_params["randomize"].value,
+        random_updates=rwd_params["random_updates"].value,
     )
 
     # Initialize the engine

@@ -130,6 +130,9 @@ class Input:
                     str,
                     choices=[None, "collection", "dirichlet"],
                 ),
+                "random_updates": Parameter(
+                    1, "Step interval for updating random weights", int
+                ),
             },
         }
 

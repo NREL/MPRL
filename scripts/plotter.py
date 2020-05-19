@@ -67,7 +67,9 @@ if __name__ == "__main__":
             norms=rwd_params["norms"].value,
             weights=weights,
             negative_reward=rwd_params["negative_reward"].value,
+            EOC_reward=rwd_params["EOC_reward"].value,
             randomize=randomize,
+            random_updates=rwd_params["random_updates"].value,
         )
 
         # Initialize the engine
