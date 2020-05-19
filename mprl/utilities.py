@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import rcParams
+from matplotlib.colors import LogNorm
 from scipy import interpolate as interp
 import mprl.engines as engines
 import os
@@ -276,6 +277,7 @@ def save_plots(fname):
                 pdf.savefig(dpi=300)
 
         if plt.fignum_exists("phi_temp"):
+            np.clip(NOx, 1e-16, None, out=NOx)
             fig = plt.figure("phi_temp")
             CM = plt.imshow(
                 NOx / NOx.max(axis=1).max(axis=0),
@@ -283,8 +285,9 @@ def save_plots(fname):
                 cmap="hot",
                 origin="lower",
                 aspect="auto",
+                norm=LogNorm(vmin=1e-3, vmax=1e0),
             )
-            plt.clim(0, 1)
+            # plt.clim(0, 0.1)
             ax = plt.gca()
             if len(fig.axes) == 1:
                 cbar = plt.colorbar(CM)
@@ -293,8 +296,8 @@ def save_plots(fname):
             plt.ylabel(fields["phi"], fontsize=22, fontweight="bold")
             plt.setp(ax.get_xmajorticklabels(), fontsize=16)
             plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-            ax.set_xlim([500, 3000])
-            ax.set_ylim([0, 1.0])
+            ax.set_xlim([500, 2500])
+            ax.set_ylim([0, 0.5])
             legend = ax.legend(loc="best")
             pdf.savefig(dpi=300)
 
