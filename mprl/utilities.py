@@ -11,6 +11,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import rcParams
 from scipy import interpolate as interp
 import mprl.engines as engines
+import os
 
 
 # ========================================================================
@@ -208,10 +209,26 @@ def plot_df(env, df, idx=0, name=None, plot_exp=True):
             p = plt.plot(df.ca, df[field], color=cmap[cidx], lw=2, label=label)
             p[0].set_dashes(dashseq[didx])
 
+    if plt.fignum_exists("phi") and plt.fignum_exists("T"):
+        plt.figure("phi_temp")
+        plt.plot(df["T"], df["phi"], "*--", color=cmap[cidx], lw=2, label=label)
+
 
 # ========================================================================
 def save_plots(fname):
     """Save plots"""
+
+    if plt.fignum_exists("phi_temp"):
+        datadir = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            "datafiles",
+            "NOx_soot_dodecane_lu_nox.npz",
+        )
+        data = np.load(datadir)
+
+        NOx = data["NOx"]
+        phi = data["phi"]
+        temp = data["temp"]
 
     with PdfPages(fname) as pdf:
 
@@ -243,6 +260,25 @@ def save_plots(fname):
                 plt.setp(ax.get_ymajorticklabels(), fontsize=16)
                 # legend = ax.legend(loc="best")
                 pdf.savefig(dpi=300)
+
+        if plt.fignum_exists("phi_temp"):
+            fig = plt.figure("phi_temp")
+            CM = plt.pcolormesh(
+                temp, phi, NOx / NOx.max(axis=1).max(axis=0), cmap="hot"
+            )
+            plt.clim(0, 1)
+            ax = plt.gca()
+            if len(fig.axes) == 1:
+                cbar = plt.colorbar(CM)
+                cbar.set_label(r"Normalized Y(NO$_x$)")
+            plt.xlabel(r"Temperature (K)", fontsize=22, fontweight="bold")
+            plt.ylabel(r"$\phi$", fontsize=22, fontweight="bold")
+            plt.setp(ax.get_xmajorticklabels(), fontsize=16)
+            plt.setp(ax.get_ymajorticklabels(), fontsize=16)
+            ax.set_xlim([500, 3000])
+            ax.set_ylim([0, 1.0])
+            legend = ax.legend(loc="best")
+            pdf.savefig(dpi=300)
 
 
 # ========================================================================
