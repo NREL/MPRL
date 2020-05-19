@@ -175,6 +175,9 @@ def evaluate_agent(env, agent):
     for rwd in eng.reward.get_rewards() + ["rewards"]:
         df[f"cumulative_{rwd}"] = np.cumsum(df[rwd])
 
+    if "phi" in df.columns:
+        df.phi.clip(lower=0.0, inplace=True)
+
     return df, df.rewards.sum()
 
 
@@ -188,6 +191,7 @@ def plot_df(env, df, idx=0, name=None, plot_exp=True):
 
     cidx = np.mod(idx, len(cmap))
     didx = np.mod(idx, len(dashseq))
+    midx = np.mod(idx, len(markertype))
 
     plt.figure("p")
     _, labels = plt.gca().get_legend_handles_labels()
@@ -211,7 +215,16 @@ def plot_df(env, df, idx=0, name=None, plot_exp=True):
 
     if plt.fignum_exists("phi") and plt.fignum_exists("T"):
         plt.figure("phi_temp")
-        plt.plot(df["T"], df["phi"], "*--", color=cmap[cidx], lw=2, label=label)
+        p = plt.plot(
+            df["T"],
+            df["phi"],
+            color=cmap[cidx],
+            lw=2,
+            label=label,
+            ms=5,
+            marker=markertype[midx],
+        )
+        p[0].set_dashes(dashseq[didx])
 
 
 # ========================================================================
@@ -250,7 +263,8 @@ def save_plots(fname):
         # legend = ax.legend(loc="best")
         pdf.savefig(dpi=300)
 
-        for field, label in get_fields().items():
+        fields = get_fields()
+        for field, label in fields.items():
             if plt.fignum_exists(field):
                 plt.figure(field)
                 ax = plt.gca()
@@ -263,16 +277,20 @@ def save_plots(fname):
 
         if plt.fignum_exists("phi_temp"):
             fig = plt.figure("phi_temp")
-            CM = plt.pcolormesh(
-                temp, phi, NOx / NOx.max(axis=1).max(axis=0), cmap="hot"
+            CM = plt.imshow(
+                NOx / NOx.max(axis=1).max(axis=0),
+                extent=[temp.min(), temp.max(), phi.min(), phi.max()],
+                cmap="hot",
+                origin="lower",
+                aspect="auto",
             )
             plt.clim(0, 1)
             ax = plt.gca()
             if len(fig.axes) == 1:
                 cbar = plt.colorbar(CM)
                 cbar.set_label(r"Normalized Y(NO$_x$)")
-            plt.xlabel(r"Temperature (K)", fontsize=22, fontweight="bold")
-            plt.ylabel(r"$\phi$", fontsize=22, fontweight="bold")
+            plt.xlabel(fields["T"], fontsize=22, fontweight="bold")
+            plt.ylabel(fields["phi"], fontsize=22, fontweight="bold")
             plt.setp(ax.get_xmajorticklabels(), fontsize=16)
             plt.setp(ax.get_ymajorticklabels(), fontsize=16)
             ax.set_xlim([500, 3000])
