@@ -80,7 +80,7 @@ def get_label(name):
 # ========================================================================
 def get_fields():
     return {
-        "mdot": r"$\dot{m}~[\mathrm{kg/s}]$",
+        "mdot": r"$\dot{m}_f~[\mathrm{kg/s}]$",
         "rewards": r"$r$",
         "T": r"$T~[\mathrm{K}]$",
         "phi": r"$\phi$",
@@ -88,7 +88,7 @@ def get_fields():
         "Tb": r"$T_b~[\mathrm{K}]$",
         "m": r"$m~[\mathrm{kg}]$",
         "mb": r"$m_b~[\mathrm{kg}]$",
-        "minj": r"$m_i~[\mathrm{kg}]$",
+        "minj": r"$m_f~[\mathrm{kg}]$",
         "qdot": r"$\dot{Q}~[\mathrm{J/s}]$",
         "nox": r"$m_{NO_x}~[\mathrm{kg}]$",
         "soot": r"$m_{C_2 H_2}~[\mathrm{kg}]$",
