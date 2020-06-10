@@ -42,6 +42,13 @@ if __name__ == "__main__":
         action="append",
         default=None,
     )
+    parser.add_argument(
+        "--legends",
+        help="Figure titles where legend should appear",
+        type=str,
+        nargs="+",
+        default=["p"],
+    )
     args = parser.parse_args()
 
     for k, fname in enumerate(args.agents):
@@ -140,7 +147,10 @@ if __name__ == "__main__":
 
         df, total_reward = utilities.evaluate_agent(env, agent)
         print(f"The total reward for {fname} is {total_reward}.")
+        print(f"The total work for {fname} is {df.work.iloc[-1]}.")
+        if "nox" in df.columns:
+            print(f"The EOC NOx for {fname} is {df.nox.iloc[-1]}.")
         name = agent_params["agent"].value if args.labels is None else args.labels[k]
         utilities.plot_df(env, df, idx=k, name=name, plot_exp=False)
 
-    utilities.save_plots("compare.pdf")
+    utilities.save_plots("compare.pdf", legends=args.legends)

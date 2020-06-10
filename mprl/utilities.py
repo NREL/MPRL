@@ -51,7 +51,8 @@ dashseq = [
     [3, 3],
 ]
 markertype = ["s", "d", "o", "p", "h"]
-rcParams.update({"figure.autolayout": True, "figure.max_open_warning": 0})
+rcParams.update({"figure.max_open_warning": 0})
+adj = [0.18, 0.14, 0.98, 0.95]
 
 
 # ========================================================================
@@ -98,6 +99,7 @@ def get_fields():
         "w_nox": r"$\omega_{NO_x}$",
         "w_soot": r"$\omega_{C_2 H_2}$",
         "w_penalty": r"$\omega_p$",
+        "w_work_nox_label": r"$\omega_{w} = 1 - \omega_{NO_x}$",
         "r_work": r"$r_{w}$",
         "r_nox": r"$r_{NO_x}$",
         "r_soot": r"$r_{C_2 H_2}$",
@@ -177,8 +179,7 @@ def evaluate_agent(env, agent):
     for rwd in eng.reward.get_rewards() + ["rewards"]:
         df[f"cumulative_{rwd}"] = np.cumsum(df[rwd])
 
-    if "cumulative_r_work" in df.columns:
-        df["work"] = df["cumulative_r_work"] / eng.reward.weights["work"]
+    df["work"] = np.cumsum(df.p * df.dV)
 
     if "phi" in df.columns:
         df.phi.clip(lower=0.0, inplace=True)
@@ -231,9 +232,23 @@ def plot_df(env, df, idx=0, name=None, plot_exp=True):
         )
         p[0].set_dashes(dashseq[didx])
 
+    for field in ["work", "nox"]:
+        figname = f"final_{field}"
+        if field in df.columns:
+            plt.figure(figname)
+            plt.plot(
+                df.w_work.iloc[-1],
+                df[field].iloc[-1],
+                color=cmap[0],
+                lw=2,
+                ms=5,
+                marker=markertype[0],
+                label=label,
+            )
+
 
 # ========================================================================
-def save_plots(fname):
+def save_plots(fname, legends=["p"]):
     """Save plots"""
 
     if plt.fignum_exists("phi_temp"):
@@ -256,7 +271,9 @@ def save_plots(fname):
         plt.ylabel(r"$p~[\mathrm{bar}]$", fontsize=22, fontweight="bold")
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        legend = ax.legend(loc="best")
+        if plt.gcf().get_label() in legends:
+            legend = ax.legend(loc="best")
+        plt.subplots_adjust(left=adj[0], bottom=adj[1], right=adj[2], top=adj[3])
         pdf.savefig(dpi=300)
 
         plt.figure("p_v")
@@ -265,7 +282,10 @@ def save_plots(fname):
         plt.ylabel(r"$p~[\mathrm{bar}]$", fontsize=22, fontweight="bold")
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        # legend = ax.legend(loc="best")
+        plt.ticklabel_format(axis="x", style="sci", scilimits=(-2, 4))
+        if plt.gcf().get_label() in legends:
+            legend = ax.legend(loc="best")
+        plt.subplots_adjust(left=adj[0], bottom=adj[1], right=adj[2], top=adj[3])
         pdf.savefig(dpi=300)
 
         fields = get_fields()
@@ -277,7 +297,12 @@ def save_plots(fname):
                 plt.ylabel(label, fontsize=22, fontweight="bold")
                 plt.setp(ax.get_xmajorticklabels(), fontsize=16)
                 plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-                # legend = ax.legend(loc="best")
+                if plt.gcf().get_label() in legends:
+                    legend = ax.legend(loc="best")
+                plt.ticklabel_format(axis="y", style="sci", scilimits=(-3, 4))
+                plt.subplots_adjust(
+                    left=adj[0], bottom=adj[1], right=adj[2], top=adj[3]
+                )
                 pdf.savefig(dpi=300)
 
         if plt.fignum_exists("phi_temp"):
@@ -302,8 +327,28 @@ def save_plots(fname):
             plt.setp(ax.get_ymajorticklabels(), fontsize=16)
             ax.set_xlim([500, 2500])
             ax.set_ylim([0, 0.5])
-            legend = ax.legend(loc="best")
+            if plt.gcf().get_label() in legends:
+                legend = ax.legend(loc="best")
+            plt.subplots_adjust(left=adj[0], bottom=adj[1], right=adj[2], top=adj[3])
             pdf.savefig(dpi=300)
+
+        for field in ["work", "nox"]:
+            figname = f"final_{field}"
+            if plt.fignum_exists(figname):
+                plt.figure(figname)
+                ax = plt.gca()
+                xlst = [line.get_data()[0][0] for line in ax.lines]
+                ylst = [line.get_data()[1][0] for line in ax.lines]
+                plt.plot(xlst, ylst, color=cmap[0], lw=2)
+                plt.xlabel(fields["w_work_nox_label"], fontsize=22, fontweight="bold")
+                plt.ylabel(fields[field], fontsize=22, fontweight="bold")
+                plt.setp(ax.get_xmajorticklabels(), fontsize=16)
+                plt.setp(ax.get_ymajorticklabels(), fontsize=16)
+                plt.ticklabel_format(axis="y", style="sci", scilimits=(-3, 4))
+                plt.subplots_adjust(
+                    left=adj[0], bottom=adj[1], right=adj[2], top=adj[3]
+                )
+                pdf.savefig(dpi=300)
 
 
 # ========================================================================
@@ -401,7 +446,7 @@ def plot_tb(fname, alpha=0.1, idx=0, name=None, limit=np.finfo(float).max):
 
 
 # ========================================================================
-def save_tb_plots(fname):
+def save_tb_plots(fname, legends=["loss"]):
     """Make some plots of tensorboard quantities"""
 
     with PdfPages(fname) as pdf:
@@ -409,10 +454,12 @@ def save_tb_plots(fname):
         ax = plt.gca()
         plt.xlabel(r"episode", fontsize=22, fontweight="bold")
         plt.ylabel(r"$\Sigma_{t=0}^{N} r_t$", fontsize=22, fontweight="bold")
-        ax.set_xticklabels([f"{int(x/1000)}K" for x in ax.get_xticks().tolist()])
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        # legend = ax.legend(loc="best")
+        plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 3))
+        if plt.gcf().get_label() in legends:
+            legend = ax.legend(loc="best")
+        plt.subplots_adjust(left=adj[0], bottom=adj[1], right=adj[2], top=adj[3])
         pdf.savefig(dpi=300)
 
         plt.figure("episode_reward_vs_time")
@@ -421,19 +468,25 @@ def save_tb_plots(fname):
         plt.ylabel(r"$\Sigma_{t=0}^{N} r_t$", fontsize=22, fontweight="bold")
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
-        # legend = ax.legend(loc="best")
+        plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 3))
+        if plt.gcf().get_label() in legends:
+            legend = ax.legend(loc="best")
+        plt.subplots_adjust(left=adj[0], bottom=adj[1], right=adj[2], top=adj[3])
         pdf.savefig(dpi=300)
 
         plt.figure("loss")
         ax = plt.gca()
         plt.xlabel(r"episode", fontsize=22, fontweight="bold")
         plt.ylabel(r"$L_t$", fontsize=22, fontweight="bold")
-        ax.set_xticklabels([f"{int(x/1000)}K" for x in ax.get_xticks().tolist()])
+        # ax.set_xticklabels([f"{int(x/1000)}K" for x in ax.get_xticks().tolist()])
         plt.setp(ax.get_xmajorticklabels(), fontsize=16)
         plt.setp(ax.get_ymajorticklabels(), fontsize=16)
         plt.ylim([1e-3, 1e5])
         plt.yscale("log")
-        legend = ax.legend(loc="best")
+        plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 3))
+        if plt.gcf().get_label() in legends:
+            legend = ax.legend(loc="best")
+        plt.subplots_adjust(left=adj[0], bottom=adj[1], right=adj[2], top=adj[3])
         pdf.savefig(dpi=300)
 
 

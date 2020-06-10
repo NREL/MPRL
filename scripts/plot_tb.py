@@ -40,6 +40,13 @@ if __name__ == "__main__":
         nargs="+",
         default=None,
     )
+    parser.add_argument(
+        "--legends",
+        help="Figure titles where legend should appear",
+        type=str,
+        nargs="+",
+        default=["loss"],
+    )
     args = parser.parse_args()
 
     # Loop over the folders
@@ -49,4 +56,4 @@ if __name__ == "__main__":
         limit = np.finfo(float).max if args.nlims is None else args.nlims[k]
         utilities.plot_tb(os.path.join(fdir, "data.csv"), idx=k, name=name, limit=limit)
 
-    utilities.save_tb_plots("compare_training.pdf")
+    utilities.save_tb_plots("compare_training.pdf", legends=args.legends)
