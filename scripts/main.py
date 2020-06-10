@@ -201,6 +201,7 @@ if __name__ == "__main__":
                 ename=eng_params["ename"].value,
                 reward=reward,
                 fuel=eng_params["fuel"].value,
+                twozone_phi=eng_params["twozone_phi"].value,
                 rxnmech=eng_params["rxnmech"].value,
                 use_qdot=eng_params["use_qdot"].value,
             )
@@ -214,6 +215,7 @@ if __name__ == "__main__":
                 ename=eng_params["ename"].value,
                 reward=reward,
                 fuel=eng_params["fuel"].value,
+                twozone_phi=eng_params["twozone_phi"].value,
                 rxnmech=eng_params["rxnmech"].value,
                 observables=eng_params["observables"].value,
             )

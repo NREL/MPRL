@@ -113,6 +113,9 @@ class Input:
                 "use_continuous": Parameter(
                     False, "Use a continuous action space", bool
                 ),
+                "twozone_phi": Parameter(
+                    0.5, "Equivalence ratio of twozone fuel", float
+                ),
             },
             "reward": {
                 "names": Parameter(["work"], "names", list),

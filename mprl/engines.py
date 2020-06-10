@@ -456,18 +456,21 @@ class Engine(gym.Env):
 class TwoZoneEngine(Engine):
     """A two zone engine environment for OpenAI gym"""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, twozone_phi=0.5, **kwargs):
         """Initialize TwoZoneEngine (inherits from Engine)"""
         super(TwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
         self.ode_state = ["p", "Tu", "Tb", "mb"]
         self.histories = ["V", "dVdt", "dV", "ca", "dca", "t"]
+        self.twozone_phi = twozone_phi
 
         # Engine setup
         self.setup_lambdas()
         self.setup_cantera()
         self.setup_history()
+
+        self.m0 = self.gas.density_mass * self.history["V"][0]
 
     def setup_lambdas(self):
         """Setup lambda functions.
@@ -494,8 +497,7 @@ class TwoZoneEngine(Engine):
             "Tb": lambda: self.integ.y[2],
             "mb": lambda: self.integ.y[3],
             "T": lambda: self.current_state["T"],
-            "m": lambda: self.current_state["m"]
-            * self.history["V"][self.current_state["name"] + 1],
+            "m": lambda: self.current_state["m"],
             "V": lambda: self.history["V"][self.current_state["name"] + 1],
             "dVdt": lambda: self.history["dVdt"][self.current_state["name"] + 1],
             "dV": lambda: self.history["dV"][self.current_state["name"] + 1],
@@ -517,12 +519,12 @@ class TwoZoneEngine(Engine):
         """Setup the fuel and save for faster reset"""
 
         injection_gas, self.far = setup_injection_gas(
-            self.rxnmech, self.fuel, pure_fuel=False
+            self.rxnmech, self.fuel, pure_fuel=False, phi=self.twozone_phi,
         )
         injection_gas.TP = self.T0, self.p0
         self.gas = injection_gas
         self.xinit = injection_gas.X
-        injection_gas.equilibrate("HP", solver="gibbs")
+        injection_gas.equilibrate("UV", solver="auto", rtol=1e-9)
         self.xburnt = injection_gas.X
         self.Tb_ad = injection_gas.T
 
@@ -616,7 +618,7 @@ class TwoZoneEngine(Engine):
         self.gas.TPX = Tb, p, self.xburnt
         cv_b = self.gas.cv
         ub = self.gas.u  # internal energy
-        Rb = 8314.47215 / self.gas.mean_molecular_weight
+        Rb = ct.gas_constant / self.gas.mean_molecular_weight
         Vb = self.gas.v * mb
 
         # Compute with cantera unburnt gas properties
@@ -624,7 +626,7 @@ class TwoZoneEngine(Engine):
         cv_u = self.gas.cv
         cp_u = self.gas.cp
         uu = self.gas.u
-        Ru = 8314.47215 / self.gas.mean_molecular_weight
+        Ru = ct.gas_constant / self.gas.mean_molecular_weight
         vu = self.gas.v
 
         invgamma_u = cv_u / cp_u
@@ -637,7 +639,8 @@ class TwoZoneEngine(Engine):
         # if Vu < 0:
         # print("Volume is negative!!!")
         # exit()
-        m_u = Vu / vu
+        # m_u = Vu / vu
+        m_u = self.m0 - mb
 
         # Trim mass burning rate if there isn't any unburned gas left
         # if m_u < 1.0e-10:
