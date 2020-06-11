@@ -119,6 +119,7 @@ if __name__ == "__main__":
                     fuel=eng_params["fuel"].value,
                     rxnmech=eng_params["rxnmech"].value,
                     use_qdot=eng_params["use_qdot"].value,
+                    twozone_phi=eng_params["twozone_phi"].value,
                 )
             else:
                 eng = engines.DiscreteTwoZoneEngine(
@@ -132,6 +133,7 @@ if __name__ == "__main__":
                     fuel=eng_params["fuel"].value,
                     rxnmech=eng_params["rxnmech"].value,
                     observables=eng_params["observables"].value,
+                    twozone_phi=eng_params["twozone_phi"].value,
                 )
 
         env = DummyVecEnv([lambda: eng])
