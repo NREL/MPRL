@@ -63,7 +63,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     efile = glob.glob(os.path.join(args.fdir, "events.out.tfevents.*"))[0]
-    tags = {"episode_reward": "episode_reward", "loss": "loss/loss"}
-    # tags = {"episode_reward": "episode_reward"}
+    tags = {
+        "episode_reward": "episode_reward",
+        "loss": "loss/loss",
+        "entropy": "loss/entropy_loss",
+    }
     df = parse_tb(efile, tags)
     df.to_csv(os.path.join(args.fdir, "data.csv"), index=False)

@@ -47,6 +47,9 @@ if __name__ == "__main__":
         nargs="+",
         default=["loss"],
     )
+    parser.add_argument(
+        "--lines", help="Vertical lines to add", type=int, nargs="+", default=[]
+    )
     args = parser.parse_args()
 
     # Loop over the folders
@@ -54,6 +57,12 @@ if __name__ == "__main__":
         fname = os.path.join(fdir, "agent")
         name = None if args.labels is None else args.labels[k]
         limit = np.finfo(float).max if args.nlims is None else args.nlims[k]
-        utilities.plot_tb(os.path.join(fdir, "data.csv"), idx=k, name=name, limit=limit)
+        utilities.plot_tb(
+            os.path.join(fdir, "data.csv"),
+            idx=k,
+            name=name,
+            limit=limit,
+            lines=args.lines,
+        )
 
     utilities.save_tb_plots("compare_training.pdf", legends=args.legends)

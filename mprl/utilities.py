@@ -234,7 +234,7 @@ def plot_df(env, df, idx=0, name=None, plot_exp=True):
 
     for field in ["work", "nox"]:
         figname = f"final_{field}"
-        if field in df.columns:
+        if (field in df.columns) and ("w_work" in df.columns):
             plt.figure(figname)
             plt.plot(
                 df.w_work.iloc[-1],
@@ -409,7 +409,7 @@ def plot_training(df, fname):
 
 
 # ========================================================================
-def plot_tb(fname, alpha=0.1, idx=0, name=None, limit=np.finfo(float).max):
+def plot_tb(fname, alpha=0.1, idx=0, name=None, limit=np.finfo(float).max, lines=[]):
     """Make some plots of tensorboard quantities"""
 
     label = get_label(name)
@@ -443,6 +443,22 @@ def plot_tb(fname, alpha=0.1, idx=0, name=None, limit=np.finfo(float).max):
     ewma = subdf["loss"].ewm(alpha=alpha, adjust=False).mean()
     p = plt.plot(subdf.episode, ewma, color=cmap[cidx], lw=2, label=label)
     p[0].set_dashes(dashseq[didx])
+
+    for line in lines:
+        p = plt.plot([line, line], [1e-6, 1e6], lw=1, color=cmap[-1])
+        p[0].set_dashes(dashseq[-1])
+
+    if "entropy" in df.columns:
+        subdf = df.dropna(subset=["entropy"])
+        plt.figure("entropy")
+        p = plt.plot(subdf.episode, subdf.entropy, color=cmap[cidx], lw=2, alpha=0.2)
+        p[0].set_dashes(dashseq[didx])
+        ewma = subdf["entropy"].ewm(alpha=alpha, adjust=False).mean()
+        p = plt.plot(subdf.episode, ewma, color=cmap[cidx], lw=2, label=label)
+        p[0].set_dashes(dashseq[didx])
+        for line in lines:
+            p = plt.plot([line, line], [1e-6, 1e6], lw=1, color=cmap[-1])
+            p[0].set_dashes(dashseq[-1])
 
 
 # ========================================================================
@@ -488,6 +504,63 @@ def save_tb_plots(fname, legends=["loss"]):
             legend = ax.legend(loc="best")
         plt.subplots_adjust(left=adj[0], bottom=adj[1], right=adj[2], top=adj[3])
         pdf.savefig(dpi=300)
+
+        if plt.fignum_exists("entropy"):
+            plt.figure("entropy")
+            ax = plt.gca()
+            plt.xlabel(r"episode", fontsize=22, fontweight="bold")
+            plt.ylabel(r"$S[\pi_t](s_t)$", fontsize=22, fontweight="bold")
+            plt.setp(ax.get_xmajorticklabels(), fontsize=16)
+            plt.setp(ax.get_ymajorticklabels(), fontsize=16)
+            plt.ylim([1e-3, 1e0])
+            plt.yscale("log")
+            plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 3))
+            if plt.gcf().get_label() in legends:
+                legend = ax.legend(loc="best")
+            plt.subplots_adjust(left=adj[0], bottom=adj[1], right=adj[2], top=adj[3])
+            pdf.savefig(dpi=300)
+
+
+# ========================================================================
+def plot_actions(fname, cnt=0, nagents=1, extent=[0, 10000, -100, 100], frac=1):
+    """Make some plots of the actions"""
+
+    npzf = np.load(fname)
+    actions = npzf["actions"]
+    actions = actions[:, : actions.shape[1] // frac]
+    ratio = actions.shape[1] // (actions.shape[0] * nagents)
+    if not plt.fignum_exists("actions"):
+        fig, axs = plt.subplots(
+            num="actions", nrows=nagents, ncols=1, sharex=True, figsize=(8 * ratio, 8)
+        )
+    else:
+        fig = plt.figure("actions")
+        axs = fig.get_axes()
+
+    axs[cnt].imshow(
+        actions,
+        extent=extent,
+        interpolation="none",
+        aspect="auto",
+        origin="lower",
+        cmap="viridis",
+    )
+    axs[cnt].set_ylabel(r"$\theta$", fontsize=22, fontweight="bold")
+    plt.setp(axs[cnt].get_ymajorticklabels(), fontsize=16)
+
+
+# ========================================================================
+def save_action_plots(fname):
+    """Make some plots of the actions"""
+
+    with PdfPages(fname) as pdf:
+        plt.figure("actions")
+        ax = plt.gca()
+        ax.set_xlabel(r"episode", fontsize=22, fontweight="bold")
+        plt.setp(ax.get_xmajorticklabels(), fontsize=16)
+        plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 3))
+        plt.tight_layout()
+        pdf.savefig(dpi=400)
 
 
 # ========================================================================
