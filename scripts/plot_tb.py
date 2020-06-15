@@ -20,7 +20,7 @@ import mprl.utilities as utilities
 if __name__ == "__main__":
 
     # Parse arguments
-    parser = argparse.ArgumentParser(description="Plot agents")
+    parser = argparse.ArgumentParser(description="Plot agents TB files")
     parser.add_argument(
         "-f",
         "--fdir",

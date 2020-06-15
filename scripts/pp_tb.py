@@ -56,7 +56,7 @@ def parse_tb(fname, tags):
 if __name__ == "__main__":
 
     # Parse arguments
-    parser = argparse.ArgumentParser(description="Plot agents")
+    parser = argparse.ArgumentParser(description="Post-process TB files")
     parser.add_argument(
         "-f", "--fdir", help="Folder containing TB event file", type=str, required=True
     )
