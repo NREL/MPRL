@@ -11,7 +11,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import rcParams
 from matplotlib.colors import LogNorm
 from scipy import interpolate as interp
-import mprl.engines as engines
+import pickle
 import os
 
 
@@ -132,6 +132,16 @@ def interpolate_df(x, name, fp):
         df[col] = f(df[name])
 
     return df
+
+
+# ========================================================================
+def pickle_figures(fname):
+    dct = {}
+    for i in plt.get_fignums():
+        fig = plt.figure(i)
+        dct[fig.get_label()] = fig
+    with open(f"{os.path.splitext(fname)[0]}.pkl", "wb") as f:
+        pickle.dump(dct, f)
 
 
 # ========================================================================
@@ -350,6 +360,8 @@ def save_plots(fname, legends=["p"]):
                 )
                 pdf.savefig(dpi=300)
 
+    pickle_figures(fname)
+
 
 # ========================================================================
 def plot_training(df, fname):
@@ -520,6 +532,8 @@ def save_tb_plots(fname, legends=["loss"]):
             plt.subplots_adjust(left=adj[0], bottom=adj[1], right=adj[2], top=adj[3])
             pdf.savefig(dpi=300)
 
+    pickle_figures(fname)
+
 
 # ========================================================================
 def plot_actions(fname, cnt=0, nagents=1, extent=[0, 10000, -100, 100], frac=1):
@@ -561,6 +575,8 @@ def save_action_plots(fname):
         plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 3))
         plt.tight_layout()
         pdf.savefig(dpi=400)
+
+    pickle_figures(fname)
 
 
 # ========================================================================
