@@ -2,7 +2,7 @@
 # install miniconda
 # conda env create -f environment.yaml
 name: MPRL
-channels: !!python/tuple
+channels: !!python/unicode
   - defaults
   - cantera
   - conda-forge
