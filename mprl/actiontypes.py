@@ -107,7 +107,7 @@ class DiscreteActionType(ActionType):
 
     def count_success(self, action):
         """Keep a running counter of successful discrete actions and increment
-           time since last successful action"""
+        time since last successful action"""
         for key in self.actions:
             if action[key] > 0:
                 self.success_counter[key] += 1
