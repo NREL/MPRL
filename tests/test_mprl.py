@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import numpy.testing as npt
 from stable_baselines.common.vec_env import DummyVecEnv
+import subprocess
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 import mprl.engines as engines
@@ -105,7 +106,9 @@ class MPRLTestCase(unittest.TestCase):
         )
 
     def tearDown(self):
-        utilities.save_plots("tests.pdf")
+        status, result = subprocess.getstatusoutput("latex --version")
+        if status == 0:
+            utilities.save_plots("tests.pdf")
 
     def test_calibrated_agent(self):
         """Does the calibrated agent work as expected?"""
