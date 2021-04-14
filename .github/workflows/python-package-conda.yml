@@ -21,6 +21,7 @@ jobs:
     - name: Add conda to system path
       run: |
         echo $CONDA/bin >> $GITHUB_PATH
+        conda init bash
     - name: Lint with black
       run: |
         conda create -n lint -c conda-forge python=3.8 black
