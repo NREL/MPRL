@@ -1,6 +1,6 @@
 name: CI
 
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:
   build-linux:
@@ -9,17 +9,21 @@ jobs:
       max-parallel: 5
 
     steps:
+    - name: Cancel previous runs
+      uses: styfle/cancel-workflow-action@0.6.0
+      with:
+        access_token: ${{github.token}}
     - uses: actions/checkout@v2
-    - name: Set up Python 3.8
+    - name: Set up Python
       uses: actions/setup-python@v2
       with:
         python-version: 3.8
     - name: Add conda to system path
       run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
+        sudo apt-get install mpich libmpich-dev
         conda env update --file environment.yaml --name base
     - name: Lint with black
       run: |
