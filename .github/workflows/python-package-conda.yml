@@ -26,8 +26,6 @@ jobs:
         auto-activate-base: false
     - name: Lint with black
       run: |
-        conda info
-        conda list
         conda install -c conda-forge black
         black --check .
     - uses: conda-incubator/setup-miniconda@v2
@@ -38,32 +36,4 @@ jobs:
         auto-activate-base: false
     - name: Test with nose
       run: |
-        conda info
-        conda list
-    # - name: Set up Python
-    #   uses: actions/setup-python@v2
-    #   with:
-    #     python-version: 3.7
-    # - name: Add conda to system path
-    #   run: |
-    #     echo $CONDA/bin >> $GITHUB_PATH
-    #     conda init bash
-    # - name: Lint with black
-    #   shell: bash -l {0}
-    #   run: |
-    #     conda create -n lint -c conda-forge python=3.8 black
-    #     conda activate lint
-    #     black --check .
-    #     conda deactivate
-    #     conda remove --name lint --all
-    # - name: Install dependencies
-    #   shell: bash -l {0}
-    #   run: |
-    #     sudo apt-get install mpich libmpich-dev
-    #     conda env update --file env.yaml --name MPRL
-    # - name: Test with nose
-    #   shell: bash -l {0}
-    #   run: |
-    #     conda activate MPRL
-    #     nosetests
-    #     conda deactivate
+        nosetests
