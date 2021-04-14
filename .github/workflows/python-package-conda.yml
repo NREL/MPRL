@@ -21,13 +21,15 @@ jobs:
     - name: Add conda to system path
       run: |
         echo $CONDA/bin >> $GITHUB_PATH
+    - name: Lint with black
+      run: |
+        conda create -n lint -c conda-forge python=3.8 black
+        black --check .
+        conda deactivate
+        conda remove --name lint --all
     - name: Install dependencies
       run: |
         sudo apt-get install mpich libmpich-dev
         conda env update --file env.yaml --name base
-    - name: Lint with black
-      run: |
-        conda install -c conda-forge black=20
-        black --check .
     - name: Test with nose
       run: nosetests
