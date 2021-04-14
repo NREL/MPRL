@@ -28,12 +28,12 @@ jobs:
       run: |
         conda install -c conda-forge black
         black --check .
-    - uses: conda-incubator/setup-miniconda@v2
-      with:
-        activate-environment: MPRL
-        environment-file: environment-ci.yaml
-        python-version: 3.7
-        auto-activate-base: false
-    - name: Test with nose
-      run: |
-        nosetests
+    # - uses: conda-incubator/setup-miniconda@v2
+    #   with:
+    #     activate-environment: MPRL
+    #     environment-file: environment-ci.yaml
+    #     python-version: 3.7
+    #     auto-activate-base: false
+    # - name: Test with nose
+    #   run: |
+    #     nosetests
