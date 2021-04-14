@@ -31,7 +31,7 @@ jobs:
     - uses: conda-incubator/setup-miniconda@v2
       with:
         activate-environment: MPRL
-        environment-file: env.yaml
+        environment-file: environment-ci.yaml
         python-version: 3.7
         auto-activate-base: false
     - name: Test with nose
