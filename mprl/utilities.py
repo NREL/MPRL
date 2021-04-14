@@ -140,7 +140,7 @@ def pickle_figures(fname):
     for i in plt.get_fignums():
         fig = plt.figure(i)
         dct[fig.get_label()] = fig
-    with open(f"{os.path.splitext(fname)[0]}.pkl", "wb") as f:
+    with open(f"{os.path.splitext(fname)[0]}-fig.pkl", "wb") as f:
         pickle.dump(dct, f)
 
 
