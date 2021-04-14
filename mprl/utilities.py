@@ -212,7 +212,16 @@ def plot_df(env, df, idx=0, name=None, plot_exp=True):
     plt.figure("p")
     _, labels = plt.gca().get_legend_handles_labels()
     if "Exp." not in labels and plot_exp:
-        plt.plot(eng.exact.ca, eng.exact.p * pa2bar, color=cmap[-1], lw=1, label="Exp.")
+        pexp = eng.exact.p * pa2bar
+        std_error = 0.04
+        plt.plot(eng.exact.ca, pexp, color=cmap[-1], lw=1, label="Exp.")
+        plt.fill_between(
+            eng.exact.ca,
+            pexp - pexp * std_error,
+            pexp + pexp * std_error,
+            facecolor="0.8",
+            color="0.8",
+        )
     p = plt.plot(df.ca, df.p * pa2bar, color=cmap[cidx], lw=2, label=label)
     p[0].set_dashes(dashseq[didx])
 

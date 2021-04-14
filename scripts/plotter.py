@@ -49,6 +49,7 @@ if __name__ == "__main__":
         nargs="+",
         default=["p"],
     )
+    parser.add_argument("--exp", help="Plot exp data", action="store_true")
     args = parser.parse_args()
 
     for k, fname in enumerate(args.agents):
@@ -94,6 +95,7 @@ if __name__ == "__main__":
                 fuel=eng_params["fuel"].value,
                 rxnmech=eng_params["rxnmech"].value,
                 observables=eng_params["observables"].value,
+                use_qdot=eng_params["use_qdot"].value,
             )
         elif eng_params["engine"].value == "EQ-engine":
             eng = engines.EquilibrateEngine(
@@ -108,6 +110,7 @@ if __name__ == "__main__":
                 fuel=eng_params["fuel"].value,
                 rxnmech=eng_params["rxnmech"].value,
                 observables=eng_params["observables"].value,
+                use_qdot=eng_params["use_qdot"].value,
             )
         elif eng_params["engine"].value == "twozone-engine":
             if eng_params["use_continuous"].value:
@@ -134,6 +137,7 @@ if __name__ == "__main__":
                     rxnmech=eng_params["rxnmech"].value,
                     observables=eng_params["observables"].value,
                     twozone_phi=eng_params["twozone_phi"].value,
+                    use_qdot=eng_params["use_qdot"].value,
                 )
 
         env = DummyVecEnv([lambda: eng])
@@ -146,6 +150,9 @@ if __name__ == "__main__":
             agent.load(fname, env)
         elif agent_params["agent"].value == "ppo":
             agent = PPO2.load(fname, env=env)
+        elif agent_params["agent"].value == "manual":
+            agent = agents.ManualAgent(env=env)
+            agent.load(fname, env)
 
         df, total_reward = utilities.evaluate_agent(env, agent)
         print(f"The total reward for {fname} is {total_reward}.")
@@ -153,6 +160,6 @@ if __name__ == "__main__":
         if "nox" in df.columns:
             print(f"The EOC NOx for {fname} is {df.nox.iloc[-1]}.")
         name = agent_params["agent"].value if args.labels is None else args.labels[k]
-        utilities.plot_df(env, df, idx=k, name=name, plot_exp=False)
+        utilities.plot_df(env, df, idx=k, name=name, plot_exp=args.exp)
 
     utilities.save_plots("compare.pdf", legends=args.legends)

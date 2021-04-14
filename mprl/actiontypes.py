@@ -80,6 +80,7 @@ class DiscreteActionType(ActionType):
         self.success_counter = None
         self.success_time = None  # time since last successful action
         self.space = spaces.Discrete(2)
+        self.use_qdot = "qdot" in action
         self.reset()
 
     def preprocess(self, action):

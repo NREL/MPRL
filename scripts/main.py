@@ -178,6 +178,7 @@ if __name__ == "__main__":
             fuel=eng_params["fuel"].value,
             rxnmech=eng_params["rxnmech"].value,
             observables=eng_params["observables"].value,
+            use_qdot=eng_params["use_qdot"].value,
         )
     elif eng_params["engine"].value == "EQ-engine":
         eng = engines.EquilibrateEngine(
@@ -192,6 +193,7 @@ if __name__ == "__main__":
             fuel=eng_params["fuel"].value,
             rxnmech=eng_params["rxnmech"].value,
             observables=eng_params["observables"].value,
+            use_qdot=eng_params["use_qdot"].value,
         )
     elif eng_params["engine"].value == "twozone-engine":
         if eng_params["use_continuous"].value:
@@ -218,6 +220,7 @@ if __name__ == "__main__":
                 twozone_phi=eng_params["twozone_phi"].value,
                 rxnmech=eng_params["rxnmech"].value,
                 observables=eng_params["observables"].value,
+                use_qdot=eng_params["use_qdot"].value,
             )
 
     # Create the agent and train
@@ -258,6 +261,10 @@ if __name__ == "__main__":
             * agent_params["nranks"].value,
             callback=callback,
         )
+    elif agent_params["agent"].value == "manual":
+        env = DummyVecEnv([lambda: eng])
+        agent = agents.ManualAgent(env)
+        agent.learn(agent_params["injection_cas"].value, agent_params["qdot_cas"].value)
 
     # Save, evaluate, and plot the agent
     pfx = os.path.join(logdir, "agent")

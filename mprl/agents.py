@@ -180,3 +180,55 @@ class ExhaustiveAgent(Agent):
         with open(name, "rb") as f:
             self.best_inj = pickle.load(f)
         return 0
+
+
+# ========================================================================
+class ManualAgent(Agent):
+    def __init__(self, env):
+        Agent.__init__(self, env)
+        self.injection_cas = []
+        self.qdot_cas = []
+
+    def learn(self, injection_cas, qdot_cas):
+        self.injection_cas = injection_cas
+        self.qdot_cas = qdot_cas
+
+    def predict(self, obs, **kwargs):
+
+        current_ca = obs[0][0] * self.eng.observable_attributes["ca"]["scale"]
+        tol = 1e-4
+
+        if self.eng.use_qdot:
+            action = [[0, 0]]
+            for ca in self.injection_cas:
+                if np.fabs(ca - current_ca) < tol:
+                    action[0][0] = 1
+                    break
+            for ca in self.qdot_cas:
+                if np.fabs(ca - current_ca) < tol:
+                    action[0][1] = 1
+                    break
+
+        else:
+            action = [0]
+            for inj in self.injection_cas:
+                if np.fabs(inj - current_ca) < tol:
+                    action = [1]
+                    break
+
+        return action, {}
+
+    def save(self, name):
+        with open(name + ".pkl", "wb") as f:
+            pickle.dump(
+                {"injection_cas": self.injection_cas, "qdot_cas": self.qdot_cas}, f
+            )
+        return 0
+
+    def load(self, name, env):
+        self.env = env
+        with open(name, "rb") as f:
+            dat = pickle.load(f)
+            self.injection_cas = dat["injection_cas"]
+            self.qdot_cas = dat["qdot_cas"]
+        return 0

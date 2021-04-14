@@ -50,7 +50,7 @@ class Input:
                     "ppo",
                     "Agent to train and evaluate",
                     str,
-                    choices=["calibrated", "exhaustive", "ppo"],
+                    choices=["calibrated", "exhaustive", "ppo", "manual"],
                 ),
                 "number_episodes": Parameter(
                     100, "Total number of episodes to train over", int
@@ -61,6 +61,8 @@ class Input:
                 ),
                 "nranks": Parameter(1, "Number of MPI ranks", int),
                 "pretrained_agent": Parameter(None, "Path to a pretrained agent", str),
+                "injection_cas": Parameter([], "CA at which to inject", list),
+                "qdot_cas": Parameter([], "CA over which to use qdot", list),
             },
             "engine": {
                 "engine": Parameter(

@@ -130,6 +130,7 @@ class Engine(gym.Env):
         max_pressure=200.0,
         ename="Scorpion.xlsx",
         reward=rw.Reward(),
+        use_qdot=False,
     ):
         """Initialize Engine
 
@@ -149,6 +150,8 @@ class Engine(gym.Env):
         :type ename: str
         :param reward: reward
         :type reward: Reward()
+        :param use_qdot: bool to use Qdot as an action
+        :type use_qdot: bool
         :returns: Engine
         :rtype: Engine()
 
@@ -177,6 +180,8 @@ class Engine(gym.Env):
         self.datadir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "datafiles"
         )
+        self.use_qdot = use_qdot
+        self.qdot_value = 11250  # hardcode for now
 
         self.observable_attributes = {
             "ca": {
@@ -272,7 +277,7 @@ class Engine(gym.Env):
         )
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}", reward=rw.{self.reward.describe()})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}", reward=rw.{self.reward.describe()}, use_qdot={self.use_qdot})"""
 
     def define_observable_space(self):
         """Define the observable space"""
@@ -301,12 +306,20 @@ class Engine(gym.Env):
         else:
             print("Warning: engine setup is overwriting the default max_injections")
 
-        self.action = actiontypes.DiscreteActionType(
-            ["mdot"],
-            scales={"mdot": self.mdot},
-            limits={"mdot": self.max_injections},
-            delays={"mdot": self.injection_delay / self.dt},
-        )
+        if self.use_qdot:
+            self.action = actiontypes.DiscreteActionType(
+                ["mdot", "qdot"],
+                scales={"mdot": self.mdot, "qdot": self.qdot_value},
+                limits={"mdot": self.max_injections, "qdot": 100000},
+                delays={"mdot": self.injection_delay / self.dt, "qdot": 0},
+            )
+        else:
+            self.action = actiontypes.DiscreteActionType(
+                ["mdot"],
+                scales={"mdot": self.mdot},
+                limits={"mdot": self.max_injections},
+                delays={"mdot": self.injection_delay / self.dt},
+            )
         self.action_space = self.action.space
 
     def setup_history(self):
@@ -519,7 +532,10 @@ class TwoZoneEngine(Engine):
         """Setup the fuel and save for faster reset"""
 
         injection_gas, self.far = setup_injection_gas(
-            self.rxnmech, self.fuel, pure_fuel=False, phi=self.twozone_phi,
+            self.rxnmech,
+            self.fuel,
+            pure_fuel=False,
+            phi=self.twozone_phi,
         )
         injection_gas.TP = self.T0, self.p0
         self.gas = injection_gas
@@ -727,11 +743,9 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         Total injected burned mass is greater than a specified max mass (6e-4 kg)
     """
 
-    def __init__(self, *args, use_qdot=False, **kwargs):
+    def __init__(self, *args, **kwargs):
         """Initialize ContinuousTwoZoneEngine (inherits from TwoZoneEngine)
 
-        :param use_qdot: bool to use Qdot as an action
-        :type use_qdot: bool
         :returns: ContinuousTwoZoneEngine
         :rtype: ContinuousTwoZoneEngine()
 
@@ -739,13 +753,12 @@ class ContinuousTwoZoneEngine(TwoZoneEngine):
         super(ContinuousTwoZoneEngine, self).__init__(*args, **kwargs)
 
         # Engine parameters
-        self.use_qdot = use_qdot
         self.observables, self.internals = get_observables_internals(
             ["p", "T", "Tu", "Tb", "mb", "m"], self.histories, ["ca"]
         )
 
         # Final setup
-        action_names = ["mdot", "qdot"] if use_qdot else ["mdot"]
+        action_names = ["mdot", "qdot"] if self.use_qdot else ["mdot"]
         self.action = actiontypes.ContinuousActionType(action_names)
         self.action_space = self.action.space
         self.define_observable_space()
@@ -842,7 +855,7 @@ class DiscreteTwoZoneEngine(TwoZoneEngine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}", reward=rw.{self.reward.describe()}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}", reward=rw.{self.reward.describe()}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables}, use_qdot={self.use_qdot})"""
 
     def reset(self):
 
@@ -952,7 +965,7 @@ class ReactorEngine(Engine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}", reward=rw.{self.reward.describe()}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}", reward=rw.{self.reward.describe()}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables}, use_qdot={self.use_qdot})"""
 
     def setup_lambdas(self):
         """Setup lambda functions.
@@ -1067,6 +1080,9 @@ class ReactorEngine(Engine):
         step = self.current_state["name"]
         self.piston.set_velocity(self.current_state["piston_velocity"])
 
+        if self.use_qdot:
+            self.piston.set_heat_flux(action["qdot"] / self.piston.area)
+
         self.injector.set_mass_flow_rate(action["mdot"])
 
         self.advance_to_time(self.history["t"][step + 1])
@@ -1153,7 +1169,7 @@ class EquilibrateEngine(Engine):
         self.reset()
 
     def describe(self):
-        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}", reward=rw.{self.reward.describe()}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables})"""
+        return f"""{self.__class__.__name__}(nsteps={self.nsteps}, ivc={self.ivc}, evo={self.evo}, fuel="{self.fuel}", rxnmech="{self.rxnmech}", max_pressure={self.max_pressure}, ename="{self.ename}", reward=rw.{self.reward.describe()}, Tinj={self.Tinj}, mdot={self.mdot}, max_minj={self.max_minj}, injection_delay={self.injection_delay}, observables={self.observables}, use_qdot={self.use_qdot})"""
 
     def setup_lambdas(self):
         """Setup lambda functions.
@@ -1236,7 +1252,14 @@ class EquilibrateEngine(Engine):
         P1 = self.gas.P
         V1 = self.history["V"][step]
         V2 = self.history["V"][step + 1]
-        P2 = P1 / ((V2 / V1) ** gamma)
+        if self.use_qdot:
+            qdot = -action["qdot"] * self.dt
+            Rspec = ct.gas_constant / self.gas.mean_molecular_weight
+            cvR = self.gas.cv / Rspec
+            P2 = (qdot + cvR * P1 * V1) / (cvR * V2 + V2 - V1)
+            # P2 = (1 / cvR * (qdot - P1 * (V2 - V1)) + P1 * V1) / V2
+        else:
+            P2 = P1 / ((V2 / V1) ** gamma)
         T2 = P2 * V2 / (self.gas.density_mole * V1 * ct.gas_constant)
         self.gas.TP = T2, P2
 
