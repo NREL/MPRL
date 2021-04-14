@@ -9,7 +9,6 @@ jobs:
       max-parallel: 5
     defaults:
       run:
-        shell: bash -l {0}
 
     steps:
     - name: Cancel previous runs
@@ -24,21 +23,22 @@ jobs:
       with:
         activate-environment: lint
         auto-activate-base: false
-      - run: |
-          conda info
-          conda list
-          conda install -c conda-forge black
-          black --check .
+    - name: Lint with black
+      run: |
+        conda info
+        conda list
+        conda install -c conda-forge black
+        black --check .
     - uses: conda-incubator/setup-miniconda@v2
       with:
         activate-environment: MPRL
         environment-file: env.yaml
         python-version: 3.7
         auto-activate-base: false
-      - run: |
-          conda info
-          conda list
-
+    - name: Test with nose
+      run: |
+        conda info
+        conda list
     # - name: Set up Python
     #   uses: actions/setup-python@v2
     #   with:
