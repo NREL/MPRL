@@ -16,7 +16,7 @@ dependencies:
   - pandas
   - pip
   - scipy
-  - tensorflow-cpu
+  - tensorflow
   - tensorboard
   - toml
   - xlrd
