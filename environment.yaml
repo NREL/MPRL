@@ -22,7 +22,5 @@ dependencies:
   - xlrd
   - pip:
       - -r requirements.txt
-      - atari-py==0.2.0
       - stable-baselines[mpi]
-      - gpyopt
       - parameter-sherpa
