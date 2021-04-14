@@ -27,7 +27,7 @@ jobs:
         conda env update --file environment.yaml --name base
     - name: Lint with black
       run: |
-        conda install black
+        conda install -c conda-forge black
         black --check .
     #     # stop the build if there are Python syntax errors or undefined names
     #     flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
