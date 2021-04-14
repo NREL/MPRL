@@ -24,7 +24,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get install mpich libmpich-dev
-        conda env update --file environment.yaml --name base
+        conda env update --file env.yaml --name base
     - name: Lint with black
       run: |
         conda install -c conda-forge black
