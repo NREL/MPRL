@@ -22,8 +22,8 @@ jobs:
       run: |
         echo $CONDA/bin >> $GITHUB_PATH
         conda init bash
-        source ${HOME}/.bashrc
     - name: Lint with black
+      shell: bash -l {0}
       run: |
         conda create -n lint -c conda-forge python=3.8 black
         conda activate lint
@@ -31,10 +31,12 @@ jobs:
         conda deactivate
         conda remove --name lint --all
     - name: Install dependencies
+      shell: bash -l {0}
       run: |
         sudo apt-get install mpich libmpich-dev
         conda env update --file env.yaml --name MPRL
     - name: Test with nose
+      shell: bash -l {0}
       run: |
         conda activate MPRL
         nosetests
