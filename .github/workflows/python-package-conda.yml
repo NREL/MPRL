@@ -1,0 +1,39 @@
+name: CI
+
+on: [pull_request]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+    - name: Cancel previous runs
+      uses: styfle/cancel-workflow-action@0.6.0
+      with:
+        access_token: ${{github.token}}
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      run: |
+        sudo apt-get install mpich libmpich-dev
+    - uses: conda-incubator/setup-miniconda@v2
+      with:
+        activate-environment: lint
+        auto-activate-base: false
+    - name: Lint with black
+      run: |
+        conda install -c conda-forge black
+        black --check .
+    # - uses: conda-incubator/setup-miniconda@v2
+    #   with:
+    #     activate-environment: MPRL
+    #     environment-file: environment-ci.yaml
+    #     python-version: 3.7
+    #     auto-activate-base: false
+    # - name: Test with nose
+    #   run: |
+    #     nosetests
