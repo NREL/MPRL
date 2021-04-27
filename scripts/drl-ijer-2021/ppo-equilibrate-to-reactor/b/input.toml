@@ -1,0 +1,15 @@
+[agent]
+agent = "ppo"
+update_nepisodes = 10
+number_episodes = 10000
+pretrained_agent = "../../ppo-equilibrate/checkpoint_1200000.pkl"
+
+[engine]
+engine = "reactor-engine"
+fuel = "dodecane"
+rxnmech = "dodecane_lu_nox.cti"
+observables = ['ca', 'p', 'T', 'success_ninj', 'can_inject']
+nsteps = 101
+ename = "Isooctane_MBT_DI_50C_Summ.xlsx"
+max_minj = 2.2e-5
+mdot = 0.05

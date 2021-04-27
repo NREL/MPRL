@@ -243,6 +243,7 @@ if __name__ == "__main__":
                 n_steps=agent_params["update_nepisodes"].value
                 * (eng_params["nsteps"].value - 1),
                 learning_rate=agent_params["learning_rate"].value,
+                gamma=agent_params["gamma"].value,
                 tensorboard_log=logdir,
             )
         else:
@@ -253,6 +254,7 @@ if __name__ == "__main__":
                 n_steps=agent_params["update_nepisodes"].value
                 * (eng_params["nsteps"].value - 1),
                 learning_rate=agent_params["learning_rate"].value,
+                gamma=agent_params["gamma"].value,
                 tensorboard_log=logdir,
             )
         agent.learn(
