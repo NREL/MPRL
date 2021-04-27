@@ -1,5 +1,5 @@
 module purge
-MODULES=modules
+MODULES=modules-2019-05-23
 COMPILER=gcc-7.4.0
 module unuse ${MODULEPATH}
 module use /nopt/nrel/ecom/hpacf/binaries/${MODULES}
